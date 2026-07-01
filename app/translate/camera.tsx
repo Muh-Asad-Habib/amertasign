@@ -1,15 +1,16 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import CameraView from '../../components/translate/CameraView';
 import LanguageToggle from '../../components/translate/LanguageToggle';
 import TranslationOutput from '../../components/translate/TranslationOutput';
-import { Colors } from '../../constants/Colors';
-import { Layout } from '../../constants/Layout';
+import BackHeader from '../../components/ui/BackHeader';
+import PressableScale from '../../components/ui/PressableScale';
+import Text from '../../components/ui/Text';
+import { colors, palette, radius, spacing } from '../../theme';
 import { useTTS } from '../../hooks/useTTS';
 import { useTranslation } from '../../hooks/useTranslation';
 
@@ -48,19 +49,11 @@ export default function CameraTranslateScreen() {
       <StatusBar style="light" />
       <View style={styles.container}>
         <View style={styles.topBar}>
-          <Pressable accessibilityLabel="Kembali" onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons color="#FFFFFF" name="arrow-back" size={24} />
-          </Pressable>
-
-          <View style={styles.titleGroup}>
-            <Text style={styles.title}>Isyarat → Teks</Text>
-          </View>
-
-          <LanguageToggle
-            compact
-            onChange={setSignLanguageType}
-            theme="dark"
-            value={signLanguageType}
+          <BackHeader
+            onBack={() => router.back()}
+            right={<LanguageToggle compact onChange={setSignLanguageType} theme="dark" value={signLanguageType} />}
+            title="Isyarat → Teks"
+            tone="dark"
           />
         </View>
 
@@ -80,17 +73,19 @@ export default function CameraTranslateScreen() {
           />
 
           <View style={styles.controls}>
-            <Text style={styles.helperText}>
-              {isActive ? 'Mendeteksi gerakan tangan...' : 'Ketuk tombol merah untuk mulai mendeteksi'}
+            <Text variant="body" color="secondary" align="center" style={styles.helperText}>
+              {isActive ? 'Mendeteksi gerakan tangan...' : 'Ketuk tombol untuk mulai mendeteksi'}
             </Text>
 
-            <Pressable
+            <PressableScale
+              accessibilityRole="button"
               accessibilityLabel={isActive ? 'Hentikan deteksi' : 'Mulai deteksi'}
+              accessibilityState={{ selected: isActive }}
               onPress={() => setIsActive((current) => !current)}
-              style={({ pressed }) => [styles.detectButton, pressed && styles.detectButtonPressed]}
+              style={styles.detectButton}
             >
               <View style={[styles.detectButtonInner, isActive && styles.detectButtonInnerActive]} />
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
       </View>
@@ -100,82 +95,60 @@ export default function CameraTranslateScreen() {
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: '#0F172A',
+    backgroundColor: palette.ink,
     flex: 1,
   },
   container: {
-    backgroundColor: '#0F172A',
+    backgroundColor: palette.ink,
     flex: 1,
   },
   topBar: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: Layout.spacing.lg,
-    paddingVertical: Layout.spacing.md,
-  },
-  backButton: {
-    alignItems: 'center',
-    height: Layout.touchTargetMin,
-    justifyContent: 'center',
-    marginRight: Layout.spacing.sm,
-    width: Layout.touchTargetMin,
-  },
-  titleGroup: {
-    flex: 1,
-    marginRight: Layout.spacing.md,
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: Layout.fontSize.xl,
-    fontWeight: '800',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
   cameraContainer: {
     flex: 1,
-    paddingHorizontal: Layout.spacing.lg,
-    paddingBottom: Layout.spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
   bottomSheet: {
-    backgroundColor: Colors.light.surface,
-    borderTopLeftRadius: Layout.radius.xl,
-    borderTopRightRadius: Layout.radius.xl,
-    paddingBottom: Layout.spacing.xl,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xxl,
+    borderTopRightRadius: radius.xxl,
+    paddingBottom: spacing.xl,
   },
   controls: {
     alignItems: 'center',
-    paddingHorizontal: Layout.spacing.lg,
-    paddingTop: Layout.spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   helperText: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.body,
-    marginBottom: Layout.spacing.md,
-    textAlign: 'center',
+    marginBottom: spacing.md,
   },
   detectButton: {
     alignItems: 'center',
-    backgroundColor: '#DC2626',
-    borderRadius: 32,
-    height: 64,
+    backgroundColor: colors.error,
+    borderRadius: radius.full,
+    height: 72,
     justifyContent: 'center',
-    shadowColor: '#DC2626',
+    width: 72,
+    borderWidth: 4,
+    borderColor: colors.errorTint,
+    shadowColor: colors.error,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.28,
+    shadowOpacity: 0.3,
     shadowRadius: 16,
-    width: 64,
+    elevation: 6,
   },
   detectButtonInner: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    height: 24,
-    width: 24,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    height: 26,
+    width: 26,
   },
   detectButtonInnerActive: {
-    borderRadius: 6,
+    borderRadius: 5,
     height: 20,
     width: 20,
-  },
-  detectButtonPressed: {
-    opacity: 0.88,
   },
 });

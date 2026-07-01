@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import WordCard from '../../components/dictionary/WordCard';
+import LanguageToggle from '../../components/translate/LanguageToggle';
+import Badge from '../../components/ui/Badge';
 import CategoryTabs from '../../components/ui/CategoryTabs';
+import Decor from '../../components/ui/Decor';
 import EmptyState from '../../components/ui/EmptyState';
+import Heading from '../../components/ui/Heading';
+import PressableScale from '../../components/ui/PressableScale';
+import Row from '../../components/ui/Row';
+import Screen from '../../components/ui/Screen';
 import SearchBar from '../../components/ui/SearchBar';
-import { Colors } from '../../constants/Colors';
-import { Layout } from '../../constants/Layout';
+import Squiggle from '../../components/ui/Squiggle';
+import Text from '../../components/ui/Text';
+import { colors, radius, spacing } from '../../theme';
 import { useDictionary } from '../../hooks/useDictionary';
 import type { DictionaryCategory, SignLanguageType } from '../../types';
 
@@ -29,10 +37,40 @@ const CATEGORY_LABELS: Record<DictionaryCategory, string> = {
 
 type LibraryTab = 'all' | 'favorites' | 'history';
 
-const SIGN_LANGUAGE_OPTIONS: Array<{ id: SignLanguageType; label: string }> = [
-  { id: 'bisindo', label: 'BISINDO' },
-  { id: 'sibi', label: 'SIBI' },
+const VIEW_TABS: Array<{ id: LibraryTab; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }> = [
+  { id: 'all', label: 'Semua', icon: 'albums-outline' },
+  { id: 'favorites', label: 'Favorit', icon: 'star' },
+  { id: 'history', label: 'Riwayat', icon: 'time-outline' },
 ];
+
+function ViewChip({
+  icon,
+  label,
+  active,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const tint = active ? colors.textOnPrimary : colors.textSecondary;
+
+  return (
+    <PressableScale
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
+    >
+      <Ionicons color={tint} name={icon} size={15} />
+      <Text variant="label" style={{ color: tint }}>
+        {label}
+      </Text>
+    </PressableScale>
+  );
+}
 
 export default function DictionaryScreen() {
   const router = useRouter();
@@ -72,10 +110,6 @@ export default function DictionaryScreen() {
     router.push({ pathname: '/dictionary/[id]', params: { id } });
   };
 
-  const handleLibraryTabPress = (tab: Exclude<LibraryTab, 'all'>) => {
-    setActiveLibraryTab((currentTab) => (currentTab === tab ? 'all' : tab));
-  };
-
   const resetFilters = () => {
     setSearchText('');
     setActiveCategory('semua');
@@ -83,34 +117,22 @@ export default function DictionaryScreen() {
   };
 
   return (
-    <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Kamus Isyarat</Text>
-          <Text style={styles.subtitle}>Cari kata BISINDO dan SIBI dengan cepat.</Text>
-        </View>
+    <Screen>
+      <Decor preset="header" />
 
-        <View style={styles.typeToggleRow}>
-          {SIGN_LANGUAGE_OPTIONS.map((option) => {
-            const active = option.id === signLanguageFilter;
+      <View style={styles.header}>
+        <Text variant="kicker" color="primary">
+          Kamus
+        </Text>
+        <Heading variant="hero">Kamus Isyarat</Heading>
+        <Squiggle width={92} height={12} />
+        <Text variant="body" color="secondary" style={styles.subtitle}>
+          Cari kata BISINDO dan SIBI dengan cepat.
+        </Text>
+      </View>
 
-            return (
-              <Pressable
-                key={option.id}
-                onPress={() => setSignLanguageFilter(option.id)}
-                style={({ pressed }) => [
-                  styles.typeToggle,
-                  active ? styles.typeToggleActive : styles.typeToggleInactive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={[styles.typeToggleLabel, active && styles.typeToggleLabelActive]}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+      <View style={styles.filters}>
+        <LanguageToggle onChange={(value) => setSignLanguageFilter(value)} value={signLanguageFilter} />
 
         <SearchBar
           onChangeText={setSearchText}
@@ -119,239 +141,110 @@ export default function DictionaryScreen() {
           value={searchText}
         />
 
-        <View style={styles.categoryTabsWrapper}>
-          <CategoryTabs
-            activeCategory={activeCategory}
-            categories={CATEGORY_OPTIONS}
-            onSelect={(categoryId) => setActiveCategory(categoryId as DictionaryCategory | 'semua')}
-          />
-        </View>
-
-        <View style={styles.resultsHeader}>
-          <View>
-            <Text style={styles.resultsLabel}>{listLabel}</Text>
-            <Text style={styles.resultsCount}>{displayedEntries.length} hasil ditemukan</Text>
-          </View>
-          <View style={styles.resultsBadge}>
-            <Text style={styles.resultsBadgeText}>{signLanguageFilter.toUpperCase()}</Text>
-          </View>
-        </View>
-
-        <FlatList
-          contentContainerStyle={[
-            styles.listContent,
-            displayedEntries.length === 0 && styles.emptyListContent,
-          ]}
-          data={displayedEntries}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          keyExtractor={(item) => item.id}
-          ListEmptyComponent={
-            <EmptyState
-              actionLabel="Reset Filter"
-              description={emptyDescription}
-              icon="search-outline"
-              onAction={resetFilters}
-              title="Tidak ada hasil"
-            />
-          }
-          renderItem={({ item }) => (
-            <WordCard
-              category={CATEGORY_LABELS[item.category]}
-              imageUrl={item.imageUrl}
-              onPress={() => handleOpenEntry(item.id)}
-              type={item.type}
-              word={item.word}
-            />
-          )}
-          showsVerticalScrollIndicator={false}
-          style={styles.list}
+        <CategoryTabs
+          activeCategory={activeCategory}
+          categories={CATEGORY_OPTIONS}
+          onSelect={(categoryId) => setActiveCategory(categoryId as DictionaryCategory | 'semua')}
         />
 
-        <View style={styles.bottomBar}>
-          <Text style={styles.bottomBarHint}>Ketuk lagi tab aktif untuk kembali ke semua hasil.</Text>
-          <View style={styles.bottomTabsRow}>
-            <Pressable
-              onPress={() => handleLibraryTabPress('favorites')}
-              style={({ pressed }) => [
-                styles.bottomTab,
-                activeLibraryTab === 'favorites' && styles.bottomTabActive,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.bottomTabLabel,
-                  activeLibraryTab === 'favorites' && styles.bottomTabLabelActive,
-                ]}
-              >
-                Favorit ⭐
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => handleLibraryTabPress('history')}
-              style={({ pressed }) => [
-                styles.bottomTab,
-                activeLibraryTab === 'history' && styles.bottomTabActive,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.bottomTabLabel,
-                  activeLibraryTab === 'history' && styles.bottomTabLabelActive,
-                ]}
-              >
-                Riwayat 🕐
-              </Text>
-            </Pressable>
+        <Row gap={spacing.sm}>
+          {VIEW_TABS.map((tab) => (
+            <ViewChip
+              active={activeLibraryTab === tab.id}
+              icon={tab.icon}
+              key={tab.id}
+              label={tab.label}
+              onPress={() => setActiveLibraryTab(tab.id)}
+            />
+          ))}
+        </Row>
+
+        <Row justify="space-between" align="center">
+          <View style={styles.resultsCopy}>
+            <Text variant="bodyStrong">{listLabel}</Text>
+            <Text variant="caption" color="secondary">
+              {displayedEntries.length} hasil ditemukan
+            </Text>
           </View>
-        </View>
+          <Badge text={signLanguageFilter.toUpperCase()} variant={signLanguageFilter === 'bisindo' ? 'primary' : 'accent'} />
+        </Row>
       </View>
-    </SafeAreaView>
+
+      <FlatList
+        contentContainerStyle={[styles.listContent, displayedEntries.length === 0 && styles.emptyListContent]}
+        data={displayedEntries}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          <EmptyState
+            actionLabel="Reset Filter"
+            description={emptyDescription}
+            icon="search-outline"
+            onAction={resetFilters}
+            title="Tidak ada hasil"
+          />
+        }
+        renderItem={({ item }) => (
+          <WordCard
+            category={CATEGORY_LABELS[item.category]}
+            imageUrl={item.imageUrl}
+            onPress={() => handleOpenEntry(item.id)}
+            type={item.type}
+            word={item.word}
+          />
+        )}
+        showsVerticalScrollIndicator={false}
+        style={styles.list}
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    backgroundColor: Colors.light.background,
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: Layout.spacing.lg,
-  },
   header: {
-    marginBottom: Layout.spacing.lg,
-    marginTop: Layout.spacing.sm,
-  },
-  title: {
-    color: Colors.light.text,
-    fontSize: Layout.fontSize.title,
-    fontWeight: '800',
+    gap: 6,
+    marginBottom: spacing.base,
   },
   subtitle: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.body,
-    lineHeight: 24,
-    marginTop: Layout.spacing.xs,
+    marginTop: spacing.xs,
   },
-  typeToggleRow: {
+  filters: {
+    gap: spacing.md,
+    marginBottom: spacing.base,
+  },
+  resultsCopy: {
+    gap: 2,
+  },
+  chip: {
     flexDirection: 'row',
-    marginBottom: Layout.spacing.md,
-  },
-  typeToggle: {
-    borderRadius: Layout.radius.full,
-    flex: 1,
-    minHeight: Layout.touchTargetMin,
-    paddingHorizontal: Layout.spacing.md,
-    paddingVertical: Layout.spacing.sm,
-  },
-  typeToggleActive: {
-    backgroundColor: Colors.light.primary,
-  },
-  typeToggleInactive: {
-    backgroundColor: '#DBEAFE',
-    borderColor: Colors.light.border,
-    borderWidth: 1,
-  },
-  typeToggleLabel: {
-    color: Colors.light.primary,
-    fontSize: Layout.fontSize.sm,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  typeToggleLabelActive: {
-    color: Colors.light.surface,
-  },
-  categoryTabsWrapper: {
-    marginTop: Layout.spacing.md,
-  },
-  resultsHeader: {
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    borderRadius: Layout.radius.lg,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: Layout.spacing.md,
-    marginTop: Layout.spacing.md,
-    paddingHorizontal: Layout.spacing.md,
-    paddingVertical: Layout.spacing.sm,
+    justifyContent: 'center',
+    gap: 6,
+    flex: 1,
+    minHeight: 44,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    paddingHorizontal: spacing.md,
   },
-  resultsLabel: {
-    color: Colors.light.text,
-    fontSize: Layout.fontSize.body,
-    fontWeight: '800',
+  chipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  resultsCount: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.sm,
-    marginTop: 2,
-  },
-  resultsBadge: {
-    backgroundColor: Colors.light.surface,
-    borderRadius: Layout.radius.full,
-    paddingHorizontal: Layout.spacing.sm,
-    paddingVertical: Layout.spacing.xs,
-  },
-  resultsBadgeText: {
-    color: Colors.light.accent,
-    fontSize: Layout.fontSize.xs,
-    fontWeight: '800',
+  chipInactive: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
   },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingBottom: Layout.spacing.lg,
+    paddingBottom: spacing.lg,
   },
   emptyListContent: {
     flexGrow: 1,
     justifyContent: 'center',
   },
   separator: {
-    height: Layout.spacing.md,
-  },
-  bottomBar: {
-    borderTopColor: Colors.light.border,
-    borderTopWidth: 1,
-    paddingBottom: Layout.spacing.md,
-    paddingTop: Layout.spacing.md,
-  },
-  bottomBarHint: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.xs,
-    marginBottom: Layout.spacing.sm,
-    textAlign: 'center',
-  },
-  bottomTabsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  bottomTab: {
-    alignItems: 'center',
-    backgroundColor: Colors.light.surface,
-    borderColor: Colors.light.border,
-    borderRadius: Layout.radius.full,
-    borderWidth: 1,
-    flex: 1,
-    marginHorizontal: Layout.spacing.xs,
-    minHeight: 40,
-    paddingHorizontal: Layout.spacing.md,
-    paddingVertical: Layout.spacing.sm,
-  },
-  bottomTabActive: {
-    backgroundColor: '#FEF3C7',
-    borderColor: Colors.light.accent,
-  },
-  bottomTabLabel: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.sm,
-    fontWeight: '700',
-  },
-  bottomTabLabelActive: {
-    color: Colors.light.text,
-  },
-  pressed: {
-    opacity: 0.85,
+    height: spacing.md,
   },
 });

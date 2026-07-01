@@ -1,20 +1,33 @@
+import {
+  Fredoka_400Regular,
+  Fredoka_500Medium,
+  Fredoka_600SemiBold,
+  Fredoka_700Bold,
+} from '@expo-google-fonts/fredoka';
+import {
+  Lexend_400Regular,
+  Lexend_500Medium,
+  Lexend_600SemiBold,
+} from '@expo-google-fonts/lexend';
+import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { Colors } from '../constants/Colors';
-import { Layout } from '../constants/Layout';
+import { colors, fontFamily, spacing } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
 
-function AuthLoadingScreen() {
+function AuthLoadingScreen({ fontsReady }: { fontsReady: boolean }) {
   return (
     <View style={styles.loadingContainer}>
       <StatusBar style="dark" />
-      <ActivityIndicator color={Colors.light.primary} size="large" />
-      <Text style={styles.loadingTitle}>Memeriksa sesi Anda...</Text>
-      <Text style={styles.loadingSubtitle}>Menyiapkan pengalaman belajar terbaik di AmertaSign.</Text>
+      <ActivityIndicator color={colors.primary} size="large" />
+      <Text style={[styles.loadingTitle, fontsReady && styles.titleFont]}>Memeriksa sesi Anda...</Text>
+      <Text style={[styles.loadingSubtitle, fontsReady && styles.bodyFont]}>
+        Menyiapkan pengalaman belajar terbaik di AmertaSign.
+      </Text>
     </View>
   );
 }
@@ -25,6 +38,19 @@ export default function RootLayout() {
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const [isAuthReady, setIsAuthReady] = useState(false);
+
+  const [fontsLoaded, fontError] = useFonts({
+    Fredoka_400Regular,
+    Fredoka_500Medium,
+    Fredoka_600SemiBold,
+    Fredoka_700Bold,
+    Lexend_400Regular,
+    Lexend_500Medium,
+    Lexend_600SemiBold,
+  });
+
+  // Fallback: jika font gagal dimuat, tetap lanjut dengan font sistem.
+  const fontsReady = fontsLoaded || Boolean(fontError);
 
   useEffect(() => {
     let isMounted = true;
@@ -65,9 +91,11 @@ export default function RootLayout() {
     }
   }, [isAuthReady, isAuthenticated, router, segments]);
 
+  const isReady = isAuthReady && fontsReady;
+
   return (
     <SafeAreaProvider>
-      {isAuthReady ? (
+      {isReady ? (
         <>
           <StatusBar style="dark" />
           <Stack
@@ -75,7 +103,7 @@ export default function RootLayout() {
               headerShown: false,
               animation: 'slide_from_right',
               contentStyle: {
-                backgroundColor: Colors.light.background,
+                backgroundColor: colors.background,
               },
             }}
           >
@@ -85,7 +113,7 @@ export default function RootLayout() {
           </Stack>
         </>
       ) : (
-        <AuthLoadingScreen />
+        <AuthLoadingScreen fontsReady={fontsReady} />
       )}
     </SafeAreaProvider>
   );
@@ -96,21 +124,28 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Layout.spacing.xl,
-    backgroundColor: Colors.light.background,
+    paddingHorizontal: spacing.xl,
+    backgroundColor: colors.background,
   },
   loadingTitle: {
-    marginTop: Layout.spacing.lg,
-    fontSize: Layout.fontSize.xl,
+    marginTop: spacing.lg,
+    fontSize: 20,
     fontWeight: '800',
-    color: Colors.light.text,
+    color: colors.text,
     textAlign: 'center',
   },
+  titleFont: {
+    fontFamily: fontFamily.displayExtraBold,
+    fontWeight: undefined,
+  },
   loadingSubtitle: {
-    marginTop: Layout.spacing.sm,
-    fontSize: Layout.fontSize.body,
+    marginTop: spacing.sm,
+    fontSize: 16,
     lineHeight: 24,
-    color: Colors.light.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
+  },
+  bodyFont: {
+    fontFamily: fontFamily.bodyRegular,
   },
 });

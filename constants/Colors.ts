@@ -1,21 +1,25 @@
+/**
+ * Shim kompatibilitas — sumber kebenaran warna ada di `theme/`.
+ * Dipertahankan agar import lama `Colors.light.*` tetap bekerja.
+ */
+import { colors as themeColors } from '../theme';
+
 export const Colors = {
-  // Contrast ratios verified (WCAG AA):
-  // primary (#2563EB) on white: 4.57:1 ✅
-  // text (#0F172A) on background (#F8FAFC): 17.7:1 ✅ (AAA)
-  // textSecondary (#64748B) on white: 4.67:1 ✅
   light: {
-    primary: '#2563EB',
-    accent: '#F59E0B',
-    secondary: '#F59E0B',
-    background: '#F8FAFC',
-    surface: '#FFFFFF',
-    text: '#0F172A',
-    textPrimary: '#0F172A',
-    textSecondary: '#64748B',
-    success: '#10B981',
-    error: '#EF4444',
-    warning: '#F59E0B',
-    border: '#E2E8F0',
+    primary: themeColors.primary,
+    accent: themeColors.accent,
+    secondary: themeColors.accent,
+    background: themeColors.background,
+    surface: themeColors.surface,
+    surfaceMuted: themeColors.surfaceMuted,
+    text: themeColors.text,
+    textPrimary: themeColors.text,
+    textSecondary: themeColors.textSecondary,
+    textTertiary: themeColors.textTertiary,
+    success: themeColors.success,
+    error: themeColors.error,
+    warning: themeColors.warning,
+    border: themeColors.border,
   },
 } as const;
 

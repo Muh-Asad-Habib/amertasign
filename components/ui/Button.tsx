@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   StyleProp,
   StyleSheet,
   Text,
@@ -9,15 +8,8 @@ import {
   ViewStyle,
 } from 'react-native';
 
-const COLORS = {
-  primary: '#2563EB',
-  accent: '#F59E0B',
-  background: '#F8FAFC',
-  text: '#0F172A',
-  textSecondary: '#64748B',
-  border: '#E2E8F0',
-  white: '#FFFFFF',
-};
+import { colors, fontFamily, radius, touchTargetMin } from '../../theme';
+import PressableScale from './PressableScale';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -31,55 +23,40 @@ export interface ButtonProps {
   icon?: React.ReactNode;
   fullWidth?: boolean;
   size?: ButtonSize;
+  haptic?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
 const sizeStyles: Record<ButtonSize, ViewStyle> = {
-  sm: {
-    minHeight: 48,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  md: {
-    minHeight: 52,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  lg: {
-    minHeight: 56,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-  },
+  sm: { minHeight: touchTargetMin, paddingHorizontal: 16, paddingVertical: 10 },
+  md: { minHeight: 52, paddingHorizontal: 18, paddingVertical: 12 },
+  lg: { minHeight: 56, paddingHorizontal: 20, paddingVertical: 14 },
 };
 
-const textSizeStyles: Record<ButtonSize, object> = {
-  sm: { fontSize: 15 },
-  md: { fontSize: 16 },
-  lg: { fontSize: 17 },
-};
+const textSizeStyles: Record<ButtonSize, number> = { sm: 15, md: 16, lg: 17 };
 
-const getVariantStyle = (variant: ButtonVariant): ViewStyle => {
+const getVariantStyle = (variant: ButtonVariant, pressed: boolean): ViewStyle => {
   switch (variant) {
     case 'secondary':
       return {
-        backgroundColor: COLORS.accent,
-        borderColor: COLORS.accent,
+        backgroundColor: pressed ? colors.accentStrong : colors.accent,
+        borderColor: pressed ? colors.accentStrong : colors.accent,
       };
     case 'outline':
       return {
-        backgroundColor: 'transparent',
-        borderColor: COLORS.primary,
+        backgroundColor: pressed ? colors.primarySurface : 'transparent',
+        borderColor: colors.primary,
       };
     case 'ghost':
       return {
-        backgroundColor: 'transparent',
+        backgroundColor: pressed ? colors.primarySurface : 'transparent',
         borderColor: 'transparent',
       };
     case 'primary':
     default:
       return {
-        backgroundColor: COLORS.primary,
-        borderColor: COLORS.primary,
+        backgroundColor: pressed ? colors.primaryStrong : colors.primary,
+        borderColor: pressed ? colors.primaryStrong : colors.primary,
       };
   }
 };
@@ -87,13 +64,13 @@ const getVariantStyle = (variant: ButtonVariant): ViewStyle => {
 const getTextColor = (variant: ButtonVariant) => {
   switch (variant) {
     case 'secondary':
-      return COLORS.text;
+      return colors.textOnAccent;
     case 'outline':
     case 'ghost':
-      return COLORS.primary;
+      return colors.primary;
     case 'primary':
     default:
-      return COLORS.white;
+      return colors.textOnPrimary;
   }
 };
 
@@ -106,24 +83,28 @@ export default function Button({
   icon,
   fullWidth = false,
   size = 'md',
+  haptic = true,
   style,
 }: ButtonProps) {
   const textColor = getTextColor(variant);
   const isDisabled = disabled || loading;
+  const [pressed, setPressed] = useState(false);
 
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={title}
       accessibilityState={{ disabled: isDisabled }}
       disabled={isDisabled}
+      haptic={haptic && !isDisabled}
       onPress={onPress}
-      style={({ pressed }) => [
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      style={[
         styles.base,
-        getVariantStyle(variant),
+        getVariantStyle(variant, pressed && !isDisabled),
         sizeStyles[size],
         fullWidth && styles.fullWidth,
-        pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
         style,
       ]}
@@ -134,19 +115,19 @@ export default function Button({
         ) : icon ? (
           <View style={styles.leading}>{icon}</View>
         ) : null}
-        <Text style={[styles.label, { color: textColor }, textSizeStyles[size]]}>{title}</Text>
+        <Text style={[styles.label, { color: textColor, fontSize: textSizeStyles[size] }]}>{title}</Text>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
     justifyContent: 'center',
-    minWidth: 48,
+    minWidth: touchTargetMin,
   },
   content: {
     alignItems: 'center',
@@ -154,17 +135,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
-    fontWeight: '700',
+    fontFamily: fontFamily.bodySemiBold,
     textAlign: 'center',
+    letterSpacing: 0.2,
   },
   leading: {
     marginRight: 8,
   },
   fullWidth: {
     width: '100%',
-  },
-  pressed: {
-    opacity: 0.85,
   },
   disabled: {
     opacity: 0.5,

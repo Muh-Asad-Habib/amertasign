@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import {
   getCurrentUser,
+  signInAsGuest,
   signInWithEmail,
   signInWithGoogle,
   signOut,
@@ -12,17 +13,20 @@ import type { User } from '../types';
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  isGuest: boolean;
   isLoading: boolean;
   initializeAuth: () => Promise<User | null>;
   signIn: (email: string, password: string) => Promise<User>;
   signUp: (name: string, email: string, password: string) => Promise<User>;
   googleSignIn: () => Promise<User>;
+  continueAsGuest: () => Promise<User>;
   logout: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
+  isGuest: false,
   isLoading: false,
   initializeAuth: async () => {
     set({ isLoading: true });
@@ -41,7 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     try {
       const user = await signInWithEmail(email, password);
-      set({ isAuthenticated: true, isLoading: false, user });
+      set({ isAuthenticated: true, isGuest: false, isLoading: false, user });
       return user;
     } catch (error) {
       set({ isLoading: false });
@@ -53,7 +57,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     try {
       const user = await signUpWithEmail(name, email, password);
-      set({ isAuthenticated: true, isLoading: false, user });
+      set({ isAuthenticated: true, isGuest: false, isLoading: false, user });
       return user;
     } catch (error) {
       set({ isLoading: false });
@@ -65,7 +69,19 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     try {
       const user = await signInWithGoogle();
-      set({ isAuthenticated: true, isLoading: false, user });
+      set({ isAuthenticated: true, isGuest: false, isLoading: false, user });
+      return user;
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+  continueAsGuest: async () => {
+    set({ isLoading: true });
+
+    try {
+      const user = await signInAsGuest();
+      set({ isAuthenticated: true, isGuest: true, isLoading: false, user });
       return user;
     } catch (error) {
       set({ isLoading: false });
@@ -77,7 +93,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     try {
       await signOut();
-      set({ isAuthenticated: false, isLoading: false, user: null });
+      set({ isAuthenticated: false, isGuest: false, isLoading: false, user: null });
     } catch (error) {
       set({ isLoading: false });
       throw error;

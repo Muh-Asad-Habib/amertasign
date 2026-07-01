@@ -1,13 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const COLORS = {
-  primary: '#2563EB',
-  surface: '#F1F5F9',
-  text: '#0F172A',
-  textSecondary: '#64748B',
-};
+import { colors, fontFamily, radius, touchTargetMin } from '../../theme';
 
 export interface SearchBarProps {
   value: string;
@@ -16,29 +11,30 @@ export interface SearchBarProps {
   onClear?: () => void;
 }
 
-export default function SearchBar({
-  value,
-  onChangeText,
-  placeholder = 'Cari...',
-  onClear,
-}: SearchBarProps) {
+export default function SearchBar({ value, onChangeText, placeholder = 'Cari...', onClear }: SearchBarProps) {
+  const [focused, setFocused] = useState(false);
+
   const handleClear = () => {
     if (onClear) {
       onClear();
       return;
     }
-
     onChangeText('');
   };
 
   return (
-    <View accessibilityRole="search" style={styles.container}>
-      <Ionicons color={COLORS.textSecondary} name="search" size={20} />
+    <View
+      accessibilityRole="search"
+      style={[styles.container, focused && styles.containerFocused]}
+    >
+      <Ionicons color={focused ? colors.primary : colors.textSecondary} name="search" size={20} />
       <TextInput
         accessibilityLabel={placeholder}
         onChangeText={onChangeText}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         placeholder={placeholder}
-        placeholderTextColor={COLORS.textSecondary}
+        placeholderTextColor={colors.textTertiary}
         style={styles.input}
         value={value}
       />
@@ -49,7 +45,7 @@ export default function SearchBar({
           onPress={handleClear}
           style={({ pressed }) => [styles.clearButton, pressed && styles.pressed]}
         >
-          <Ionicons color={COLORS.primary} name="close-circle" size={20} />
+          <Ionicons color={colors.primary} name="close-circle" size={20} />
         </Pressable>
       ) : null}
     </View>
@@ -59,24 +55,30 @@ export default function SearchBar({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    backgroundColor: colors.surfaceMuted,
+    borderColor: 'transparent',
+    borderRadius: radius.xl,
+    borderWidth: 1.5,
     flexDirection: 'row',
-    height: 48,
+    height: touchTargetMin,
     paddingHorizontal: 14,
+    gap: 10,
+  },
+  containerFocused: {
+    backgroundColor: colors.surface,
+    borderColor: colors.primary,
   },
   input: {
-    color: COLORS.text,
+    color: colors.text,
     flex: 1,
+    fontFamily: fontFamily.bodyRegular,
     fontSize: 16,
-    marginLeft: 10,
     paddingVertical: 0,
   },
   clearButton: {
     alignItems: 'center',
     height: 32,
     justifyContent: 'center',
-    marginLeft: 8,
     width: 32,
   },
   pressed: {

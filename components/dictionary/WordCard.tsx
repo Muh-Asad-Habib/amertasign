@@ -1,15 +1,11 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Badge from '../ui/Badge';
 
-const COLORS = {
-  background: '#FFFFFF',
-  border: '#E2E8F0',
-  surface: '#F8FAFC',
-  text: '#0F172A',
-  textSecondary: '#64748B',
-};
+import { colors, radius, shadow, spacing } from '../../theme';
+import Badge from '../ui/Badge';
+import Heading from '../ui/Heading';
+import PressableScale from '../ui/PressableScale';
 
 type SignType = 'bisindo' | 'sibi';
 
@@ -21,56 +17,56 @@ export interface WordCardProps {
   imageUrl?: string;
 }
 
-export default function WordCard({
-  word,
-  category,
-  type,
-  onPress,
-  imageUrl,
-}: WordCardProps) {
+export default function WordCard({ word, category, type, onPress, imageUrl }: WordCardProps) {
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
+      accessibilityLabel={word}
       onPress={onPress}
-      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+      style={styles.container}
     >
       <View style={styles.thumbnail}>
         {imageUrl ? (
           <Image source={{ uri: imageUrl }} style={styles.image} />
         ) : (
-          <Ionicons color={COLORS.textSecondary} name="image" size={24} />
+          <Ionicons color={colors.primary} name="hand-left" size={26} />
         )}
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.word}>{word}</Text>
+        <Heading variant="h2" numberOfLines={1}>
+          {word}
+        </Heading>
         <View style={styles.badges}>
           <Badge size="sm" text={category} variant="neutral" />
-          <View style={styles.badgeSpacer} />
           <Badge size="sm" text={type.toUpperCase()} variant={type === 'bisindo' ? 'primary' : 'accent'} />
         </View>
       </View>
 
-      <Ionicons color={COLORS.textSecondary} name="chevron-forward" size={22} />
-    </Pressable>
+      <View style={styles.chevron}>
+        <Ionicons color={colors.primary} name="chevron-forward" size={20} />
+      </View>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    backgroundColor: COLORS.background,
-    borderColor: COLORS.border,
-    borderRadius: 16,
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    borderWidth: 1.5,
     flexDirection: 'row',
-    minHeight: 88,
-    padding: 12,
+    minHeight: 92,
+    padding: spacing.md,
+    gap: spacing.md,
+    ...shadow.sm,
   },
   thumbnail: {
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
+    backgroundColor: colors.primarySurface,
+    borderRadius: radius.lg,
     height: 64,
     justifyContent: 'center',
     overflow: 'hidden',
@@ -82,23 +78,20 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    marginHorizontal: 12,
-  },
-  word: {
-    color: COLORS.text,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 8,
+    gap: spacing.sm,
   },
   badges: {
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: spacing.sm,
   },
-  badgeSpacer: {
-    width: 8,
-  },
-  pressed: {
-    opacity: 0.88,
+  chevron: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.full,
+    backgroundColor: colors.primarySurface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

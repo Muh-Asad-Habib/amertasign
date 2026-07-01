@@ -1,8 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Colors } from '../../constants/Colors';
-import { Layout } from '../../constants/Layout';
+import { colors, fontFamily, overlay, radius, spacing } from '../../theme';
 
 export type SignLanguageType = 'bisindo' | 'sibi';
 
@@ -34,6 +33,7 @@ export default function LanguageToggle({
         return (
           <Pressable
             accessibilityRole="button"
+            accessibilityState={{ selected: isActive }}
             key={option.value}
             onPress={() => onChange(option.value)}
             style={({ pressed }) => [
@@ -43,9 +43,7 @@ export default function LanguageToggle({
                 ? isDark
                   ? styles.optionDarkActive
                   : styles.optionLightActive
-                : isDark
-                  ? styles.optionDarkInactive
-                  : styles.optionLightInactive,
+                : styles.optionInactive,
               pressed && styles.pressed,
             ]}
           >
@@ -74,65 +72,71 @@ export default function LanguageToggle({
 const styles = StyleSheet.create({
   container: {
     alignSelf: 'flex-start',
-    borderRadius: Layout.radius.full,
+    borderRadius: radius.full,
     flexDirection: 'row',
-    padding: 4,
+    padding: 5,
   },
   containerLight: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   containerDark: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: overlay.onInkSoft,
+    borderWidth: 1,
+    borderColor: overlay.onInkBorder,
   },
   option: {
     alignItems: 'center',
-    borderRadius: Layout.radius.full,
+    borderRadius: radius.full,
     justifyContent: 'center',
-    minWidth: 94,
-    paddingHorizontal: Layout.spacing.md,
+    minWidth: 96,
+    paddingHorizontal: spacing.base,
   },
   optionRegular: {
-    minHeight: Layout.touchTargetMin,
+    minHeight: 44,
   },
   optionCompact: {
-    minHeight: 40,
+    minHeight: 38,
     minWidth: 82,
   },
   optionLightActive: {
-    backgroundColor: Colors.light.surface,
-  },
-  optionLightInactive: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.surface,
+    shadowColor: '#3B2A18',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
   },
   optionDarkActive: {
-    backgroundColor: Colors.light.accent,
+    backgroundColor: colors.accent,
   },
-  optionDarkInactive: {
+  optionInactive: {
     backgroundColor: 'transparent',
   },
   label: {
-    fontWeight: '800',
-    letterSpacing: 0.3,
+    fontFamily: fontFamily.bodySemiBold,
+    letterSpacing: 0.6,
   },
   labelRegular: {
-    fontSize: Layout.fontSize.sm,
+    fontSize: 14,
   },
   labelCompact: {
     fontSize: 13,
   },
   labelLightActive: {
-    color: Colors.light.primary,
+    color: colors.primary,
   },
   labelLightInactive: {
-    color: Colors.light.textSecondary,
+    color: colors.textSecondary,
   },
   labelDarkActive: {
-    color: Colors.light.text,
+    color: colors.textOnAccent,
   },
   labelDarkInactive: {
-    color: 'rgba(255,255,255,0.72)',
+    color: 'rgba(255, 253, 248, 0.72)',
   },
   pressed: {
-    opacity: 0.88,
+    opacity: 0.85,
   },
 });

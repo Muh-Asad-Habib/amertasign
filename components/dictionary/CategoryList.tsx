@@ -1,14 +1,10 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const COLORS = {
-  primary: '#2563EB',
-  background: '#FFFFFF',
-  border: '#E2E8F0',
-  text: '#0F172A',
-  textSecondary: '#64748B',
-};
+import { colors, radius, spacing } from '../../theme';
+import Heading from '../ui/Heading';
+import Text from '../ui/Text';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -35,10 +31,12 @@ export default function CategoryList({ categories, onSelect }: CategoryListProps
           style={({ pressed }) => [styles.card, pressed && styles.pressed]}
         >
           <View style={styles.iconWrap}>
-            <Ionicons color={COLORS.primary} name={category.icon} size={24} />
+            <Ionicons color={colors.primary} name={category.icon} size={24} />
           </View>
-          <Text style={styles.label}>{category.label}</Text>
-          <Text style={styles.count}>{category.count} kata</Text>
+          <Heading variant="h2">{category.label}</Heading>
+          <Text variant="caption" color="secondary">
+            {category.count} kata
+          </Text>
         </Pressable>
       ))}
     </View>
@@ -50,35 +48,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    gap: spacing.md,
   },
   card: {
-    backgroundColor: COLORS.background,
-    borderColor: COLORS.border,
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    marginBottom: 12,
     minHeight: 132,
-    padding: 16,
-    width: '48%',
+    padding: spacing.base,
+    width: '47%',
+    flexGrow: 1,
+    gap: spacing.xs,
   },
   iconWrap: {
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 14,
+    backgroundColor: colors.primarySurface,
+    borderRadius: radius.md,
     height: 44,
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
     width: 44,
-  },
-  label: {
-    color: COLORS.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  count: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    marginTop: 6,
   },
   pressed: {
     opacity: 0.88,

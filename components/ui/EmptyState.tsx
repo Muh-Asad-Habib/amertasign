@@ -1,14 +1,11 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Button from './Button';
 
-const COLORS = {
-  primary: '#2563EB',
-  text: '#0F172A',
-  textSecondary: '#64748B',
-  surface: '#EFF6FF',
-};
+import { colors, radius } from '../../theme';
+import Button from './Button';
+import Heading from './Heading';
+import Text from './Text';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -20,20 +17,18 @@ export interface EmptyStateProps {
   onAction?: () => void;
 }
 
-export default function EmptyState({
-  icon,
-  title,
-  description,
-  actionLabel,
-  onAction,
-}: EmptyStateProps) {
+export default function EmptyState({ icon, title, description, actionLabel, onAction }: EmptyStateProps) {
   return (
     <View style={styles.container}>
       <View style={styles.iconContainer}>
-        <Ionicons color={COLORS.primary} name={icon} size={36} />
+        <Ionicons color={colors.primary} name={icon} size={36} />
       </View>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+      <Heading variant="h2" align="center" style={styles.title}>
+        {title}
+      </Heading>
+      <Text variant="body" color="secondary" align="center" style={styles.description}>
+        {description}
+      </Text>
       {actionLabel && onAction ? (
         <View style={styles.actionContainer}>
           <Button onPress={onAction} title={actionLabel} />
@@ -52,26 +47,18 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 40,
+    backgroundColor: colors.primarySurface,
+    borderRadius: radius.full,
     height: 80,
     justifyContent: 'center',
     marginBottom: 16,
     width: 80,
   },
   title: {
-    color: COLORS.text,
-    fontSize: 20,
-    fontWeight: '700',
     marginBottom: 8,
-    textAlign: 'center',
   },
   description: {
-    color: COLORS.textSecondary,
-    fontSize: 16,
-    lineHeight: 24,
     maxWidth: 320,
-    textAlign: 'center',
   },
   actionContainer: {
     marginTop: 20,

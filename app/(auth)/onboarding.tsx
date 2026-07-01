@@ -7,19 +7,30 @@ import {
   NativeSyntheticEvent,
   Pressable,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../../components/ui/Button';
-import { Colors } from '../../constants/Colors';
-import { Layout } from '../../constants/Layout';
+import GradientSurface from '../../components/ui/GradientSurface';
+import Heading from '../../components/ui/Heading';
+import Sparkles from '../../components/ui/Sparkles';
+import Squiggle from '../../components/ui/Squiggle';
+import Text from '../../components/ui/Text';
+import { colors, gradients, radius, spacing } from '../../theme';
+import { useAuthStore } from '../../store/useAuthStore';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+type GradientStops = readonly [string, string, ...string[]];
 
 interface OnboardingSlide {
   id: string;
-  icon: string;
+  icon: IoniconName;
+  gradient: GradientStops;
+  iconColor: string;
+  ringColor: string;
   title: string;
   description: string;
 }
@@ -27,21 +38,30 @@ interface OnboardingSlide {
 const ONBOARDING_SLIDES: OnboardingSlide[] = [
   {
     id: 'translate',
-    icon: '📷',
+    icon: 'scan',
+    gradient: gradients.primary,
+    iconColor: colors.textOnPrimary,
+    ringColor: colors.accentSurface,
     title: 'Terjemah Isyarat',
-    description: 'Arahkan kamera untuk menerjemahkan bahasa isyarat secara real-time',
+    description: 'Arahkan kamera untuk menerjemahkan bahasa isyarat secara real-time.',
   },
   {
     id: 'chat',
-    icon: '💬',
+    icon: 'chatbubbles',
+    gradient: gradients.accent,
+    iconColor: colors.textOnAccent,
+    ringColor: colors.primarySurface,
     title: 'Komunikasi Dua Arah',
-    description: 'Ketik pesan dan lihat terjemahan dalam bahasa isyarat',
+    description: 'Ketik pesan dan lihat terjemahannya dalam bahasa isyarat.',
   },
   {
     id: 'learn',
-    icon: '📚',
+    icon: 'library',
+    gradient: gradients.primary,
+    iconColor: colors.textOnPrimary,
+    ringColor: colors.accentSurface,
     title: 'Belajar & Kamus',
-    description: 'Pelajari bahasa isyarat dengan video tutorial dan kamus lengkap',
+    description: 'Pelajari bahasa isyarat dengan video tutorial dan kamus lengkap.',
   },
 ];
 
@@ -50,9 +70,20 @@ export default function OnboardingScreen() {
   const { width } = useWindowDimensions();
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const continueAsGuest = useAuthStore((state) => state.continueAsGuest);
+  const isLoading = useAuthStore((state) => state.isLoading);
 
   const handleSkip = () => {
     router.replace('/(auth)/login');
+  };
+
+  const handleGuest = async () => {
+    try {
+      await continueAsGuest();
+      router.replace('/(tabs)/');
+    } catch {
+      router.replace('/(auth)/login');
+    }
   };
 
   const handleNext = () => {
@@ -61,10 +92,7 @@ export default function OnboardingScreen() {
       return;
     }
 
-    flatListRef.current?.scrollToIndex({
-      index: currentSlide + 1,
-      animated: true,
-    });
+    flatListRef.current?.scrollToIndex({ index: currentSlide + 1, animated: true });
   };
 
   const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -72,35 +100,50 @@ export default function OnboardingScreen() {
     setCurrentSlide(nextSlide);
   };
 
+  const isLastSlide = currentSlide === ONBOARDING_SLIDES.length - 1;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.container}>
+        <Sparkles />
         <View style={styles.topBar}>
-          <Pressable hitSlop={8} onPress={handleSkip}>
-            <Text style={styles.skipText}>Lewati</Text>
+          <Pressable accessibilityRole="button" hitSlop={8} onPress={handleSkip}>
+            <Text variant="bodyStrong" color="primary">
+              Lewati
+            </Text>
           </Pressable>
         </View>
 
         <FlatList
           ref={flatListRef}
           data={ONBOARDING_SLIDES}
-          getItemLayout={(_, index) => ({
-            length: width,
-            offset: width * index,
-            index,
-          })}
+          getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
           horizontal
           keyExtractor={(item) => item.id}
           onMomentumScrollEnd={handleScrollEnd}
           pagingEnabled
           renderItem={({ item }) => (
             <View style={[styles.slide, { width }]}>
-              <View style={styles.illustrationCircle}>
-                <Text style={styles.slideIcon}>{item.icon}</Text>
+              <View style={styles.illustration}>
+                <View style={[styles.ring, { borderColor: item.ringColor }]} />
+                <GradientSurface
+                  colors={item.gradient}
+                  radius={radius.full}
+                  shadowLevel="lg"
+                  contentStyle={styles.illustrationInner}
+                >
+                  <Ionicons color={item.iconColor} name={item.icon} size={76} />
+                </GradientSurface>
               </View>
-              <Text style={styles.slideTitle}>{item.title}</Text>
-              <Text style={styles.slideDescription}>{item.description}</Text>
+
+              <Heading variant="hero" align="center" style={styles.slideTitle}>
+                {item.title}
+              </Heading>
+              <Squiggle width={88} height={12} />
+              <Text variant="body" color="secondary" align="center" style={styles.slideDescription}>
+                {item.description}
+              </Text>
             </View>
           )}
           showsHorizontalScrollIndicator={false}
@@ -109,17 +152,11 @@ export default function OnboardingScreen() {
         <View style={styles.footer}>
           <View style={styles.dotsRow}>
             {ONBOARDING_SLIDES.map((slide, index) => (
-              <View
-                key={slide.id}
-                style={[styles.dot, index === currentSlide ? styles.activeDot : undefined]}
-              />
+              <View key={slide.id} style={[styles.dot, index === currentSlide ? styles.activeDot : undefined]} />
             ))}
           </View>
-          <Button
-            fullWidth
-            title={currentSlide === ONBOARDING_SLIDES.length - 1 ? 'Mulai' : 'Lanjut'}
-            onPress={handleNext}
-          />
+          <Button fullWidth title={isLastSlide ? 'Masuk / Daftar' : 'Lanjut'} onPress={handleNext} />
+          <Button disabled={isLoading} fullWidth title="Lanjut sebagai Tamu" variant="ghost" onPress={handleGuest} />
         </View>
       </View>
     </SafeAreaView>
@@ -129,75 +166,68 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.light.surface,
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: Colors.light.surface,
   },
   topBar: {
     alignItems: 'flex-end',
-    paddingHorizontal: Layout.spacing.lg,
-    paddingTop: Layout.spacing.sm,
-  },
-  skipText: {
-    color: Colors.light.primary,
-    fontSize: Layout.fontSize.body,
-    fontWeight: '700',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
   },
   slide: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Layout.spacing.xl,
-    paddingBottom: Layout.spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
+    gap: spacing.md,
   },
-  illustrationCircle: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: '#DBEAFE',
-    borderWidth: 6,
-    borderColor: '#FDE68A',
+  illustration: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Layout.spacing.xl,
+    marginBottom: spacing.lg,
   },
-  slideIcon: {
-    fontSize: 88,
+  ring: {
+    position: 'absolute',
+    width: 224,
+    height: 224,
+    borderRadius: 999,
+    borderWidth: 10,
+  },
+  illustrationInner: {
+    width: 180,
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   slideTitle: {
-    color: Colors.light.text,
-    fontSize: Layout.fontSize.xxl,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: Layout.spacing.md,
+    marginTop: spacing.sm,
   },
   slideDescription: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.body,
-    lineHeight: 24,
-    textAlign: 'center',
     maxWidth: 320,
+    marginTop: spacing.xs,
   },
   footer: {
-    paddingHorizontal: Layout.spacing.lg,
-    paddingBottom: Layout.spacing.lg,
-    gap: Layout.spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
   },
   dotsRow: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
+    marginBottom: spacing.sm,
   },
   dot: {
     width: 10,
     height: 10,
-    borderRadius: Layout.radius.full,
-    backgroundColor: '#BFDBFE',
-    marginHorizontal: Layout.spacing.xs,
+    borderRadius: radius.full,
+    backgroundColor: colors.primarySoft,
+    marginHorizontal: spacing.xs,
   },
   activeDot: {
     width: 28,
-    backgroundColor: Colors.light.accent,
+    backgroundColor: colors.accent,
   },
 });

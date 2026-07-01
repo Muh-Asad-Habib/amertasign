@@ -1,13 +1,9 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
-import Button from '../ui/Button';
+import { StyleSheet, TextInput, View } from 'react-native';
 
-const COLORS = {
-  background: '#FFFFFF',
-  text: '#0F172A',
-  textSecondary: '#64748B',
-  border: '#E2E8F0',
-};
+import { colors, fontFamily, radius, spacing } from '../../theme';
+import Button from '../ui/Button';
+import Text from '../ui/Text';
 
 export interface TextInputAreaProps {
   value: string;
@@ -25,13 +21,15 @@ export default function TextInputArea({ value, onChangeText, onSubmit }: TextInp
         multiline
         onChangeText={onChangeText}
         placeholder="Ketik pesan untuk diterjemahkan..."
-        placeholderTextColor={COLORS.textSecondary}
+        placeholderTextColor={colors.textTertiary}
         style={styles.input}
         textAlignVertical="top"
         value={value}
       />
       <View style={styles.footer}>
-        <Text style={styles.count}>{characterCount} karakter</Text>
+        <Text variant="caption" color="secondary">
+          {characterCount} karakter
+        </Text>
         <View style={styles.buttonContainer}>
           <Button disabled={isDisabled} fullWidth onPress={onSubmit} title="Terjemahkan" />
         </View>
@@ -42,14 +40,16 @@ export default function TextInputArea({ value, onChangeText, onSubmit }: TextInp
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.background,
-    borderColor: COLORS.border,
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    padding: 16,
+    padding: spacing.base,
+    gap: spacing.base,
   },
   input: {
-    color: COLORS.text,
+    color: colors.text,
+    fontFamily: fontFamily.bodyRegular,
     fontSize: 16,
     lineHeight: 24,
     minHeight: 140,
@@ -58,11 +58,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 16,
-  },
-  count: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
   },
   buttonContainer: {
     minWidth: 140,

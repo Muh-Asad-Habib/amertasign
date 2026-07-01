@@ -1,14 +1,13 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+
+import { colors, radius, spacing } from '../../theme';
 import Badge from '../ui/Badge';
 import Card from '../ui/Card';
-
-const COLORS = {
-  accent: '#F59E0B',
-  accentSoft: '#FEF3C7',
-  text: '#0F172A',
-  textSecondary: '#64748B',
-};
+import Heading from '../ui/Heading';
+import Row from '../ui/Row';
+import Squiggle from '../ui/Squiggle';
+import Text from '../ui/Text';
 
 export interface DailyWordProps {
   word: string;
@@ -18,52 +17,45 @@ export interface DailyWordProps {
 
 export default function DailyWord({ word, description, category }: DailyWordProps) {
   return (
-    <Card elevated style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.accentPill} />
-        <Text style={styles.eyebrow}>Kata Hari Ini</Text>
-      </View>
-      <Badge size="sm" text={category} variant="accent" />
-      <Text style={styles.word}>{word}</Text>
-      <Text style={styles.description}>{description}</Text>
+    <Card variant="elevated" style={styles.card}>
+      <View style={styles.stripe} />
+      <Row justify="space-between" align="center">
+        <Text variant="kicker" color="primary">
+          Kata Hari Ini
+        </Text>
+        <Badge size="sm" text={category} variant="accent" />
+      </Row>
+      <Heading variant="hero" numberOfLines={2} style={styles.word}>
+        {word}
+      </Heading>
+      <Squiggle width={92} />
+      <Text variant="body" color="secondary" style={styles.description}>
+        {description}
+      </Text>
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderLeftColor: COLORS.accent,
-    borderLeftWidth: 6,
+    gap: spacing.sm,
+    overflow: 'hidden',
+    paddingLeft: spacing.lg,
   },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  accentPill: {
-    backgroundColor: COLORS.accentSoft,
-    borderRadius: 999,
-    height: 10,
-    marginRight: 8,
-    width: 32,
-  },
-  eyebrow: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
+  stripe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 7,
+    backgroundColor: colors.accent,
+    borderTopLeftRadius: radius.lg,
+    borderBottomLeftRadius: radius.lg,
   },
   word: {
-    color: COLORS.text,
-    fontSize: 28,
-    fontWeight: '700',
-    marginTop: 16,
+    marginTop: spacing.xs,
   },
   description: {
-    color: COLORS.textSecondary,
-    fontSize: 16,
-    lineHeight: 24,
-    marginTop: 8,
+    marginTop: spacing.xs,
   },
 });

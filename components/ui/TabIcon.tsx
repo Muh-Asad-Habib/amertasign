@@ -2,10 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const COLORS = {
-  primary: '#2563EB',
-  textSecondary: '#64748B',
-};
+import { colors, fontFamily } from '../../theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -16,13 +13,8 @@ export interface TabIconProps {
   label: string;
 }
 
-export default function TabIcon({
-  name,
-  color = COLORS.textSecondary,
-  focused = false,
-  label,
-}: TabIconProps) {
-  const activeColor = focused ? COLORS.primary : color;
+export default function TabIcon({ name, color = colors.textSecondary, focused = false, label }: TabIconProps) {
+  const activeColor = focused ? colors.primary : color;
   const iconSize = focused ? 26 : 22;
 
   return (
@@ -40,11 +32,11 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   label: {
+    fontFamily: fontFamily.bodyMedium,
     fontSize: 12,
-    fontWeight: '600',
     marginTop: 4,
   },
   focusedLabel: {
-    fontWeight: '700',
+    fontFamily: fontFamily.bodySemiBold,
   },
 });

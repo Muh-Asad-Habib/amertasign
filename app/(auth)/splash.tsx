@@ -1,11 +1,16 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
-import { Colors } from '../../constants/Colors';
-import { Layout } from '../../constants/Layout';
+import BrandMark from '../../components/ui/BrandMark';
+import Heading from '../../components/ui/Heading';
+import Sparkles from '../../components/ui/Sparkles';
+import Squiggle from '../../components/ui/Squiggle';
+import Text from '../../components/ui/Text';
+import { colors, gradients, overlay, spacing } from '../../theme';
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -35,63 +40,84 @@ export default function SplashScreen() {
   }, [router, fadeAnim, scaleAnim]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.root}>
       <StatusBar style="light" />
-      <View style={styles.container}>
-        <Animated.View
-          style={[
-            styles.logoArea,
-            { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
-          ]}
-        >
-          <Text style={styles.logoEmoji}>🤟</Text>
-        </Animated.View>
-        <Animated.Text style={[styles.title, { opacity: fadeAnim }]}>
-          AmertaSign
-        </Animated.Text>
-        <Animated.Text style={[styles.tagline, { opacity: fadeAnim }]}>
-          Jembatan Komunikasi Tanpa Batas
-        </Animated.Text>
-      </View>
-    </SafeAreaView>
+      <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      {/* Cincin dekoratif lembut */}
+      <View pointerEvents="none" style={[styles.ring, styles.ringTop]} />
+      <View pointerEvents="none" style={[styles.ring, styles.ringBottom]} />
+      <Sparkles
+        items={[
+          { top: 90, right: 50, size: 22, color: '#FBC23C', delay: 0 },
+          { top: 160, left: 44, size: 15, color: '#FFFDF8', delay: 300 },
+          { bottom: 180, right: 70, size: 18, color: '#FFFDF8', delay: 600 },
+          { bottom: 120, left: 70, size: 13, color: '#FBC23C', delay: 900 },
+        ]}
+      />
+
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
+            <BrandMark onDark size={128} />
+          </Animated.View>
+          <Animated.View style={[styles.copy, { opacity: fadeAnim }]}>
+            <Heading variant="display" color="onPrimary" align="center">
+              AmertaSign
+            </Heading>
+            <View style={styles.squiggleWrap}>
+              <Squiggle color={colors.accent} width={120} height={14} />
+            </View>
+            <Text variant="body" color="onPrimary" align="center" style={styles.tagline}>
+              Jembatan Komunikasi Tanpa Batas
+            </Text>
+          </Animated.View>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.primary,
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.light.primary,
   },
   container: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Layout.spacing.lg,
-    backgroundColor: Colors.light.primary,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.lg,
   },
-  logoArea: {
-    width: 120,
-    height: 120,
-    borderRadius: Layout.radius.xl,
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+  copy: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Layout.spacing.lg,
   },
-  logoEmoji: {
-    fontSize: 64,
-  },
-  title: {
-    fontSize: Layout.fontSize.hero,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'center',
+  squiggleWrap: {
+    marginTop: spacing.sm,
   },
   tagline: {
-    marginTop: Layout.spacing.sm,
-    fontSize: Layout.fontSize.body,
-    color: '#FFFFFF',
-    textAlign: 'center',
+    marginTop: spacing.base,
     opacity: 0.92,
+  },
+  ring: {
+    position: 'absolute',
+    borderRadius: 999,
+    borderColor: overlay.onBrandSoft,
+    borderWidth: 28,
+  },
+  ringTop: {
+    top: -120,
+    left: -90,
+    width: 280,
+    height: 280,
+  },
+  ringBottom: {
+    bottom: -140,
+    right: -100,
+    width: 320,
+    height: 320,
   },
 });

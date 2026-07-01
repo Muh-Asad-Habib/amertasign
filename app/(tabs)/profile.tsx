@@ -1,41 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, FlatList, StyleSheet, Switch, View } from 'react-native';
 
 import Badge from '../../components/ui/Badge';
-import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-import { Colors } from '../../constants/Colors';
-import { Layout } from '../../constants/Layout';
+import Decor from '../../components/ui/Decor';
+import Divider from '../../components/ui/Divider';
+import GradientSurface from '../../components/ui/GradientSurface';
+import Heading from '../../components/ui/Heading';
+import IconBubble, { type IconTone } from '../../components/ui/IconBubble';
+import PressableScale from '../../components/ui/PressableScale';
+import Screen from '../../components/ui/Screen';
+import Section from '../../components/ui/Section';
+import Stack from '../../components/ui/Stack';
+import Text from '../../components/ui/Text';
+import { colors, fontFamily, gradients, overlay, radius, spacing, touchTargetMin } from '../../theme';
 import { dictionaryEntries } from '../../constants/MockData';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDictionaryStore } from '../../store/useDictionaryStore';
-import { useLearningStore } from '../../store/useLearningStore';
 import type { DictionaryEntry, SignLanguageType } from '../../types';
 
-interface StatItem {
-  id: string;
-  label: string;
-  value: number;
-  icon: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-  iconBackground: string;
-}
-
-function SectionHeader({ title }: { title: string }) {
-  return <Text style={styles.sectionTitle}>{title}</Text>;
-}
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 function initialsFromName(name: string) {
   return name
@@ -46,59 +32,61 @@ function initialsFromName(name: string) {
     .join('');
 }
 
+function SettingRow({
+  icon,
+  tone,
+  label,
+  right,
+  onPress,
+}: {
+  icon: IoniconName;
+  tone: IconTone;
+  label: string;
+  right: React.ReactNode;
+  onPress?: () => void;
+}) {
+  const body = (
+    <View style={styles.settingRow}>
+      <View style={styles.settingInfo}>
+        <IconBubble name={icon} size="sm" tone={tone} />
+        <Text variant="bodyStrong" style={styles.settingLabel}>
+          {label}
+        </Text>
+      </View>
+      <View style={styles.settingMeta}>{right}</View>
+    </View>
+  );
+
+  if (onPress) {
+    return (
+      <PressableScale accessibilityRole="button" accessibilityLabel={label} onPress={onPress}>
+        {body}
+      </PressableScale>
+    );
+  }
+  return body;
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const isGuest = useAuthStore((state) => state.isGuest);
   const logout = useAuthStore((state) => state.logout);
   const favorites = useDictionaryStore((state) => state.favorites);
-  const searchHistory = useDictionaryStore((state) => state.searchHistory);
   const signLanguageFilter = useDictionaryStore((state) => state.signLanguageFilter);
   const setSignLanguageFilter = useDictionaryStore((state) => state.setSignLanguageFilter);
-  const completedModuleIds = useLearningStore((state) => state.completedModuleIds);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled] = useState(false);
 
   const displayName = user?.name?.trim() || 'Pengguna AmertaSign';
-  const displayEmail = user?.email || 'pengguna@amertasign.app';
+  const displayEmail = isGuest ? 'Belum masuk — mode tamu' : user?.email || 'pengguna@amertasign.app';
   const currentSignLanguage = (user?.preferredSignLanguage ?? signLanguageFilter) as SignLanguageType;
-  const streak = user?.streak && user.streak > 0 ? user.streak : 5;
-  const wordsLearned = favorites.length + searchHistory.length;
 
   const favoriteEntries = useMemo<DictionaryEntry[]>(() => {
     return favorites
       .map((favoriteId) => dictionaryEntries.find((entry) => entry.id === favoriteId))
       .filter((entry): entry is DictionaryEntry => Boolean(entry));
   }, [favorites]);
-
-  const stats = useMemo<StatItem[]>(
-    () => [
-      {
-        id: 'words',
-        label: 'Kata Dipelajari',
-        value: wordsLearned,
-        icon: 'book-outline',
-        iconColor: Colors.light.primary,
-        iconBackground: '#DBEAFE',
-      },
-      {
-        id: 'modules',
-        label: 'Modul Selesai',
-        value: completedModuleIds.length,
-        icon: 'school-outline',
-        iconColor: Colors.light.success,
-        iconBackground: '#DCFCE7',
-      },
-      {
-        id: 'streak',
-        label: 'Hari Berturut',
-        value: streak,
-        icon: 'flame-outline',
-        iconColor: Colors.light.accent,
-        iconBackground: '#FEF3C7',
-      },
-    ],
-    [completedModuleIds.length, streak, wordsLearned]
-  );
 
   const applySignLanguage = (type: SignLanguageType) => {
     setSignLanguageFilter(type);
@@ -109,18 +97,9 @@ export default function ProfileScreen() {
 
   const handleLanguagePress = () => {
     Alert.alert('Bahasa Isyarat Default', 'Pilih bahasa isyarat default untuk pengalaman belajar Anda.', [
-      {
-        text: 'BISINDO',
-        onPress: () => applySignLanguage('bisindo'),
-      },
-      {
-        text: 'SIBI',
-        onPress: () => applySignLanguage('sibi'),
-      },
-      {
-        text: 'Batal',
-        style: 'cancel',
-      },
+      { text: 'BISINDO', onPress: () => applySignLanguage('bisindo') },
+      { text: 'SIBI', onPress: () => applySignLanguage('sibi') },
+      { text: 'Batal', style: 'cancel' },
     ]);
   };
 
@@ -132,131 +111,130 @@ export default function ProfileScreen() {
   };
 
   const handleLogoutPress = () => {
-    Alert.alert('Keluar dari akun?', 'Anda perlu masuk kembali untuk melanjutkan progres belajar.', [
-      {
-        text: 'Batal',
-        style: 'cancel',
-      },
-      {
-        text: 'Keluar',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            try {
-              await logout();
-              router.replace('/(auth)/login');
-            } catch (error) {
-              Alert.alert(
-                'Keluar gagal',
-                error instanceof Error ? error.message : 'Terjadi kendala saat keluar. Silakan coba lagi.'
-              );
-            }
-          })();
+    Alert.alert(
+      isGuest ? 'Keluar dari mode tamu?' : 'Keluar dari akun?',
+      isGuest
+        ? 'Anda akan kembali ke halaman masuk. Progres mode tamu tidak tersimpan.'
+        : 'Anda perlu masuk kembali untuk melanjutkan progres belajar.',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Keluar',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                await logout();
+                router.replace('/(auth)/login');
+              } catch (error) {
+                Alert.alert(
+                  'Keluar gagal',
+                  error instanceof Error ? error.message : 'Terjadi kendala saat keluar. Silakan coba lagi.'
+                );
+              }
+            })();
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerSection}>
+    <Screen scroll>
+      <Decor preset="header" />
+
+      <Stack gap={spacing.xl}>
+        <GradientSurface colors={gradients.primary} radius={radius.xxl} shadowLevel="lg" contentStyle={styles.profileHeader}>
           <View style={styles.avatar}>
-            {initialsFromName(displayName) ? (
-              <Text style={styles.avatarText}>{initialsFromName(displayName)}</Text>
-            ) : (
-              <Ionicons color="#FFFFFF" name="person" size={32} />
-            )}
+            <Text style={styles.avatarText}>{initialsFromName(displayName) || 'AS'}</Text>
           </View>
-
-          <Text style={styles.userName}>{displayName}</Text>
-          <Text style={styles.userEmail}>{displayEmail}</Text>
-
-          <Button size="sm" title="Edit Profil" variant="outline" onPress={() => Alert.alert('Segera hadir', 'Fitur edit profil akan tersedia segera.')} />
-        </View>
-
-        <View style={styles.sectionDivider} />
-
-        <View style={styles.section}>
-          <SectionHeader title="Statistik Belajar" />
-          <View style={styles.statsRow}>
-            {stats.map((stat) => (
-              <Card key={stat.id} style={styles.statCard}>
-                <View style={[styles.statIconWrap, { backgroundColor: stat.iconBackground }]}> 
-                  <Ionicons color={stat.iconColor} name={stat.icon} size={20} />
-                </View>
-                <Text style={styles.statValue}>{stat.value}</Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
-              </Card>
-            ))}
+          <Heading variant="title" color="onPrimary" align="center">
+            {displayName}
+          </Heading>
+          <Text variant="body" color="onPrimary" align="center" style={styles.email}>
+            {displayEmail}
+          </Text>
+          <View style={styles.headerActions}>
+            {isGuest ? <Badge size="sm" text="Mode Tamu" variant="warning" /> : null}
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel={isGuest ? 'Masuk atau daftar' : 'Edit profil'}
+              onPress={() =>
+                isGuest
+                  ? router.replace('/(auth)/login')
+                  : Alert.alert('Segera hadir', 'Fitur edit profil akan tersedia segera.')
+              }
+              style={styles.headerAction}
+            >
+              <Ionicons color={colors.primary} name={isGuest ? 'log-in-outline' : 'create-outline'} size={16} />
+              <Text variant="label" style={styles.headerActionText}>
+                {isGuest ? 'Masuk / Daftar' : 'Edit Profil'}
+              </Text>
+            </PressableScale>
           </View>
-        </View>
+        </GradientSurface>
 
-        <View style={styles.sectionDivider} />
-
-        <View style={styles.section}>
-          <SectionHeader title="Pengaturan" />
-          <Card style={styles.settingsCard}>
-            <Pressable style={({ pressed }) => [styles.settingRow, pressed && styles.settingPressed]} onPress={handleLanguagePress}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingIcon}>🌐</Text>
-                <Text style={styles.settingLabel}>Bahasa Isyarat Default</Text>
-              </View>
-              <View style={styles.settingMeta}>
-                <Text style={styles.settingValue}>{currentSignLanguage.toUpperCase()}</Text>
-                <Ionicons color={Colors.light.textSecondary} name="chevron-forward" size={18} />
-              </View>
-            </Pressable>
-
-            <View style={styles.rowDivider} />
-
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingIcon}>🔔</Text>
-                <Text style={styles.settingLabel}>Notifikasi</Text>
-              </View>
-              <Switch
-                onValueChange={setNotificationsEnabled}
-                thumbColor="#FFFFFF"
-                trackColor={{ false: '#CBD5E1', true: Colors.light.primary }}
-                value={notificationsEnabled}
-              />
-            </View>
-
-            <View style={styles.rowDivider} />
-
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingIcon}>🌙</Text>
-                <Text style={styles.settingLabel}>Mode Gelap</Text>
-              </View>
-              <View style={styles.settingMeta}>
-                <Badge size="sm" text="Segera hadir" variant="neutral" />
+        <Section kicker="Preferensi" title="Pengaturan">
+          <Card padding={0} style={styles.settingsCard}>
+            <SettingRow
+              icon="language-outline"
+              label="Bahasa Isyarat Default"
+              onPress={handleLanguagePress}
+              right={
+                <>
+                  <Text variant="caption" color="secondary">
+                    {currentSignLanguage.toUpperCase()}
+                  </Text>
+                  <Ionicons color={colors.textTertiary} name="chevron-forward" size={18} />
+                </>
+              }
+              tone="primary"
+            />
+            <Divider spacingY={0} style={styles.rowDivider} />
+            <SettingRow
+              icon="notifications-outline"
+              label="Notifikasi"
+              right={
                 <Switch
-                  disabled
-                  thumbColor="#FFFFFF"
-                  trackColor={{ false: '#CBD5E1', true: Colors.light.primary }}
-                  value={darkModeEnabled}
+                  ios_backgroundColor={colors.surfaceMuted}
+                  onValueChange={setNotificationsEnabled}
+                  thumbColor={colors.surface}
+                  trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
+                  value={notificationsEnabled}
                 />
-              </View>
-            </View>
-
-            <View style={styles.rowDivider} />
-
-            <Pressable style={({ pressed }) => [styles.settingRow, pressed && styles.settingPressed]} onPress={handleAboutPress}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingIcon}>📖</Text>
-                <Text style={styles.settingLabel}>Tentang Aplikasi</Text>
-              </View>
-              <Ionicons color={Colors.light.textSecondary} name="chevron-forward" size={18} />
-            </Pressable>
+              }
+              tone="accent"
+            />
+            <Divider spacingY={0} style={styles.rowDivider} />
+            <SettingRow
+              icon="moon-outline"
+              label="Mode Gelap"
+              right={
+                <>
+                  <Badge size="sm" text="Segera" variant="neutral" />
+                  <Switch
+                    disabled
+                    ios_backgroundColor={colors.surfaceMuted}
+                    thumbColor={colors.surface}
+                    trackColor={{ false: colors.surfaceMuted, true: colors.primary }}
+                    value={darkModeEnabled}
+                  />
+                </>
+              }
+              tone="neutral"
+            />
+            <Divider spacingY={0} style={styles.rowDivider} />
+            <SettingRow
+              icon="information-circle-outline"
+              label="Tentang Aplikasi"
+              onPress={handleAboutPress}
+              right={<Ionicons color={colors.textTertiary} name="chevron-forward" size={18} />}
+              tone="primary"
+            />
           </Card>
-        </View>
+        </Section>
 
-        <View style={styles.sectionDivider} />
-
-        <View style={styles.section}>
-          <SectionHeader title="Kata Favorit ⭐" />
+        <Section kicker="Tersimpan" title="Kata Favorit">
           {favoriteEntries.length > 0 ? (
             <FlatList
               contentContainerStyle={styles.favoriteList}
@@ -264,10 +242,16 @@ export default function ProfileScreen() {
               horizontal
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <Card style={styles.favoriteCard}>
-                  <Text style={styles.favoriteWord}>{item.word}</Text>
-                  <Text style={styles.favoriteType}>{item.type.toUpperCase()}</Text>
-                  <Text numberOfLines={2} style={styles.favoriteDescription}>
+                <Card variant="elevated" style={styles.favoriteCard}>
+                  <Badge
+                    size="sm"
+                    text={item.type.toUpperCase()}
+                    variant={item.type === 'bisindo' ? 'primary' : 'accent'}
+                  />
+                  <Heading variant="h2" numberOfLines={1} style={styles.favoriteWord}>
+                    {item.word}
+                  </Heading>
+                  <Text numberOfLines={2} variant="caption" color="secondary">
                     {item.description}
                   </Text>
                 </Card>
@@ -275,220 +259,137 @@ export default function ProfileScreen() {
               showsHorizontalScrollIndicator={false}
             />
           ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>Belum ada favorit</Text>
-              <Pressable onPress={() => router.push('/(tabs)/dictionary')}>
-                <Text style={styles.emptyStateLink}>Jelajahi kamus</Text>
-              </Pressable>
-            </View>
+            <Card style={styles.emptyFavorite}>
+              <Text variant="body" color="secondary">
+                Belum ada favorit.
+              </Text>
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel="Jelajahi kamus"
+                onPress={() => router.push('/(tabs)/dictionary')}
+              >
+                <Text variant="bodyStrong" color="primary" style={styles.emptyLink}>
+                  Jelajahi kamus →
+                </Text>
+              </PressableScale>
+            </Card>
           )}
-        </View>
+        </Section>
 
-        <View style={styles.sectionDivider} />
-
-        <View style={styles.section}>
-          <SectionHeader title="Zona Bahaya" />
-          <Pressable style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]} onPress={handleLogoutPress}>
-            <Ionicons color={Colors.light.error} name="log-out-outline" size={18} />
-            <Text style={styles.logoutText}>Keluar</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityLabel={isGuest ? 'Keluar mode tamu' : 'Keluar'}
+          onPress={handleLogoutPress}
+          style={styles.logoutButton}
+        >
+          <Ionicons color={colors.error} name="log-out-outline" size={18} />
+          <Text variant="bodyStrong" color="error">
+            {isGuest ? 'Keluar Mode Tamu' : 'Keluar'}
+          </Text>
+        </PressableScale>
+      </Stack>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.light.background,
-  },
-  content: {
-    paddingHorizontal: Layout.spacing.lg,
-    paddingTop: Layout.spacing.lg,
-    paddingBottom: Layout.spacing.xxl,
-  },
-  headerSection: {
+  profileHeader: {
     alignItems: 'center',
-    gap: Layout.spacing.sm,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: Layout.radius.full,
-    backgroundColor: Colors.light.primary,
+    width: 84,
+    height: 84,
+    borderRadius: radius.full,
+    backgroundColor: overlay.onBrandStrong,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Layout.spacing.sm,
+    marginBottom: spacing.xs,
   },
   avatarText: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '800',
+    color: colors.surface,
+    fontSize: 30,
+    fontFamily: fontFamily.displayExtraBold,
   },
-  userName: {
-    color: Colors.light.text,
-    fontSize: Layout.fontSize.xxl,
-    fontWeight: '800',
-    textAlign: 'center',
+  email: {
+    opacity: 0.86,
   },
-  userEmail: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.body,
-    textAlign: 'center',
+  headerActions: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
-  section: {
-    paddingVertical: Layout.spacing.md,
-  },
-  sectionTitle: {
-    color: Colors.light.text,
-    fontSize: Layout.fontSize.xl,
-    fontWeight: '800',
-    marginBottom: Layout.spacing.md,
-  },
-  sectionDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: Colors.light.border,
-    marginVertical: Layout.spacing.xs,
-  },
-  statsRow: {
+  headerAction: {
     flexDirection: 'row',
-    gap: Layout.spacing.sm,
-  },
-  statCard: {
-    flex: 1,
     alignItems: 'center',
-    paddingHorizontal: Layout.spacing.sm,
-    paddingVertical: Layout.spacing.md,
+    gap: 6,
+    backgroundColor: colors.surface,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.base,
+    minHeight: 42,
   },
-  statIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: Layout.radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Layout.spacing.sm,
-  },
-  statValue: {
-    color: Colors.light.text,
-    fontSize: Layout.fontSize.xl,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  statLabel: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.xs,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: Layout.spacing.xs,
+  headerActionText: {
+    color: colors.primary,
   },
   settingsCard: {
-    paddingVertical: 0,
-    paddingHorizontal: 0,
     overflow: 'hidden',
   },
   settingRow: {
-    minHeight: Layout.touchTargetMin + 8,
+    minHeight: touchTargetMin + 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Layout.spacing.md,
-    paddingVertical: Layout.spacing.md,
-  },
-  settingPressed: {
-    backgroundColor: '#F8FAFC',
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.md,
   },
   settingInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
     flex: 1,
-    paddingRight: Layout.spacing.md,
-  },
-  settingIcon: {
-    fontSize: 18,
-    marginRight: Layout.spacing.sm,
+    paddingRight: spacing.md,
   },
   settingLabel: {
-    color: Colors.light.text,
-    fontSize: Layout.fontSize.body,
-    fontWeight: '600',
     flexShrink: 1,
   },
   settingMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Layout.spacing.sm,
-  },
-  settingValue: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.sm,
-    fontWeight: '700',
+    gap: spacing.sm,
   },
   rowDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: Colors.light.border,
-    marginLeft: Layout.spacing.md,
+    marginLeft: spacing.base + 40 + spacing.md,
   },
   favoriteList: {
-    paddingRight: Layout.spacing.sm,
+    paddingRight: spacing.base,
+    gap: spacing.md,
   },
   favoriteCard: {
-    width: 180,
-    marginRight: Layout.spacing.md,
+    width: 190,
+    gap: spacing.sm,
   },
   favoriteWord: {
-    color: Colors.light.text,
-    fontSize: Layout.fontSize.lg,
-    fontWeight: '800',
+    marginTop: spacing.xs,
   },
-  favoriteType: {
-    color: Colors.light.primary,
-    fontSize: Layout.fontSize.xs,
-    fontWeight: '700',
-    marginTop: Layout.spacing.xs,
+  emptyFavorite: {
+    gap: spacing.sm,
   },
-  favoriteDescription: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.sm,
-    lineHeight: 20,
-    marginTop: Layout.spacing.sm,
-  },
-  emptyState: {
-    backgroundColor: Colors.light.surface,
-    borderColor: Colors.light.border,
-    borderRadius: Layout.radius.lg,
-    borderWidth: 1,
-    padding: Layout.spacing.md,
-  },
-  emptyStateText: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.body,
-  },
-  emptyStateLink: {
-    color: Colors.light.primary,
-    fontSize: Layout.fontSize.body,
-    fontWeight: '700',
-    marginTop: Layout.spacing.sm,
+  emptyLink: {
+    marginTop: spacing.xs,
   },
   logoutButton: {
-    minHeight: Layout.touchTargetMin,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: Layout.radius.md,
-    backgroundColor: '#FEF2F2',
+    minHeight: touchTargetMin,
+    borderWidth: 1.5,
+    borderColor: colors.error,
+    borderRadius: radius.lg,
+    backgroundColor: colors.errorTint,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Layout.spacing.sm,
-    paddingHorizontal: Layout.spacing.md,
-    paddingVertical: Layout.spacing.md,
-  },
-  logoutButtonPressed: {
-    opacity: 0.85,
-  },
-  logoutText: {
-    color: Colors.light.error,
-    fontSize: Layout.fontSize.body,
-    fontWeight: '800',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.md,
   },
 });

@@ -1,61 +1,67 @@
 import React from 'react';
-import {
-  Pressable,
-  StyleProp,
-  StyleSheet,
-  View,
-  ViewProps,
-  ViewStyle,
-} from 'react-native';
+import { StyleProp, View, ViewProps, ViewStyle } from 'react-native';
 
-const COLORS = {
-  background: '#FFFFFF',
-  border: '#E2E8F0',
-};
+import { colors, layoutSpacing, radius, shadow } from '../../theme';
+import PressableScale from './PressableScale';
+
+type CardVariant = 'default' | 'elevated' | 'muted';
 
 export interface CardProps extends Pick<ViewProps, 'children'> {
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
+  variant?: CardVariant;
+  /** Alias lama: setara variant="elevated". */
   elevated?: boolean;
+  padding?: number;
+  accessibilityLabel?: string;
+  /** Getaran halus saat ditekan (hanya bila onPress). Default true. */
+  haptic?: boolean;
 }
 
-export default function Card({ children, style, onPress, elevated = false }: CardProps) {
+const getVariantStyle = (variant: CardVariant): ViewStyle => {
+  switch (variant) {
+    case 'elevated':
+      return { backgroundColor: colors.surface, borderColor: colors.border, ...shadow.md };
+    case 'muted':
+      return { backgroundColor: colors.surfaceMuted, borderColor: colors.border };
+    case 'default':
+    default:
+      return { backgroundColor: colors.surface, borderColor: colors.border };
+  }
+};
+
+export default function Card({
+  children,
+  style,
+  onPress,
+  variant,
+  elevated = false,
+  padding = layoutSpacing.cardPadding,
+  accessibilityLabel,
+  haptic = true,
+}: CardProps) {
+  const resolvedVariant: CardVariant = variant ?? (elevated ? 'elevated' : 'default');
+
+  const baseStyle: ViewStyle = {
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    padding,
+    ...getVariantStyle(resolvedVariant),
+  };
+
   if (onPress) {
     return (
-      <Pressable
+      <PressableScale
         accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        haptic={haptic}
         onPress={onPress}
-        style={({ pressed }) => [
-          styles.base,
-          elevated && styles.elevated,
-          pressed && styles.pressed,
-          style,
-        ]}
+        style={[baseStyle, style]}
       >
         {children}
-      </Pressable>
+      </PressableScale>
     );
   }
 
-  return <View style={[styles.base, elevated && styles.elevated, style]}>{children}</View>;
+  return <View style={[baseStyle, style]}>{children}</View>;
 }
-
-const styles = StyleSheet.create({
-  base: {
-    backgroundColor: COLORS.background,
-    borderColor: COLORS.border,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-  },
-  elevated: {
-    elevation: 4,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-  },
-  pressed: {
-    opacity: 0.92,
-  },
-});

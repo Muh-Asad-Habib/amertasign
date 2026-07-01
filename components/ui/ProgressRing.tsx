@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
-const DEFAULT_COLOR = '#2563EB';
-const TRACK_COLOR = '#E2E8F0';
+import { colors, fontFamily } from '../../theme';
+
+const DEFAULT_COLOR = colors.primary;
+const TRACK_COLOR = colors.border;
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -12,6 +14,8 @@ export interface ProgressRingProps {
   size?: number;
   strokeWidth?: number;
   color?: string;
+  trackColor?: string;
+  labelColor?: string;
 }
 
 export default function ProgressRing({
@@ -19,6 +23,8 @@ export default function ProgressRing({
   size = 96,
   strokeWidth = 10,
   color = DEFAULT_COLOR,
+  trackColor = TRACK_COLOR,
+  labelColor = colors.text,
 }: ProgressRingProps) {
   const clampedProgress = Math.max(0, Math.min(1, progress));
   const animatedValue = useRef(new Animated.Value(clampedProgress)).current;
@@ -56,7 +62,7 @@ export default function ProgressRing({
           cy={size / 2}
           fill="none"
           r={radius}
-          stroke={TRACK_COLOR}
+          stroke={trackColor}
           strokeWidth={strokeWidth}
         />
         <AnimatedCircle
@@ -73,7 +79,7 @@ export default function ProgressRing({
         />
       </Svg>
       <View pointerEvents="none" style={styles.labelContainer}>
-        <Text style={[styles.label, { fontSize: Math.max(14, size * 0.2) }]}>{percentage}%</Text>
+        <Text style={[styles.label, { fontSize: Math.max(14, size * 0.2), color: labelColor }]}>{percentage}%</Text>
       </View>
     </View>
   );
@@ -90,7 +96,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   label: {
-    color: '#0F172A',
-    fontWeight: '700',
+    color: colors.text,
+    fontFamily: fontFamily.displayBold,
   },
 });

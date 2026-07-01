@@ -1,15 +1,24 @@
 import React, { useEffect, useMemo } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import WordCard from '../../components/dictionary/WordCard';
+import BackHeader from '../../components/ui/BackHeader';
 import Badge from '../../components/ui/Badge';
+import BrandMark from '../../components/ui/BrandMark';
 import Button from '../../components/ui/Button';
+import Decor from '../../components/ui/Decor';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/Colors';
-import { Layout } from '../../constants/Layout';
+import GradientSurface from '../../components/ui/GradientSurface';
+import Heading from '../../components/ui/Heading';
+import Row from '../../components/ui/Row';
+import Screen from '../../components/ui/Screen';
+import Section from '../../components/ui/Section';
+import Stack from '../../components/ui/Stack';
+import Text from '../../components/ui/Text';
+import { colors, gradients, radius, spacing } from '../../theme';
 import { useDictionary } from '../../hooks/useDictionary';
 import { useTTS } from '../../hooks/useTTS';
 import type { DictionaryCategory } from '../../types';
@@ -28,19 +37,13 @@ export default function DictionaryDetailScreen() {
   const { allEntries, addToHistory, isFavorite, toggleFavorite } = useDictionary();
   const { speak } = useTTS();
 
-  const entry = useMemo(
-    () => allEntries.find((item) => item.id === entryId),
-    [allEntries, entryId]
-  );
+  const entry = useMemo(() => allEntries.find((item) => item.id === entryId), [allEntries, entryId]);
 
   const relatedEntries = useMemo(() => {
     if (!entry) {
       return [];
     }
-
-    return allEntries
-      .filter((item) => item.category === entry.category && item.id !== entry.id)
-      .slice(0, 4);
+    return allEntries.filter((item) => item.category === entry.category && item.id !== entry.id).slice(0, 4);
   }, [allEntries, entry]);
 
   useEffect(() => {
@@ -54,11 +57,11 @@ export default function DictionaryDetailScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.errorContainer}>
           <EmptyState
-            icon="alert-circle-outline"
-            title="Kata tidak ditemukan"
-            description="Entri kamus yang kamu cari belum tersedia atau sudah dipindahkan."
             actionLabel="Kembali"
+            description="Entri kamus yang kamu cari belum tersedia atau sudah dipindahkan."
+            icon="alert-circle-outline"
             onAction={() => router.back()}
+            title="Kata tidak ditemukan"
           />
         </View>
       </SafeAreaView>
@@ -68,178 +71,104 @@ export default function DictionaryDetailScreen() {
   const favorite = isFavorite(entry.id);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
-          <Ionicons color={Colors.light.primary} name="arrow-back" size={22} />
-          <Text style={styles.backLabel}>Kembali</Text>
-        </Pressable>
+    <Screen scroll>
+      <Decor preset="corner" />
 
-        <View style={styles.heroCard}>
-          <View style={styles.heroImage}>
-            <Text style={styles.heroEmoji}>🤟</Text>
-          </View>
+      <Stack gap={spacing.lg}>
+        <BackHeader onBack={() => router.back()} />
 
-          <View style={styles.titleRow}>
-            <Text style={styles.wordTitle}>{entry.word}</Text>
-          </View>
-
-          <View style={styles.badgeRow}>
-            <Badge text={entry.type.toUpperCase()} variant={entry.type === 'bisindo' ? 'primary' : 'accent'} />
-            <View style={styles.badgeSpacer} />
+        <GradientSurface colors={gradients.primary} radius={radius.xxl} shadowLevel="lg" contentStyle={styles.hero}>
+          <BrandMark onDark size={116} />
+          <Heading variant="display" color="onPrimary" align="center" numberOfLines={2} style={styles.word}>
+            {entry.word}
+          </Heading>
+          <Row gap={spacing.sm} justify="center" wrap>
+            <Badge text={entry.type.toUpperCase()} variant={entry.type === 'bisindo' ? 'accent' : 'warning'} />
             <Badge text={CATEGORY_LABELS[entry.category]} variant="neutral" />
-          </View>
-        </View>
+          </Row>
+        </GradientSurface>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cara Melakukan</Text>
-          <Text style={styles.description}>{entry.description}</Text>
-        </View>
+        <Section kicker="Panduan" title="Cara Melakukan">
+          <Text variant="body" color="secondary" style={styles.description}>
+            {entry.description}
+          </Text>
+        </Section>
 
-        <View style={styles.actionsRow}>
+        <Row gap={spacing.sm}>
           <Button
-            icon={<Ionicons color={favorite ? Colors.light.text : Colors.light.primary} name={favorite ? 'star' : 'star-outline'} size={18} />}
+            icon={<Ionicons color={favorite ? colors.textOnAccent : colors.primary} name={favorite ? 'star' : 'star-outline'} size={18} />}
             onPress={() => toggleFavorite(entry.id)}
             size="sm"
             style={styles.actionButton}
-            title={favorite ? 'Favorit' : '⭐ Favorit'}
+            title="Favorit"
             variant={favorite ? 'secondary' : 'outline'}
           />
           <Button
-            icon={<Ionicons color={Colors.light.primary} name="volume-high-outline" size={18} />}
+            icon={<Ionicons color={colors.primary} name="volume-high-outline" size={18} />}
             onPress={() => speak(entry.word)}
             size="sm"
             style={styles.actionButton}
-            title="🔊 Dengarkan"
+            title="Dengarkan"
             variant="outline"
           />
           <Button
-            icon={<Ionicons color={Colors.light.primary} name="share-social-outline" size={18} />}
+            icon={<Ionicons color={colors.primary} name="share-social-outline" size={18} />}
             onPress={() => Alert.alert('Bagikan', 'Fitur berbagi akan segera hadir.')}
             size="sm"
             style={styles.actionButton}
-            title="📤 Bagikan"
+            title="Bagikan"
             variant="ghost"
           />
-        </View>
+        </Row>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Kata Terkait</Text>
+        <Section kicker="Eksplor" title="Kata Terkait">
           {relatedEntries.length > 0 ? (
-            relatedEntries.map((item) => (
-              <View key={item.id} style={styles.relatedItem}>
+            <Stack gap={spacing.md}>
+              {relatedEntries.map((item) => (
                 <WordCard
                   category={CATEGORY_LABELS[item.category]}
                   imageUrl={item.imageUrl}
+                  key={item.id}
                   onPress={() => router.push({ pathname: '/dictionary/[id]', params: { id: item.id } })}
                   type={item.type}
                   word={item.word}
                 />
-              </View>
-            ))
+              ))}
+            </Stack>
           ) : (
-            <Text style={styles.emptyRelatedText}>Belum ada kata terkait pada kategori ini.</Text>
+            <Text variant="body" color="secondary">
+              Belum ada kata terkait pada kategori ini.
+            </Text>
           )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </Section>
+      </Stack>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: Colors.light.background,
+    backgroundColor: colors.background,
     flex: 1,
-  },
-  content: {
-    padding: Layout.spacing.lg,
-    paddingBottom: Layout.spacing.xxl,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: Layout.spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
-  backButton: {
+  hero: {
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: '#DBEAFE',
-    borderRadius: Layout.radius.full,
-    flexDirection: 'row',
-    marginBottom: Layout.spacing.lg,
-    paddingHorizontal: Layout.spacing.md,
-    paddingVertical: Layout.spacing.sm,
+    gap: spacing.base,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
   },
-  backLabel: {
-    color: Colors.light.primary,
-    fontSize: Layout.fontSize.sm,
-    fontWeight: '700',
-    marginLeft: Layout.spacing.xs,
-  },
-  heroCard: {
-    backgroundColor: Colors.light.surface,
-    borderColor: Colors.light.border,
-    borderRadius: Layout.radius.xl,
-    borderWidth: 1,
-    padding: Layout.spacing.lg,
-  },
-  heroImage: {
-    alignItems: 'center',
-    backgroundColor: '#E2E8F0',
-    borderRadius: Layout.radius.lg,
-    height: 300,
-    justifyContent: 'center',
-    marginBottom: Layout.spacing.lg,
-  },
-  heroEmoji: {
-    fontSize: 88,
-  },
-  titleRow: {
-    marginBottom: Layout.spacing.md,
-  },
-  wordTitle: {
-    color: Colors.light.text,
-    fontSize: Layout.fontSize.title,
-    fontWeight: '800',
-  },
-  badgeRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  badgeSpacer: {
-    width: Layout.spacing.sm,
-  },
-  section: {
-    marginTop: Layout.spacing.xl,
-  },
-  sectionTitle: {
-    color: Colors.light.text,
-    fontSize: Layout.fontSize.xl,
-    fontWeight: '800',
-    marginBottom: Layout.spacing.sm,
+  word: {
+    marginTop: spacing.xs,
   },
   description: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.body,
     lineHeight: 26,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    marginTop: Layout.spacing.xl,
   },
   actionButton: {
     flex: 1,
-    marginRight: Layout.spacing.sm,
-  },
-  relatedItem: {
-    marginBottom: Layout.spacing.md,
-  },
-  emptyRelatedText: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.body,
-  },
-  pressed: {
-    opacity: 0.85,
   },
 });

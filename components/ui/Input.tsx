@@ -1,0 +1,131 @@
+import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import {
+  Pressable,
+  StyleSheet,
+  TextInput,
+  TextInputProps,
+  View,
+} from 'react-native';
+
+import { colors, fontFamily, layoutSpacing, radius, touchTargetMin } from '../../theme';
+import Text from './Text';
+
+export interface InputProps extends TextInputProps {
+  label?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  error?: string;
+  helperText?: string;
+  isPasswordVisible?: boolean;
+  onToggleVisibility?: () => void;
+}
+
+/** Field input dengan label, ikon, state focus/error, dan helper text. */
+export default function Input({
+  label,
+  icon,
+  error,
+  helperText,
+  isPasswordVisible = false,
+  onToggleVisibility,
+  placeholderTextColor = colors.textTertiary,
+  secureTextEntry,
+  style,
+  onFocus,
+  onBlur,
+  ...props
+}: InputProps) {
+  const [focused, setFocused] = useState(false);
+  const showToggle = typeof onToggleVisibility === 'function';
+
+  const borderColor = error ? colors.error : focused ? colors.primary : colors.border;
+
+  return (
+    <View style={styles.wrapper}>
+      {label ? (
+        <Text variant="label" color="secondary" style={styles.label}>
+          {label}
+        </Text>
+      ) : null}
+
+      <View style={[styles.field, { borderColor }, focused && !error && styles.fieldFocused]}>
+        {icon ? <Ionicons color={focused ? colors.primary : colors.textTertiary} name={icon} size={20} /> : null}
+        <TextInput
+          placeholderTextColor={placeholderTextColor}
+          secureTextEntry={secureTextEntry}
+          style={[styles.input, !!icon && styles.inputWithIcon, style]}
+          onFocus={(e) => {
+            setFocused(true);
+            onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            onBlur?.(e);
+          }}
+          {...props}
+        />
+        {showToggle ? (
+          <Pressable
+            accessibilityLabel={isPasswordVisible ? 'Sembunyikan password' : 'Tampilkan password'}
+            hitSlop={8}
+            onPress={onToggleVisibility}
+            style={styles.trailingButton}
+          >
+            <Ionicons color={colors.textSecondary} name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} size={20} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      {error ? (
+        <Text variant="caption" color="error" style={styles.helper}>
+          {error}
+        </Text>
+      ) : helperText ? (
+        <Text variant="caption" color="tertiary" style={styles.helper}>
+          {helperText}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrapper: {
+    gap: 6,
+  },
+  label: {
+    marginLeft: 2,
+  },
+  field: {
+    minHeight: touchTargetMin,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: layoutSpacing.cardPadding,
+    gap: 10,
+  },
+  fieldFocused: {
+    backgroundColor: colors.primarySurface,
+  },
+  input: {
+    flex: 1,
+    height: touchTargetMin,
+    fontFamily: fontFamily.bodyRegular,
+    fontSize: 16,
+    color: colors.text,
+  },
+  inputWithIcon: {
+    marginLeft: 0,
+  },
+  trailingButton: {
+    minWidth: 32,
+    minHeight: touchTargetMin,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helper: {
+    marginLeft: 2,
+  },
+});

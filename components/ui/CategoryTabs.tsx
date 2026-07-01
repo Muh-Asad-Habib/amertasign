@@ -1,12 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
-const COLORS = {
-  primary: '#2563EB',
-  surface: '#F1F5F9',
-  text: '#0F172A',
-  white: '#FFFFFF',
-};
+import { colors, fontFamily, radius, touchTargetMin } from '../../theme';
 
 export interface CategoryTabItem {
   id: string;
@@ -19,11 +14,7 @@ export interface CategoryTabsProps {
   onSelect: (id: string) => void;
 }
 
-export default function CategoryTabs({
-  categories,
-  activeCategory,
-  onSelect,
-}: CategoryTabsProps) {
+export default function CategoryTabs({ categories, activeCategory, onSelect }: CategoryTabsProps) {
   return (
     <ScrollView
       contentContainerStyle={styles.contentContainer}
@@ -36,6 +27,7 @@ export default function CategoryTabs({
         return (
           <Pressable
             accessibilityRole="button"
+            accessibilityState={{ selected: isActive }}
             key={category.id}
             onPress={() => onSelect(category.id)}
             style={({ pressed }) => [
@@ -56,34 +48,37 @@ export default function CategoryTabs({
 
 const styles = StyleSheet.create({
   contentContainer: {
-    paddingRight: 8,
+    gap: 10,
+    paddingRight: 4,
   },
   tab: {
     alignItems: 'center',
-    borderRadius: 999,
+    borderRadius: radius.full,
+    borderWidth: 1,
     justifyContent: 'center',
-    marginRight: 8,
-    minHeight: 48,
+    minHeight: touchTargetMin,
     minWidth: 96,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   activeTab: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   inactiveTab: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
   },
   label: {
+    fontFamily: fontFamily.bodySemiBold,
     fontSize: 15,
-    fontWeight: '700',
     textAlign: 'center',
   },
   activeLabel: {
-    color: COLORS.white,
+    color: colors.textOnPrimary,
   },
   inactiveLabel: {
-    color: COLORS.text,
+    color: colors.text,
   },
   pressed: {
     opacity: 0.85,

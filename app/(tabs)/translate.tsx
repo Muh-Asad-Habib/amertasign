@@ -1,131 +1,160 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 
 import LanguageToggle from '../../components/translate/LanguageToggle';
-import Card from '../../components/ui/Card';
-import { Colors } from '../../constants/Colors';
-import { Layout } from '../../constants/Layout';
+import Decor from '../../components/ui/Decor';
+import GradientSurface from '../../components/ui/GradientSurface';
+import Heading from '../../components/ui/Heading';
+import Screen from '../../components/ui/Screen';
+import Squiggle from '../../components/ui/Squiggle';
+import Stack from '../../components/ui/Stack';
+import Text from '../../components/ui/Text';
+import { gradients, overlay, radius, spacing } from '../../theme';
 import { useTranslation } from '../../hooks/useTranslation';
+
+type GradientStops = readonly [string, string, ...string[]];
+
+function ModeCard({
+  title,
+  subtitle,
+  icon,
+  gradient,
+  textColor,
+  fg,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  gradient: GradientStops;
+  textColor: 'onPrimary' | 'onAccent';
+  fg: string;
+  onPress: () => void;
+}) {
+  return (
+    <GradientSurface
+      accessibilityLabel={title}
+      colors={gradient}
+      onPress={onPress}
+      radius={radius.xxl}
+      shadowLevel="lg"
+      contentStyle={styles.cardContent}
+    >
+      <View style={styles.cardTop}>
+        <View style={styles.bubble}>
+          <Ionicons color={fg} name={icon} size={30} />
+        </View>
+        <View style={styles.chevron}>
+          <Ionicons color={fg} name="arrow-forward" size={20} />
+        </View>
+      </View>
+      <Heading variant="title" color={textColor} style={styles.cardTitle}>
+        {title}
+      </Heading>
+      <Text variant="body" color={textColor} style={styles.cardSubtitle}>
+        {subtitle}
+      </Text>
+    </GradientSurface>
+  );
+}
 
 export default function TranslateScreen() {
   const router = useRouter();
   const { signLanguageType, setSignLanguageType } = useTranslation();
 
   return (
-    <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Terjemah</Text>
-          <Text style={styles.subtitle}>Pilih mode terjemahan</Text>
+    <Screen scroll>
+      <Decor preset="header" />
+
+      <Stack gap={spacing.lg}>
+        <View>
+          <Text variant="kicker" color="primary">
+            Dua Arah
+          </Text>
+          <Heading variant="hero" style={styles.title}>
+            Terjemah
+          </Heading>
+          <Squiggle width={92} height={12} />
+          <Text variant="body" color="secondary" style={styles.subtitle}>
+            Pilih mode terjemahan yang kamu butuhkan.
+          </Text>
         </View>
 
         <LanguageToggle onChange={setSignLanguageType} value={signLanguageType} />
 
-        <View style={styles.cards}>
-          <Card elevated onPress={() => router.push('/translate/camera')} style={[styles.card, styles.cameraCard]}>
-            <View style={[styles.glow, styles.cameraGlow]} />
-            <Text style={styles.cardIcon}>📷</Text>
-            <Text style={[styles.cardTitle, styles.lightCardText]}>Isyarat → Teks & Suara</Text>
-            <Text style={[styles.cardDescription, styles.lightCardSubtext]}>
-              Arahkan kamera untuk menerjemahkan bahasa isyarat
-            </Text>
-          </Card>
+        <Stack gap={spacing.md}>
+          <Animated.View entering={FadeInDown.duration(450)}>
+            <ModeCard
+              fg="#FFFDF8"
+              gradient={gradients.primary}
+              icon="scan"
+              onPress={() => router.push('/translate/camera')}
+              subtitle="Arahkan kamera untuk menerjemahkan bahasa isyarat secara langsung."
+              textColor="onPrimary"
+              title="Isyarat → Teks & Suara"
+            />
+          </Animated.View>
 
-          <Card
-            elevated
-            onPress={() => router.push('/translate/text-to-sign')}
-            style={[styles.card, styles.textCard]}
-          >
-            <View style={[styles.glow, styles.textGlow]} />
-            <Text style={styles.cardIcon}>⌨️</Text>
-            <Text style={styles.cardTitle}>Teks → Bahasa Isyarat</Text>
-            <Text style={styles.cardDescription}>
-              Ketik pesan untuk diterjemahkan ke bahasa isyarat
-            </Text>
-          </Card>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          <Animated.View entering={FadeInDown.duration(450).delay(90)}>
+            <ModeCard
+              fg="#1A1714"
+              gradient={gradients.accent}
+              icon="hand-left"
+              onPress={() => router.push('/translate/text-to-sign')}
+              subtitle="Ketik pesan untuk diterjemahkan ke gerakan bahasa isyarat."
+              textColor="onAccent"
+              title="Teks → Bahasa Isyarat"
+            />
+          </Animated.View>
+        </Stack>
+      </Stack>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    backgroundColor: Colors.light.background,
-    flex: 1,
-  },
-  content: {
-    padding: Layout.spacing.lg,
-    paddingBottom: Layout.spacing.xxl,
-  },
-  header: {
-    marginBottom: Layout.spacing.lg,
-  },
   title: {
-    color: Colors.light.text,
-    fontSize: Layout.fontSize.title,
-    fontWeight: '800',
-    marginBottom: Layout.spacing.xs,
+    marginTop: 2,
   },
   subtitle: {
-    color: Colors.light.textSecondary,
-    fontSize: Layout.fontSize.body,
-    lineHeight: 24,
+    marginTop: spacing.sm,
   },
-  cards: {
-    marginTop: Layout.spacing.lg,
+  cardContent: {
+    minHeight: 196,
+    padding: spacing.lg,
+    justifyContent: 'space-between',
   },
-  card: {
-    borderWidth: 0,
-    minHeight: 220,
-    overflow: 'hidden',
-    padding: Layout.spacing.xl,
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  cameraCard: {
-    backgroundColor: Colors.light.primary,
-    marginBottom: Layout.spacing.md,
+  bubble: {
+    width: 58,
+    height: 58,
+    borderRadius: radius.xl,
+    backgroundColor: overlay.onBrandStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  textCard: {
-    backgroundColor: '#FCD34D',
-  },
-  glow: {
-    borderRadius: 140,
-    height: 140,
-    position: 'absolute',
-    right: -28,
-    top: -28,
-    width: 140,
-  },
-  cameraGlow: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
-  textGlow: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  cardIcon: {
-    fontSize: 42,
-    marginBottom: Layout.spacing.lg,
+  chevron: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.full,
+    backgroundColor: overlay.onBrandSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardTitle: {
-    color: Colors.light.text,
-    fontSize: 24,
-    fontWeight: '800',
-    lineHeight: 32,
-    marginBottom: Layout.spacing.sm,
-    maxWidth: '88%',
+    marginTop: spacing.lg,
+    maxWidth: '92%',
   },
-  cardDescription: {
-    color: '#78350F',
-    fontSize: Layout.fontSize.body,
-    lineHeight: 24,
-    maxWidth: '88%',
-  },
-  lightCardText: {
-    color: '#FFFFFF',
-  },
-  lightCardSubtext: {
-    color: 'rgba(255,255,255,0.84)',
+  cardSubtitle: {
+    marginTop: spacing.xs,
+    opacity: 0.9,
+    maxWidth: '94%',
   },
 });

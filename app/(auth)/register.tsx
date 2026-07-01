@@ -2,13 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import AuthInput from '../../components/auth/AuthInput';
 import Button from '../../components/ui/Button';
-import { Colors } from '../../constants/Colors';
-import { Layout } from '../../constants/Layout';
+import BrandMark from '../../components/ui/BrandMark';
+import Decor from '../../components/ui/Decor';
+import Heading from '../../components/ui/Heading';
+import Input from '../../components/ui/Input';
+import Squiggle from '../../components/ui/Squiggle';
+import Text from '../../components/ui/Text';
+import { colors, spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -84,53 +88,61 @@ export default function RegisterScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
+      <Decor preset="corner" />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoEmoji}>🤟</Text>
-          </View>
-          <Text style={styles.title}>Buat Akun Baru</Text>
-          <Text style={styles.subtitle}>Mulai perjalanan komunikasi tanpa batas bersama AmertaSign</Text>
+          <BrandMark size={84} />
+          <Heading variant="title" align="center" style={styles.brandName}>
+            Buat Akun Baru
+          </Heading>
+          <Squiggle width={84} />
+          <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
+            Mulai perjalanan komunikasi tanpa batas bersama AmertaSign
+          </Text>
         </View>
 
         <View style={styles.form}>
-          <AuthInput
+          <Input
             autoCorrect={false}
             icon="person-outline"
-            placeholder="Nama lengkap"
+            label="Nama lengkap"
+            placeholder="Nama Anda"
             textContentType="name"
             value={name}
             onChangeText={setName}
           />
-          <AuthInput
+          <Input
             autoCapitalize="none"
             autoCorrect={false}
             icon="mail-outline"
             keyboardType="email-address"
-            placeholder="Email"
+            label="Email"
+            placeholder="nama@email.com"
             textContentType="emailAddress"
             value={email}
             onChangeText={setEmail}
           />
-          <AuthInput
+          <Input
             autoCapitalize="none"
             autoCorrect={false}
             icon="lock-closed-outline"
             isPasswordVisible={showPassword}
+            label="Password"
             onToggleVisibility={() => setShowPassword((value) => !value)}
-            placeholder="Password"
+            placeholder="Minimal 6 karakter"
             secureTextEntry={!showPassword}
             textContentType="newPassword"
             value={password}
             onChangeText={setPassword}
           />
-          <AuthInput
+          <Input
             autoCapitalize="none"
             autoCorrect={false}
             icon="shield-checkmark-outline"
             isPasswordVisible={showConfirmPassword}
+            label="Konfirmasi password"
             onToggleVisibility={() => setShowConfirmPassword((value) => !value)}
-            placeholder="Konfirmasi password"
+            placeholder="Ulangi password"
             secureTextEntry={!showConfirmPassword}
             textContentType="password"
             value={confirmPassword}
@@ -147,7 +159,9 @@ export default function RegisterScreen() {
 
           <View style={styles.dividerRow}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>atau</Text>
+            <Text variant="caption" color="secondary">
+              atau
+            </Text>
             <View style={styles.dividerLine} />
           </View>
 
@@ -157,7 +171,7 @@ export default function RegisterScreen() {
             icon={
               isLoading && activeAuthMethod === 'google'
                 ? undefined
-                : <Ionicons color={Colors.light.primary} name="logo-google" size={18} />
+                : <Ionicons color={colors.primary} name="logo-google" size={18} />
             }
             loading={isLoading && activeAuthMethod === 'google'}
             title="Daftar dengan Google"
@@ -167,9 +181,13 @@ export default function RegisterScreen() {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Sudah punya akun?</Text>
+          <Text variant="body" color="secondary">
+            Sudah punya akun?{' '}
+          </Text>
           <Pressable disabled={isLoading} onPress={() => router.replace('/(auth)/login')}>
-            <Text style={styles.footerLink}>Masuk</Text>
+            <Text variant="bodyStrong" color="primary">
+              Masuk
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -180,76 +198,43 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.light.surface,
+    backgroundColor: colors.surface,
   },
   content: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: Layout.spacing.lg,
-    paddingVertical: Layout.spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
   },
   header: {
     alignItems: 'center',
-    marginBottom: Layout.spacing.xl,
+    marginBottom: spacing.xl,
+    gap: spacing.sm,
   },
-  logoBadge: {
-    width: 88,
-    height: 88,
-    borderRadius: Layout.radius.full,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Layout.spacing.md,
-  },
-  logoEmoji: {
-    fontSize: 44,
-  },
-  title: {
-    fontSize: Layout.fontSize.title,
-    fontWeight: '800',
-    color: Colors.light.text,
-    textAlign: 'center',
+  brandName: {
+    marginTop: spacing.xs,
   },
   subtitle: {
-    marginTop: Layout.spacing.xs,
-    fontSize: Layout.fontSize.body,
-    color: Colors.light.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
+    marginTop: spacing.xs,
   },
   form: {
-    gap: Layout.spacing.md,
+    gap: spacing.md,
   },
   dividerRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    marginVertical: Layout.spacing.xs,
+    marginVertical: spacing.xs,
+    gap: spacing.md,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.light.border,
-  },
-  dividerText: {
-    marginHorizontal: Layout.spacing.md,
-    fontSize: Layout.fontSize.sm,
-    color: Colors.light.textSecondary,
-    fontWeight: '600',
+    backgroundColor: colors.border,
   },
   footer: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: Layout.spacing.xl,
-  },
-  footerText: {
-    fontSize: Layout.fontSize.body,
-    color: Colors.light.textSecondary,
-    marginRight: Layout.spacing.xs,
-  },
-  footerLink: {
-    fontSize: Layout.fontSize.body,
-    color: Colors.light.primary,
-    fontWeight: '700',
+    marginTop: spacing.xl,
   },
 });

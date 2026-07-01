@@ -1,48 +1,65 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const COLORS = {
-  primary: '#2563EB',
-  accent: '#F59E0B',
-  darkText: '#0F172A',
-  white: '#FFFFFF',
-};
+import { colors, gradients, overlay, radius, spacing } from '../../theme';
+import GradientSurface from '../ui/GradientSurface';
+import Heading from '../ui/Heading';
+import Text from '../ui/Text';
 
 export interface QuickActionsProps {
   onTranslate: () => void;
   onDictionary: () => void;
 }
 
+type GradientStops = readonly [string, string, ...string[]];
+
 function ActionCard({
   title,
   subtitle,
   icon,
-  backgroundColor,
+  gradient,
   textColor,
+  bubbleFg,
+  tilt,
   onPress,
 }: {
   title: string;
   subtitle: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
-  backgroundColor: string;
-  textColor: string;
+  gradient: GradientStops;
+  textColor: 'onPrimary' | 'onAccent';
+  bubbleFg: string;
+  tilt: number;
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
+    <GradientSurface
+      accessibilityLabel={title}
+      colors={gradient}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        { backgroundColor },
-        pressed && styles.pressed,
-      ]}
+      radius={radius.xxl}
+      shadowLevel="lg"
+      style={styles.card}
+      contentStyle={styles.cardContent}
     >
-      <Ionicons color={textColor} name={icon} size={30} />
-      <Text style={[styles.title, { color: textColor }]}>{title}</Text>
-      <Text style={[styles.subtitle, { color: textColor }]}>{subtitle}</Text>
-    </Pressable>
+      <View style={styles.topRow}>
+        <View style={[styles.bubble, { transform: [{ rotate: `${tilt}deg` }] }]}>
+          <Ionicons color={bubbleFg} name={icon} size={26} />
+        </View>
+        <View style={styles.chevron}>
+          <Ionicons color={bubbleFg} name="arrow-forward" size={18} />
+        </View>
+      </View>
+      <View>
+        <Heading variant="h2" color={textColor} style={styles.title}>
+          {title}
+        </Heading>
+        <Text variant="caption" color={textColor} style={styles.subtitle}>
+          {subtitle}
+        </Text>
+      </View>
+    </GradientSurface>
   );
 }
 
@@ -50,19 +67,23 @@ export default function QuickActions({ onTranslate, onDictionary }: QuickActions
   return (
     <View style={styles.container}>
       <ActionCard
-        backgroundColor={COLORS.primary}
-        icon="camera"
+        bubbleFg={colors.textOnPrimary}
+        gradient={gradients.primary}
+        icon="scan"
         onPress={onTranslate}
         subtitle="Deteksi bahasa isyarat langsung"
-        textColor={COLORS.white}
+        textColor="onPrimary"
+        tilt={-7}
         title="Mulai Terjemah"
       />
       <ActionCard
-        backgroundColor={COLORS.accent}
+        bubbleFg={colors.textOnAccent}
+        gradient={gradients.accent}
         icon="book"
         onPress={onDictionary}
         subtitle="Pelajari kosakata isyarat"
-        textColor={COLORS.darkText}
+        textColor="onAccent"
+        tilt={7}
         title="Buka Kamus"
       />
     </View>
@@ -72,25 +93,42 @@ export default function QuickActions({ onTranslate, onDictionary }: QuickActions
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    gap: spacing.md,
   },
   card: {
-    borderRadius: 16,
     flex: 1,
-    minHeight: 148,
-    padding: 16,
+  },
+  cardContent: {
+    minHeight: 178,
+    padding: spacing.base,
+    justifyContent: 'space-between',
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  bubble: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.lg,
+    backgroundColor: overlay.onBrandStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chevron: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.full,
+    backgroundColor: overlay.onBrandSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 20,
+    marginTop: spacing.base,
   },
   subtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 8,
-    opacity: 0.9,
-  },
-  pressed: {
-    opacity: 0.88,
+    marginTop: spacing.xs,
+    opacity: 0.92,
   },
 });

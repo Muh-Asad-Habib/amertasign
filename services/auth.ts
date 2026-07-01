@@ -59,6 +59,20 @@ export async function signInWithGoogle(): Promise<User> {
   return currentUser;
 }
 
+export async function signInAsGuest(): Promise<User> {
+  // Mode tamu: tidak perlu kredensial. Tidak dipersistensikan ke backend.
+  await wait(150);
+  currentUser = {
+    id: 'guest-user',
+    name: 'Tamu',
+    email: '',
+    preferredSignLanguage: 'bisindo',
+    streak: 0,
+    completedModuleIds: [],
+  };
+  return currentUser;
+}
+
 export async function signOut(): Promise<void> {
   // TODO: Replace this mock with Firebase Auth signOut.
   await wait(150);

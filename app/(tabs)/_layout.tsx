@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
-import { Colors } from '../../constants/Colors';
+import { colors, fontFamily } from '../../theme';
 
 const tabIcons: Record<
   string,
@@ -13,7 +13,6 @@ const tabIcons: Record<
   index: { focused: 'home', unfocused: 'home-outline' },
   translate: { focused: 'camera', unfocused: 'camera-outline' },
   dictionary: { focused: 'book', unfocused: 'book-outline' },
-  learn: { focused: 'school', unfocused: 'school-outline' },
   profile: { focused: 'person', unfocused: 'person-outline' },
 };
 
@@ -22,36 +21,29 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: Colors.light.primary,
-        tabBarInactiveTintColor: Colors.light.textSecondary,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: Colors.light.surface,
-          borderTopColor: Colors.light.border,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 6,
-          paddingTop: 6,
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '600',
+          fontFamily: fontFamily.bodySemiBold,
         },
         tabBarIcon: ({ color, size, focused }) => {
           const icons = tabIcons[route.name] ?? tabIcons.index;
-          return (
-            <Ionicons
-              color={color}
-              name={focused ? icons.focused : icons.unfocused}
-              size={size}
-            />
-          );
+          return <Ionicons color={color} name={focused ? icons.focused : icons.unfocused} size={size} />;
         },
       })}
     >
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarAccessibilityLabel: 'Beranda' }} />
       <Tabs.Screen name="translate" options={{ title: 'Translate', tabBarAccessibilityLabel: 'Terjemah' }} />
       <Tabs.Screen name="dictionary" options={{ title: 'Kamus', tabBarAccessibilityLabel: 'Kamus Isyarat' }} />
-      <Tabs.Screen name="learn" options={{ title: 'Belajar', tabBarAccessibilityLabel: 'Belajar Isyarat' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profil', tabBarAccessibilityLabel: 'Profil Pengguna' }} />
     </Tabs>
   );

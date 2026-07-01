@@ -1,18 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-const COLORS = {
-  primary: '#DBEAFE',
-  primaryText: '#2563EB',
-  accent: '#FEF3C7',
-  accentText: '#92400E',
-  success: '#DCFCE7',
-  successText: '#166534',
-  neutral: '#E2E8F0',
-  neutralText: '#334155',
-};
+import { colors, fontFamily, radius } from '../../theme';
 
-type BadgeVariant = 'primary' | 'accent' | 'success' | 'neutral';
+type BadgeVariant = 'primary' | 'accent' | 'success' | 'warning' | 'neutral';
 type BadgeSize = 'sm' | 'md';
 
 export interface BadgeProps {
@@ -21,36 +12,31 @@ export interface BadgeProps {
   size?: BadgeSize;
 }
 
-const variantStyles = {
-  primary: { backgroundColor: COLORS.primary, color: COLORS.primaryText },
-  accent: { backgroundColor: COLORS.accent, color: COLORS.accentText },
-  success: { backgroundColor: COLORS.success, color: COLORS.successText },
-  neutral: { backgroundColor: COLORS.neutral, color: COLORS.neutralText },
+const variantStyles: Record<BadgeVariant, { backgroundColor: string; color: string }> = {
+  primary: { backgroundColor: colors.primarySurface, color: colors.primaryStrong },
+  accent: { backgroundColor: colors.accentSurface, color: colors.accentStrong },
+  success: { backgroundColor: colors.successTint, color: colors.success },
+  warning: { backgroundColor: colors.warningTint, color: colors.accentStrong },
+  neutral: { backgroundColor: colors.surfaceMuted, color: colors.textSecondary },
 };
 
-const sizeStyles = {
+const sizeStyles: Record<BadgeSize, { paddingHorizontal: number; paddingVertical: number; fontSize: number }> = {
   sm: { paddingHorizontal: 8, paddingVertical: 4, fontSize: 12 },
   md: { paddingHorizontal: 10, paddingVertical: 6, fontSize: 13 },
 };
 
 export default function Badge({ text, variant = 'neutral', size = 'md' }: BadgeProps) {
-  const selectedVariant = variantStyles[variant];
-  const selectedSize = sizeStyles[size];
+  const v = variantStyles[variant];
+  const s = sizeStyles[size];
 
   return (
     <View
       style={[
         styles.badge,
-        {
-          backgroundColor: selectedVariant.backgroundColor,
-          paddingHorizontal: selectedSize.paddingHorizontal,
-          paddingVertical: selectedSize.paddingVertical,
-        },
+        { backgroundColor: v.backgroundColor, paddingHorizontal: s.paddingHorizontal, paddingVertical: s.paddingVertical },
       ]}
     >
-      <Text style={[styles.text, { color: selectedVariant.color, fontSize: selectedSize.fontSize }]}>
-        {text}
-      </Text>
+      <Text style={[styles.text, { color: v.color, fontSize: s.fontSize }]}>{text}</Text>
     </View>
   );
 }
@@ -58,9 +44,11 @@ export default function Badge({ text, variant = 'neutral', size = 'md' }: BadgeP
 const styles = StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
-    borderRadius: 999,
+    borderRadius: radius.sm,
   },
   text: {
-    fontWeight: '700',
+    fontFamily: fontFamily.bodySemiBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
 });

@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# agent skills (local only, tidak perlu di-push)
+.agents/
+skills-lock.json
