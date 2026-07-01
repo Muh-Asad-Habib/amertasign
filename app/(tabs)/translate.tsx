@@ -12,7 +12,7 @@ import Screen from '../../components/ui/Screen';
 import Squiggle from '../../components/ui/Squiggle';
 import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
-import { gradients, overlay, radius, spacing } from '../../theme';
+import { colors, gradients, overlay, radius, spacing } from '../../theme';
 import { useTranslation } from '../../hooks/useTranslation';
 
 type GradientStops = readonly [string, string, ...string[]];
@@ -88,7 +88,19 @@ export default function TranslateScreen() {
         <Stack gap={spacing.md}>
           <Animated.View entering={FadeInDown.duration(450)}>
             <ModeCard
-              fg="#FFFDF8"
+              fg={colors.textOnPrimary}
+              gradient={gradients.primary}
+              icon="videocam"
+              onPress={() => router.push('/translate/live')}
+              subtitle="Terjemahkan bahasa isyarat secara langsung dengan kamera real-time."
+              textColor="onPrimary"
+              title="Penerjemah Langsung"
+            />
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.duration(450).delay(90)}>
+            <ModeCard
+              fg={colors.textOnPrimary}
               gradient={gradients.primary}
               icon="scan"
               onPress={() => router.push('/translate/camera')}
@@ -98,9 +110,9 @@ export default function TranslateScreen() {
             />
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.duration(450).delay(90)}>
+          <Animated.View entering={FadeInDown.duration(450).delay(180)}>
             <ModeCard
-              fg="#1A1714"
+              fg={colors.textOnAccent}
               gradient={gradients.accent}
               icon="hand-left"
               onPress={() => router.push('/translate/text-to-sign')}

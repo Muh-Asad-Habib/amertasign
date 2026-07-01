@@ -171,6 +171,17 @@ export default function ProfileScreen() {
                 {isGuest ? 'Masuk / Daftar' : 'Edit Profil'}
               </Text>
             </PressableScale>
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel="Pengaturan"
+              onPress={() => router.push('/settings')}
+              style={styles.headerAction}
+            >
+              <Ionicons color={colors.primary} name="settings-outline" size={16} />
+              <Text variant="label" style={styles.headerActionText}>
+                Pengaturan
+              </Text>
+            </PressableScale>
           </View>
         </GradientSurface>
 
@@ -317,6 +328,9 @@ const styles = StyleSheet.create({
     opacity: 0.86,
   },
   headerActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.sm,
     marginTop: spacing.sm,

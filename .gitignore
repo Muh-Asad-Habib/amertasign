@@ -43,3 +43,9 @@ yarn-error.*
 # agent skills (local only, tidak perlu di-push)
 .agents/
 skills-lock.json
+
+# editor / MCP config (berisi API key rahasia)
+.vscode/mcp.json
+
+# referensi desain Stitch (aset lokal, tidak perlu di-push)
+docs/stitch/

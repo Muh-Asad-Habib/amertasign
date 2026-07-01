@@ -81,7 +81,7 @@ export default function RootLayout() {
 
     const currentGroup = segments[0];
 
-    if (isAuthenticated && currentGroup !== '(tabs)') {
+    if (isAuthenticated && currentGroup !== '(tabs)' && currentGroup !== 'settings') {
       router.replace('/(tabs)/');
       return;
     }
@@ -110,6 +110,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="settings" />
           </Stack>
         </>
       ) : (

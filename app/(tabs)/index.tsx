@@ -13,10 +13,9 @@ import Row from '../../components/ui/Row';
 import Screen from '../../components/ui/Screen';
 import Section from '../../components/ui/Section';
 import Sparkles from '../../components/ui/Sparkles';
-import Squiggle from '../../components/ui/Squiggle';
 import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
-import { colors, layoutSpacing, radius, spacing } from '../../theme';
+import { colors, layoutSpacing, radius, shadow, spacing } from '../../theme';
 import { dailyWords as dailyWordIds, dictionaryEntries } from '../../constants/MockData';
 
 export default function HomeScreen() {
@@ -39,38 +38,41 @@ export default function HomeScreen() {
 
       <Stack gap={layoutSpacing.sectionGap}>
         <Animated.View entering={FadeInDown.springify().damping(15)}>
-          <Row justify="space-between" align="flex-start">
-            <View style={styles.headerCopy}>
-              <Text variant="kicker" color="primary">
-                AmertaSign
-              </Text>
-              <Heading variant="hero" style={styles.greeting}>
-                Halo,{'\n'}Pengguna
-              </Heading>
-              <Squiggle width={96} height={12} />
-              <Text variant="body" color="secondary" style={styles.subtitle}>
-                Bahasa isyarat, satu gerakan setiap hari.
-              </Text>
-            </View>
+          <Row justify="space-between" align="center">
+            <Text variant="kicker" color="primary" style={styles.brand}>
+              AmertaSign
+            </Text>
             <GradientSurface
               radius={radius.full}
               shadowLevel="md"
               style={styles.avatar}
               contentStyle={styles.avatarInner}
             >
-              <Ionicons accessibilityLabel="Avatar pengguna" color={colors.textOnPrimary} name="person" size={24} />
+              <Ionicons accessibilityLabel="Avatar pengguna" color={colors.textOnPrimary} name="person" size={22} />
             </GradientSurface>
           </Row>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(80).springify().damping(15)}>
+        <Animated.View entering={FadeInDown.delay(60).springify().damping(15)}>
+          <View style={styles.welcomeBanner}>
+            <View style={styles.welcomeDecor} />
+            <Heading variant="hero" style={styles.welcomeTitle}>
+              Halo, Pengguna!
+            </Heading>
+            <Text variant="body" style={styles.welcomeSubtitle}>
+              Bahasa isyarat, satu gerakan setiap hari.
+            </Text>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(120).springify().damping(15)}>
           <QuickActions
             onDictionary={() => router.push('/(tabs)/dictionary')}
             onTranslate={() => router.push('/(tabs)/translate')}
           />
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(160).springify().damping(15)}>
+        <Animated.View entering={FadeInDown.delay(200).springify().damping(15)}>
           <Section kicker="Hari Ini" title="Kata Pilihan">
             <DailyWord
               category={featuredWord.category}
@@ -85,23 +87,42 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerCopy: {
-    flex: 1,
-    paddingRight: spacing.md,
-    gap: 6,
+  brand: {
+    fontSize: 18,
+    letterSpacing: 0.5,
   },
-  greeting: {
-    marginTop: 2,
+  welcomeBanner: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.xxl,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    overflow: 'hidden',
+    ...shadow.sm,
   },
-  subtitle: {
-    marginTop: spacing.sm,
+  welcomeDecor: {
+    position: 'absolute',
+    right: -40,
+    top: -40,
+    width: 128,
+    height: 128,
+    borderRadius: radius.full,
+    backgroundColor: colors.accentStrong,
+    opacity: 0.18,
+  },
+  welcomeTitle: {
+    color: colors.textOnAccent,
+    marginBottom: 4,
+  },
+  welcomeSubtitle: {
+    color: colors.textOnAccent,
+    opacity: 0.9,
   },
   avatar: {
-    marginTop: 4,
+    marginTop: 0,
   },
   avatarInner: {
-    width: 56,
-    height: 56,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

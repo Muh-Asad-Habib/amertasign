@@ -68,13 +68,13 @@ const makeShadow = (
 ): ShadowStyle =>
   Platform.select<ShadowStyle>({
     web: {
-      shadowColor: '#3B2A18',
+      shadowColor: '#0B1220',
       shadowOffset: { width: 0, height: offsetHeight },
       shadowOpacity,
       shadowRadius,
     },
     default: {
-      shadowColor: '#3B2A18',
+      shadowColor: '#0B1220',
       shadowOffset: { width: 0, height: offsetHeight },
       shadowOpacity,
       shadowRadius,
