@@ -3,16 +3,15 @@ import { Alert, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import BackHeader from '../components/ui/BackHeader';
-import Heading from '../components/ui/Heading';
-import PressableScale from '../components/ui/PressableScale';
-import Screen from '../components/ui/Screen';
-import Stack from '../components/ui/Stack';
-import Text from '../components/ui/Text';
-import { colors, radius, shadow, spacing } from '../theme';
-import { useAuthStore } from '../store/useAuthStore';
-import { useDictionaryStore } from '../store/useDictionaryStore';
-import type { SignLanguageType } from '../types';
+import Heading from '../../components/ui/Heading';
+import PressableScale from '../../components/ui/PressableScale';
+import Screen from '../../components/ui/Screen';
+import Stack from '../../components/ui/Stack';
+import Text from '../../components/ui/Text';
+import { colors, radius, shadow, spacing } from '../../theme';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useDictionaryStore } from '../../store/useDictionaryStore';
+import type { SignLanguageType } from '../../types';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -131,7 +130,13 @@ export default function SettingsScreen() {
 
   return (
     <Screen scroll>
-      <BackHeader title="Pengaturan" onBack={() => router.back()} />
+      {/* Brand header ala Stitch */}
+      <View style={styles.brandRow}>
+        <Ionicons color={colors.primary} name="hand-left" size={22} />
+        <Heading variant="h2" style={styles.brandText}>
+          AmertaSign
+        </Heading>
+      </View>
 
       <Stack gap={spacing.lg} style={styles.body}>
         <View>
@@ -146,15 +151,9 @@ export default function SettingsScreen() {
           rows={[
             {
               icon: 'person-outline',
-              label: 'Profil',
-              value: isGuest ? 'Mode tamu' : 'Kelola informasi akun',
-              accent: true,
-              onPress: () => (isGuest ? router.replace('/(auth)/login') : router.push('/(tabs)/profile')),
-            },
-            {
-              icon: 'options-outline',
               label: 'Preferensi Aplikasi',
-              value: 'Bahasa, nilai default',
+              value: `Bahasa isyarat: ${signLanguageFilter.toUpperCase()}`,
+              accent: true,
               onPress: handleLanguagePress,
             },
           ]}
@@ -163,12 +162,6 @@ export default function SettingsScreen() {
         <SettingsGroup
           title="Preferensi"
           rows={[
-            {
-              icon: 'language-outline',
-              label: 'Bahasa Isyarat Default',
-              value: signLanguageFilter.toUpperCase(),
-              onPress: handleLanguagePress,
-            },
             {
               icon: 'notifications-outline',
               label: 'Notifikasi',
@@ -225,6 +218,14 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  brandText: {
+    color: colors.primary,
+  },
   body: {
     marginTop: spacing.lg,
   },

@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 
 import WordCard from '../../components/dictionary/WordCard';
 import LanguageToggle from '../../components/translate/LanguageToggle';
+import BackHeader from '../../components/ui/BackHeader';
 import Badge from '../../components/ui/Badge';
 import CategoryTabs from '../../components/ui/CategoryTabs';
 import Decor from '../../components/ui/Decor';
@@ -119,6 +120,8 @@ export default function DictionaryScreen() {
   return (
     <Screen>
       <Decor preset="header" />
+
+      <BackHeader onBack={() => router.back()} />
 
       <View style={styles.header}>
         <Text variant="kicker" color="primary">

@@ -5,7 +5,7 @@ export type LearningLevel = 'pemula' | 'menengah' | 'lanjutan';
 export interface User {
   id: string;
   name: string;
-  email: string;
+  username: string;
   preferredSignLanguage: SignLanguageType;
   streak: number;
   completedModuleIds: string[];

@@ -13,6 +13,8 @@ import Text from '../../components/ui/Text';
 import { colors, palette, radius, spacing } from '../../theme';
 import { useTTS } from '../../hooks/useTTS';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useHistoryStore } from '../../store/useHistoryStore';
 
 const WAITING_TEXT = 'Menunggu deteksi gerakan...';
 
@@ -29,10 +31,22 @@ export default function CameraTranslateScreen() {
   const [isActive, setIsActive] = useState(false);
   const [translatedText, setTranslatedText] = useState(WAITING_TEXT);
   const { speak } = useTTS();
+  const user = useAuthStore((state) => state.user);
+  const isGuest = useAuthStore((state) => state.isGuest);
+  const addHistoryEntry = useHistoryStore((state) => state.addEntry);
 
   useEffect(() => {
     setTranslatedText(detectedText || WAITING_TEXT);
-  }, [detectedText]);
+
+    // Simpan riwayat hanya untuk pengguna yang login (bukan tamu).
+    if (detectedText && !isGuest && user) {
+      addHistoryEntry(user.id, {
+        kind: 'isyarat-ke-teks',
+        text: detectedText,
+        signLanguageType,
+      });
+    }
+  }, [addHistoryEntry, detectedText, isGuest, signLanguageType, user]);
 
   useEffect(() => {
     if (isActive) {

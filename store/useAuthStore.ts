@@ -3,10 +3,9 @@ import { create } from 'zustand';
 import {
   getCurrentUser,
   signInAsGuest,
-  signInWithEmail,
-  signInWithGoogle,
+  signInWithUsername,
   signOut,
-  signUpWithEmail,
+  signUpWithUsername,
 } from '../services/auth';
 import type { User } from '../types';
 
@@ -16,9 +15,8 @@ interface AuthState {
   isGuest: boolean;
   isLoading: boolean;
   initializeAuth: () => Promise<User | null>;
-  signIn: (email: string, password: string) => Promise<User>;
-  signUp: (name: string, email: string, password: string) => Promise<User>;
-  googleSignIn: () => Promise<User>;
+  signIn: (username: string, password: string) => Promise<User>;
+  signUp: (username: string, password: string) => Promise<User>;
   continueAsGuest: () => Promise<User>;
   logout: () => Promise<void>;
 }
@@ -40,11 +38,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       throw error;
     }
   },
-  signIn: async (email, password) => {
+  signIn: async (username, password) => {
     set({ isLoading: true });
 
     try {
-      const user = await signInWithEmail(email, password);
+      const user = await signInWithUsername(username, password);
       set({ isAuthenticated: true, isGuest: false, isLoading: false, user });
       return user;
     } catch (error) {
@@ -52,23 +50,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       throw error;
     }
   },
-  signUp: async (name, email, password) => {
+  signUp: async (username, password) => {
     set({ isLoading: true });
 
     try {
-      const user = await signUpWithEmail(name, email, password);
-      set({ isAuthenticated: true, isGuest: false, isLoading: false, user });
-      return user;
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-  googleSignIn: async () => {
-    set({ isLoading: true });
-
-    try {
-      const user = await signInWithGoogle();
+      const user = await signUpWithUsername(username, password);
       set({ isAuthenticated: true, isGuest: false, isLoading: false, user });
       return user;
     } catch (error) {

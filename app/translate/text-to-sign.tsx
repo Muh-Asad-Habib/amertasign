@@ -21,6 +21,8 @@ import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
 import { colors, radius, spacing } from '../../theme';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useHistoryStore } from '../../store/useHistoryStore';
 import type { TextToSignResult } from '../../services/translation';
 
 export default function TextToSignScreen() {
@@ -29,6 +31,9 @@ export default function TextToSignScreen() {
   const [inputValue, setInputValue] = useState('');
   const [result, setResult] = useState<TextToSignResult | null>(null);
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
+  const user = useAuthStore((state) => state.user);
+  const isGuest = useAuthStore((state) => state.isGuest);
+  const addHistoryEntry = useHistoryStore((state) => state.addEntry);
 
   useEffect(() => {
     Animated.timing(feedbackOpacity, {
@@ -39,12 +44,22 @@ export default function TextToSignScreen() {
   }, [feedbackOpacity, isDetecting]);
 
   const handleSubmit = async () => {
-    if (!inputValue.trim()) {
+    const message = inputValue.trim();
+    if (!message) {
       return;
     }
 
-    const translationResult = await translateText(inputValue);
+    const translationResult = await translateText(message);
     setResult(translationResult);
+
+    // Simpan riwayat hanya untuk pengguna yang login (bukan tamu).
+    if (!isGuest && user) {
+      addHistoryEntry(user.id, {
+        kind: 'teks-ke-isyarat',
+        text: message,
+        signLanguageType,
+      });
+    }
   };
 
   return (

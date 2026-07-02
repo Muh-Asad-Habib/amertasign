@@ -6,9 +6,8 @@ let currentUser: User | null = null;
 
 const wait = (duration = 350) => new Promise((resolve) => setTimeout(resolve, duration));
 
-const toDisplayName = (email: string) => {
-  const localPart = email.split('@')[0] ?? 'Pengguna';
-  const formatted = localPart
+const toDisplayName = (username: string) => {
+  const formatted = username
     .split(/[._-]/)
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -17,55 +16,39 @@ const toDisplayName = (email: string) => {
   return formatted || 'Pengguna';
 };
 
-const buildMockUser = ({ email, name }: { email: string; name: string }): User => ({
-  id: `mock-${email.toLowerCase()}`,
-  name,
-  email: email.toLowerCase(),
+const buildMockUser = ({ username, name }: { username: string; name?: string }): User => ({
+  id: `mock-${username.toLowerCase()}`,
+  name: name || toDisplayName(username),
+  username: username.toLowerCase(),
   preferredSignLanguage: 'bisindo',
   streak: 0,
   completedModuleIds: [],
 });
 
-export async function signInWithEmail(email: string, password: string): Promise<User> {
+export async function signInWithUsername(username: string, password: string): Promise<User> {
   void password;
   void firebaseConfig;
-  // TODO: Replace this mock with Firebase Auth signInWithEmailAndPassword.
+  // TODO: Ganti mock ini dengan autentikasi backend (username + password).
   await wait();
-  currentUser = buildMockUser({
-    email,
-    name: toDisplayName(email),
-  });
+  currentUser = buildMockUser({ username });
   return currentUser;
 }
 
-export async function signUpWithEmail(name: string, email: string, password: string): Promise<User> {
+export async function signUpWithUsername(username: string, password: string): Promise<User> {
   void password;
-  // TODO: Replace this mock with Firebase Auth createUserWithEmailAndPassword and profile update.
+  // TODO: Ganti mock ini dengan pendaftaran backend (username + password).
   await wait();
-  currentUser = buildMockUser({
-    email,
-    name,
-  });
-  return currentUser;
-}
-
-export async function signInWithGoogle(): Promise<User> {
-  // TODO: Replace this mock with Google provider sign-in via Firebase Auth.
-  await wait();
-  currentUser = buildMockUser({
-    email: 'google.user@amertasign.app',
-    name: 'Google User',
-  });
+  currentUser = buildMockUser({ username });
   return currentUser;
 }
 
 export async function signInAsGuest(): Promise<User> {
-  // Mode tamu: tidak perlu kredensial. Tidak dipersistensikan ke backend.
+  // Mode tamu: tidak perlu kredensial. Riwayat tidak dipersistensikan.
   await wait(150);
   currentUser = {
     id: 'guest-user',
     name: 'Tamu',
-    email: '',
+    username: '',
     preferredSignLanguage: 'bisindo',
     streak: 0,
     completedModuleIds: [],

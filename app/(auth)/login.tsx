@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
@@ -15,29 +14,27 @@ import Text from '../../components/ui/Text';
 import { colors, spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_REGEX = /^[a-zA-Z0-9._-]{3,20}$/;
 
 export default function LoginScreen() {
   const router = useRouter();
   const signIn = useAuthStore((state) => state.signIn);
-  const googleSignIn = useAuthStore((state) => state.googleSignIn);
   const continueAsGuest = useAuthStore((state) => state.continueAsGuest);
   const isLoading = useAuthStore((state) => state.isLoading);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [activeAuthMethod, setActiveAuthMethod] = useState<'email' | 'google' | null>(null);
 
   const handleLogin = async () => {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedUsername = username.trim().toLowerCase();
 
-    if (!normalizedEmail || !password) {
-      Alert.alert('Data belum lengkap', 'Masukkan email dan password Anda terlebih dahulu.');
+    if (!normalizedUsername || !password) {
+      Alert.alert('Data belum lengkap', 'Masukkan username dan password Anda terlebih dahulu.');
       return;
     }
 
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      Alert.alert('Email tidak valid', 'Gunakan format email yang benar, misalnya nama@email.com.');
+    if (!USERNAME_REGEX.test(normalizedUsername)) {
+      Alert.alert('Username tidak valid', 'Username 3-20 karakter, hanya huruf, angka, titik, garis bawah, atau strip.');
       return;
     }
 
@@ -46,34 +43,14 @@ export default function LoginScreen() {
       return;
     }
 
-    setActiveAuthMethod('email');
-
     try {
-      await signIn(normalizedEmail, password);
+      await signIn(normalizedUsername, password);
       router.replace('/(tabs)/');
     } catch (error) {
       Alert.alert(
         'Masuk gagal',
         error instanceof Error ? error.message : 'Terjadi kendala saat masuk. Silakan coba lagi.'
       );
-    } finally {
-      setActiveAuthMethod(null);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setActiveAuthMethod('google');
-
-    try {
-      await googleSignIn();
-      router.replace('/(tabs)/');
-    } catch (error) {
-      Alert.alert(
-        'Google Sign-In gagal',
-        error instanceof Error ? error.message : 'Silakan coba lagi dalam beberapa saat.'
-      );
-    } finally {
-      setActiveAuthMethod(null);
     }
   };
 
@@ -109,13 +86,12 @@ export default function LoginScreen() {
           <Input
             autoCapitalize="none"
             autoCorrect={false}
-            icon="mail-outline"
-            keyboardType="email-address"
-            label="Email"
-            placeholder="nama@email.com"
-            textContentType="emailAddress"
-            value={email}
-            onChangeText={setEmail}
+            icon="person-outline"
+            label="Username"
+            placeholder="username_anda"
+            textContentType="username"
+            value={username}
+            onChangeText={setUsername}
           />
           <Input
             autoCapitalize="none"
@@ -132,9 +108,9 @@ export default function LoginScreen() {
           />
 
           <Button
-            disabled={isLoading || !email.trim() || !password}
+            disabled={isLoading || !username.trim() || !password}
             fullWidth
-            loading={isLoading && activeAuthMethod === 'email'}
+            loading={isLoading}
             title="Masuk"
             onPress={handleLogin}
           />
@@ -150,24 +126,14 @@ export default function LoginScreen() {
           <Button
             disabled={isLoading}
             fullWidth
-            icon={
-              isLoading && activeAuthMethod === 'google'
-                ? undefined
-                : <Ionicons color={colors.primary} name="logo-google" size={18} />
-            }
-            loading={isLoading && activeAuthMethod === 'google'}
-            title="Masuk dengan Google"
-            variant="outline"
-            onPress={handleGoogleLogin}
-          />
-
-          <Button
-            disabled={isLoading}
-            fullWidth
             title="Lanjut sebagai Tamu"
             variant="ghost"
             onPress={handleGuestLogin}
           />
+
+          <Text variant="caption" color="secondary" align="center">
+            Mode tamu tidak menyimpan riwayat terjemahan.
+          </Text>
         </View>
 
         <View style={styles.footer}>
