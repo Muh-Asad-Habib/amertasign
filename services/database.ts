@@ -1,9 +1,7 @@
-// Mock Firestore service — stores data in memory for now
-// TODO: Replace with actual @react-native-firebase/firestore
+// Mock service — stores data in memory for now
+// TODO: Ganti dengan panggilan REST API (/favorites, dan opsional /search-history).
 
 interface UserProgress {
-  completedModuleIds: string[];
-  moduleProgress: Record<string, number>;
   favorites: string[];
   searchHistory: string[];
   streak: number;
@@ -13,8 +11,6 @@ interface UserProgress {
 const mockStorage: Record<string, UserProgress> = {};
 
 const createDefaultProgress = (): UserProgress => ({
-  completedModuleIds: [],
-  moduleProgress: {},
   favorites: [],
   searchHistory: [],
   streak: 0,

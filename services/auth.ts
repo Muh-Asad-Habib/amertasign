@@ -1,7 +1,5 @@
 import type { User } from '../types';
 
-import { firebaseConfig } from './firebase';
-
 let currentUser: User | null = null;
 
 const wait = (duration = 350) => new Promise((resolve) => setTimeout(resolve, duration));
@@ -22,13 +20,11 @@ const buildMockUser = ({ username, name }: { username: string; name?: string }):
   username: username.toLowerCase(),
   preferredSignLanguage: 'bisindo',
   streak: 0,
-  completedModuleIds: [],
 });
 
 export async function signInWithUsername(username: string, password: string): Promise<User> {
   void password;
-  void firebaseConfig;
-  // TODO: Ganti mock ini dengan autentikasi backend (username + password).
+  // TODO: Ganti mock ini dengan POST /auth/login { username, password } lalu simpan token di expo-secure-store.
   await wait();
   currentUser = buildMockUser({ username });
   return currentUser;
@@ -36,7 +32,7 @@ export async function signInWithUsername(username: string, password: string): Pr
 
 export async function signUpWithUsername(username: string, password: string): Promise<User> {
   void password;
-  // TODO: Ganti mock ini dengan pendaftaran backend (username + password).
+  // TODO: Ganti mock ini dengan POST /auth/register { username, password } lalu simpan token di expo-secure-store.
   await wait();
   currentUser = buildMockUser({ username });
   return currentUser;
@@ -51,19 +47,18 @@ export async function signInAsGuest(): Promise<User> {
     username: '',
     preferredSignLanguage: 'bisindo',
     streak: 0,
-    completedModuleIds: [],
   };
   return currentUser;
 }
 
 export async function signOut(): Promise<void> {
-  // TODO: Replace this mock with Firebase Auth signOut.
+  // TODO: Ganti mock ini dengan POST /auth/logout lalu hapus token dari expo-secure-store.
   await wait(150);
   currentUser = null;
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  // TODO: Replace this mock with Firebase Auth current user lookup or auth state listener.
+  // TODO: Ganti mock ini dengan GET /auth/me memakai token dari expo-secure-store (restore sesi saat app start).
   await wait(100);
   return currentUser;
 }

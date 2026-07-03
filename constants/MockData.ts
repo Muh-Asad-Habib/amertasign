@@ -1,4 +1,4 @@
-import type { DictionaryEntry, LearningModule } from '../types';
+import type { DictionaryEntry } from '../types';
 
 export const dictionaryEntries: DictionaryEntry[] = [
   {
@@ -225,69 +225,6 @@ export const dictionaryEntries: DictionaryEntry[] = [
     description: 'Rangkaian isyarat saya, mau, lalu makan dengan jeda singkat yang jelas di setiap kata.',
     imageUrl: 'https://via.placeholder.com/300?text=Saya+Mau+Makan',
     videoUrl: '',
-  },
-];
-
-export const learningModules: LearningModule[] = [
-  {
-    id: 'module-alfabet-isyarat',
-    title: 'Alfabet Isyarat',
-    description: 'Mengenal bentuk tangan untuk huruf dasar BISINDO dan SIBI dengan latihan bertahap.',
-    level: 'pemula',
-    duration: '5 menit',
-    thumbnailUrl: 'https://via.placeholder.com/300?text=Alfabet+Isyarat',
-    videoUrl: 'https://via.placeholder.com/300?text=Video+Alfabet',
-    order: 1,
-  },
-  {
-    id: 'module-angka-isyarat',
-    title: 'Angka Isyarat',
-    description: 'Belajar angka 1 sampai 10 untuk kebutuhan sehari-hari dan latihan kuis singkat.',
-    level: 'pemula',
-    duration: '6 menit',
-    thumbnailUrl: 'https://via.placeholder.com/300?text=Angka+Isyarat',
-    videoUrl: 'https://via.placeholder.com/300?text=Video+Angka',
-    order: 2,
-  },
-  {
-    id: 'module-salam-sapaan',
-    title: 'Salam & Sapaan',
-    description: 'Mempraktikkan sapaan umum seperti halo, selamat pagi, dan apa kabar.',
-    level: 'pemula',
-    duration: '7 menit',
-    thumbnailUrl: 'https://via.placeholder.com/300?text=Salam+Sapaan',
-    videoUrl: 'https://via.placeholder.com/300?text=Video+Salam',
-    order: 3,
-  },
-  {
-    id: 'module-percakapan-sehari-hari',
-    title: 'Percakapan Sehari-hari',
-    description: 'Menyusun kata menjadi dialog sederhana untuk sekolah, rumah, dan komunitas.',
-    level: 'menengah',
-    duration: '10 menit',
-    thumbnailUrl: 'https://via.placeholder.com/300?text=Percakapan+Sehari-hari',
-    videoUrl: 'https://via.placeholder.com/300?text=Video+Percakapan',
-    order: 4,
-  },
-  {
-    id: 'module-ekspresi-perasaan',
-    title: 'Ekspresi Perasaan',
-    description: 'Mempelajari isyarat untuk senang, sedih, marah, dan ekspresi emosional lainnya.',
-    level: 'menengah',
-    duration: '8 menit',
-    thumbnailUrl: 'https://via.placeholder.com/300?text=Ekspresi+Perasaan',
-    videoUrl: 'https://via.placeholder.com/300?text=Video+Perasaan',
-    order: 5,
-  },
-  {
-    id: 'module-kalimat-kompleks',
-    title: 'Kalimat Kompleks',
-    description: 'Menggabungkan beberapa ide dalam satu kalimat dengan struktur isyarat yang lebih panjang.',
-    level: 'lanjutan',
-    duration: '12 menit',
-    thumbnailUrl: 'https://via.placeholder.com/300?text=Kalimat+Kompleks',
-    videoUrl: 'https://via.placeholder.com/300?text=Video+Kompleks',
-    order: 6,
   },
 ];
 
