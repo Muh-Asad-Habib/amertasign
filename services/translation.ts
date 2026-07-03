@@ -1,3 +1,6 @@
+import type { SignLanguageType } from '../types';
+import { searchDictionary } from './dictionary';
+
 export interface TextToSignResult {
   visualUrl: string;
   description: string;
@@ -5,6 +8,11 @@ export interface TextToSignResult {
 
 const wait = (duration: number) => new Promise((resolve) => setTimeout(resolve, duration));
 
+/**
+ * Deteksi isyarat dari kamera. Backend menyediakan POST /recognize dan
+ * WS /ws/recognize yang menerima payload landmark MediaPipe — ekstraksi
+ * landmark on-device belum tersedia di app, jadi fungsi ini masih simulasi.
+ */
 export async function detectSign(isActive: boolean): Promise<string> {
   if (!isActive) {
     await wait(300);
@@ -15,15 +23,34 @@ export async function detectSign(isActive: boolean): Promise<string> {
   return 'Halo, apa kabar?';
 }
 
-export async function textToSign(text: string): Promise<TextToSignResult> {
+/**
+ * Teks → visual isyarat: cari peragaan dari kamus backend (GET /dictionary?search=).
+ */
+export async function textToSign(
+  text: string,
+  signLanguageType: SignLanguageType = 'bisindo'
+): Promise<TextToSignResult> {
   const cleanText = text.trim();
 
-  await wait(1400);
+  if (!cleanText) {
+    return {
+      visualUrl: '',
+      description: 'Visual bahasa isyarat akan tampil di sini.',
+    };
+  }
+
+  const matches = await searchDictionary(cleanText);
+  const match = matches.find((entry) => entry.type === signLanguageType) ?? matches[0];
+
+  if (match) {
+    return {
+      visualUrl: match.videoUrl || match.imageUrl,
+      description: match.description || `Peragaan isyarat untuk “${match.word}”.`,
+    };
+  }
 
   return {
-    visualUrl: cleanText ? `mock://sign-visual/${encodeURIComponent(cleanText)}` : 'mock://sign-visual/placeholder',
-    description: cleanText
-      ? `Visual placeholder siap untuk kalimat: “${cleanText}”`
-      : 'Visual bahasa isyarat akan tampil di sini.',
+    visualUrl: '',
+    description: `Belum ada peragaan untuk “${cleanText}” di kamus. Coba kata lain.`,
   };
 }

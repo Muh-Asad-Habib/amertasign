@@ -12,10 +12,15 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.devnolife.amertasign",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#003E9B"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -29,7 +34,8 @@
         {
           "cameraPermission": "AmertaSign membutuhkan akses kamera untuk menerjemahkan bahasa isyarat secara langsung."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

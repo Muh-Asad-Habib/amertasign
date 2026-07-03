@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { dictionaryEntries } from '../constants/MockData';
+import { dictionaryEntries as fallbackEntries } from '../constants/MockData';
+import { fetchDictionaryEntries } from '../services/dictionary';
 import { useDictionaryStore } from '../store/useDictionaryStore';
 import type { DictionaryCategory, DictionaryEntry } from '../types';
 
@@ -11,13 +12,10 @@ interface UseDictionaryOptions {
   search?: string;
 }
 
-const resolveEntries = (ids: string[]) =>
-  ids
-    .map((id) => dictionaryEntries.find((entry) => entry.id === id))
-    .filter((entry): entry is DictionaryEntry => Boolean(entry));
-
 export function useDictionary(options: UseDictionaryOptions = {}) {
   const { category = 'semua', search = '' } = options;
+  const [entries, setEntries] = useState<DictionaryEntry[]>(fallbackEntries);
+  const [isLoadingEntries, setIsLoadingEntries] = useState(true);
   const favorites = useDictionaryStore((state) => state.favorites);
   const searchHistory = useDictionaryStore((state) => state.searchHistory);
   const signLanguageFilter = useDictionaryStore((state) => state.signLanguageFilter);
@@ -25,6 +23,26 @@ export function useDictionary(options: UseDictionaryOptions = {}) {
   const addToHistory = useDictionaryStore((state) => state.addToHistory);
   const setSignLanguageFilter = useDictionaryStore((state) => state.setSignLanguageFilter);
   const isFavorite = useDictionaryStore((state) => state.isFavorite);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void fetchDictionaryEntries()
+      .then((items) => {
+        if (isMounted) {
+          setEntries(items);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingEntries(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const normalizedSearch = search.trim().toLowerCase();
 
@@ -37,23 +55,29 @@ export function useDictionary(options: UseDictionaryOptions = {}) {
     return matchesCategory && matchesType && matchesSearch;
   };
 
+  const resolveEntries = (ids: string[]) =>
+    ids
+      .map((id) => entries.find((entry) => entry.id === id))
+      .filter((entry): entry is DictionaryEntry => Boolean(entry));
+
   const filteredEntries = useMemo(
-    () => dictionaryEntries.filter(matchesFilters),
-    [category, normalizedSearch, signLanguageFilter]
+    () => entries.filter(matchesFilters),
+    [entries, category, normalizedSearch, signLanguageFilter]
   );
 
   const favoriteEntries = useMemo(
     () => resolveEntries(favorites).filter(matchesFilters),
-    [favorites, category, normalizedSearch, signLanguageFilter]
+    [entries, favorites, category, normalizedSearch, signLanguageFilter]
   );
 
   const historyEntries = useMemo(
     () => resolveEntries(searchHistory).filter(matchesFilters),
-    [searchHistory, category, normalizedSearch, signLanguageFilter]
+    [entries, searchHistory, category, normalizedSearch, signLanguageFilter]
   );
 
   return {
-    allEntries: dictionaryEntries,
+    allEntries: entries,
+    isLoadingEntries,
     filteredEntries,
     favoriteEntries,
     historyEntries,

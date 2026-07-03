@@ -37,21 +37,24 @@ export function useTranslation() {
     setTranslatedText('');
   }, []);
 
-  const translateText = useCallback(async (text: string) => {
-    const requestId = ++requestIdRef.current;
+  const translateText = useCallback(
+    async (text: string) => {
+      const requestId = ++requestIdRef.current;
 
-    setIsDetecting(true);
+      setIsDetecting(true);
 
-    const result = await textToSign(text);
+      const result = await textToSign(text, signLanguageType);
 
-    if (requestIdRef.current === requestId) {
-      setTranslatedText(result.description);
-      setIsDetecting(false);
-      return result;
-    }
+      if (requestIdRef.current === requestId) {
+        setTranslatedText(result.description);
+        setIsDetecting(false);
+        return result;
+      }
 
-    return EMPTY_VISUAL_RESULT;
-  }, []);
+      return EMPTY_VISUAL_RESULT;
+    },
+    [signLanguageType]
+  );
 
   return {
     signLanguageType,

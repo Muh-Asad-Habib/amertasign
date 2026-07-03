@@ -49,3 +49,9 @@ skills-lock.json
 
 # referensi desain Stitch (aset lokal, tidak perlu di-push)
 docs/stitch/
+
+# local env
+.env
+
+# build artifacts
+*.apk

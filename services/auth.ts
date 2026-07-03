@@ -1,64 +1,79 @@
 import type { User } from '../types';
+import { apiRequest, clearTokens, getAccessToken, saveTokens } from './api';
 
-let currentUser: User | null = null;
+interface AuthPayload {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
+}
 
-const wait = (duration = 350) => new Promise((resolve) => setTimeout(resolve, duration));
-
-const toDisplayName = (username: string) => {
-  const formatted = username
-    .split(/[._-]/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-
-  return formatted || 'Pengguna';
-};
-
-const buildMockUser = ({ username, name }: { username: string; name?: string }): User => ({
-  id: `mock-${username.toLowerCase()}`,
-  name: name || toDisplayName(username),
-  username: username.toLowerCase(),
+export const GUEST_USER: User = {
+  id: 'guest-user',
+  name: 'Tamu',
+  username: '',
   preferredSignLanguage: 'bisindo',
   streak: 0,
-});
+};
+
+let isGuestSession = false;
 
 export async function signInWithUsername(username: string, password: string): Promise<User> {
-  void password;
-  // TODO: Ganti mock ini dengan POST /auth/login { username, password } lalu simpan token di expo-secure-store.
-  await wait();
-  currentUser = buildMockUser({ username });
-  return currentUser;
+  const data = await apiRequest<AuthPayload>('/auth/login', {
+    method: 'POST',
+    body: { username, password },
+  });
+
+  await saveTokens(data.accessToken, data.refreshToken);
+  isGuestSession = false;
+  return data.user;
 }
 
 export async function signUpWithUsername(username: string, password: string): Promise<User> {
-  void password;
-  // TODO: Ganti mock ini dengan POST /auth/register { username, password } lalu simpan token di expo-secure-store.
-  await wait();
-  currentUser = buildMockUser({ username });
-  return currentUser;
+  const data = await apiRequest<AuthPayload>('/auth/register', {
+    method: 'POST',
+    body: { username, password },
+  });
+
+  await saveTokens(data.accessToken, data.refreshToken);
+  isGuestSession = false;
+  return data.user;
 }
 
 export async function signInAsGuest(): Promise<User> {
-  // Mode tamu: tidak perlu kredensial. Riwayat tidak dipersistensikan.
-  await wait(150);
-  currentUser = {
-    id: 'guest-user',
-    name: 'Tamu',
-    username: '',
-    preferredSignLanguage: 'bisindo',
-    streak: 0,
-  };
-  return currentUser;
+  // Mode tamu: sepenuhnya lokal, tanpa request & tanpa token. Riwayat tidak disimpan.
+  await clearTokens();
+  isGuestSession = true;
+  return GUEST_USER;
 }
 
 export async function signOut(): Promise<void> {
-  // TODO: Ganti mock ini dengan POST /auth/logout lalu hapus token dari expo-secure-store.
-  await wait(150);
-  currentUser = null;
+  if (!isGuestSession) {
+    try {
+      await apiRequest('/auth/logout', { method: 'POST', auth: true });
+    } catch {
+      // Token mungkin sudah tidak valid — tetap lanjut hapus token lokal.
+    }
+  }
+
+  await clearTokens();
+  isGuestSession = false;
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  // TODO: Ganti mock ini dengan GET /auth/me memakai token dari expo-secure-store (restore sesi saat app start).
-  await wait(100);
-  return currentUser;
+  if (isGuestSession) {
+    return GUEST_USER;
+  }
+
+  const token = await getAccessToken();
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const data = await apiRequest<{ user: User }>('/auth/me', { auth: true });
+    return data.user;
+  } catch {
+    await clearTokens();
+    return null;
+  }
 }

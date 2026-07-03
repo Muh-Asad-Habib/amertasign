@@ -1,5 +1,4 @@
-// Mock service — stores data in memory for now
-// TODO: Ganti dengan panggilan REST API (/favorites, dan opsional /search-history).
+import { apiRequest } from './api';
 
 interface UserProgress {
   favorites: string[];
@@ -8,38 +7,53 @@ interface UserProgress {
   lastActiveDate: string;
 }
 
-const mockStorage: Record<string, UserProgress> = {};
+// Riwayat pencarian kamus tetap lokal (belum ada endpoint /search-history di backend).
+const localStorageByUser: Record<string, Pick<UserProgress, 'searchHistory'>> = {};
 
-const createDefaultProgress = (): UserProgress => ({
-  favorites: [],
-  searchHistory: [],
-  streak: 0,
-  lastActiveDate: new Date().toISOString(),
-});
+const isGuest = (userId: string) => !userId || userId === 'guest-user';
 
-const upsertUserProgress = (userId: string, progress: Partial<UserProgress>) => {
-  mockStorage[userId] = {
-    ...createDefaultProgress(),
-    ...mockStorage[userId],
-    ...progress,
-    lastActiveDate: new Date().toISOString(),
-  };
-};
+// Favorit tamu disimpan lokal saja.
+const guestFavorites = new Set<string>();
 
 export const Database = {
-  saveProgress: async (userId: string, progress: Partial<UserProgress>): Promise<void> => {
-    upsertUserProgress(userId, progress);
-  },
-
   getProgress: async (userId: string): Promise<UserProgress | null> => {
-    return mockStorage[userId] || null;
+    const searchHistory = localStorageByUser[userId]?.searchHistory ?? [];
+
+    if (isGuest(userId)) {
+      return {
+        favorites: [...guestFavorites],
+        searchHistory,
+        streak: 0,
+        lastActiveDate: new Date().toISOString(),
+      };
+    }
+
+    const data = await apiRequest<{ ids: string[] }>('/favorites', { auth: true });
+    return {
+      favorites: data.ids,
+      searchHistory,
+      streak: 0,
+      lastActiveDate: new Date().toISOString(),
+    };
   },
 
-  saveFavorites: async (userId: string, favorites: string[]): Promise<void> => {
-    upsertUserProgress(userId, { favorites });
+  addFavorite: async (userId: string, entryId: string): Promise<void> => {
+    if (isGuest(userId)) {
+      guestFavorites.add(entryId);
+      return;
+    }
+    await apiRequest(`/favorites/${encodeURIComponent(entryId)}`, { method: 'PUT', auth: true });
+  },
+
+  removeFavorite: async (userId: string, entryId: string): Promise<void> => {
+    if (isGuest(userId)) {
+      guestFavorites.delete(entryId);
+      return;
+    }
+    await apiRequest(`/favorites/${encodeURIComponent(entryId)}`, { method: 'DELETE', auth: true });
   },
 
   saveSearchHistory: async (userId: string, history: string[]): Promise<void> => {
-    upsertUserProgress(userId, { searchHistory: history });
+    localStorageByUser[userId] = { searchHistory: history };
   },
 };

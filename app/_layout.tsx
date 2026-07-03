@@ -18,6 +18,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors, fontFamily, spacing } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
+import { useDictionaryStore } from '../store/useDictionaryStore';
+import { useHistoryStore } from '../store/useHistoryStore';
 
 function AuthLoadingScreen({ fontsReady }: { fontsReady: boolean }) {
   return (
@@ -37,6 +39,8 @@ export default function RootLayout() {
   const segments = useSegments();
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
+  const isGuest = useAuthStore((state) => state.isGuest);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   const [fontsLoaded, fontError] = useFonts({
@@ -91,6 +95,16 @@ export default function RootLayout() {
       router.replace('/(auth)/login');
     }
   }, [isAuthReady, isAuthenticated, router, segments]);
+
+  // Setelah user login (bukan tamu), muat riwayat terjemahan & favorit dari backend.
+  useEffect(() => {
+    if (!isAuthenticated || isGuest || !user) {
+      return;
+    }
+
+    void useHistoryStore.getState().loadHistory(user.id);
+    void useDictionaryStore.getState().loadFavorites();
+  }, [isAuthenticated, isGuest, user]);
 
   const isReady = isAuthReady && fontsReady;
 

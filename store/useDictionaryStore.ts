@@ -11,7 +11,8 @@ interface DictionaryStoreState {
   toggleFavorite: (id: string) => void;
   addToHistory: (id: string) => void;
   setSignLanguageFilter: (type: SignLanguageType) => void;
-  syncToDatabase: () => Promise<void>;
+  /** Muat favorit dari backend (dipanggil setelah login / app start). */
+  loadFavorites: () => Promise<void>;
   isFavorite: (id: string) => boolean;
 }
 
@@ -22,32 +23,48 @@ export const useDictionaryStore = create<DictionaryStoreState>((set, get) => ({
   searchHistory: [],
   signLanguageFilter: 'bisindo',
   toggleFavorite: (id) => {
+    const userId = getActiveUserId();
+    const wasFavorite = get().favorites.includes(id);
+
+    // Update optimistis, lalu sinkron ke backend.
     set((state) => ({
-      favorites: state.favorites.includes(id)
+      favorites: wasFavorite
         ? state.favorites.filter((favoriteId) => favoriteId !== id)
         : [id, ...state.favorites],
     }));
 
-    void get().syncToDatabase();
+    const sync = wasFavorite
+      ? Database.removeFavorite(userId, id)
+      : Database.addFavorite(userId, id);
+
+    void sync.catch(() => {
+      // Gagal sinkron → kembalikan state semula.
+      set((state) => ({
+        favorites: wasFavorite
+          ? [id, ...state.favorites]
+          : state.favorites.filter((favoriteId) => favoriteId !== id),
+      }));
+    });
   },
   addToHistory: (id) => {
     set((state) => ({
       searchHistory: [id, ...state.searchHistory.filter((historyId) => historyId !== id)].slice(0, 10),
     }));
 
-    void get().syncToDatabase();
+    void Database.saveSearchHistory(getActiveUserId(), get().searchHistory).catch(() => {});
   },
   setSignLanguageFilter: (type) => {
     set({ signLanguageFilter: type });
   },
-  syncToDatabase: async () => {
-    const { favorites, searchHistory } = get();
-    const userId = getActiveUserId();
-
-    await Promise.all([
-      Database.saveFavorites(userId, favorites),
-      Database.saveSearchHistory(userId, searchHistory),
-    ]);
+  loadFavorites: async () => {
+    try {
+      const progress = await Database.getProgress(getActiveUserId());
+      if (progress) {
+        set({ favorites: progress.favorites, searchHistory: progress.searchHistory });
+      }
+    } catch {
+      // Offline / belum login — biarkan state lokal.
+    }
   },
   isFavorite: (id) => get().favorites.includes(id),
 }));
