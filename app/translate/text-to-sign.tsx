@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
   KeyboardAvoidingView,
   Platform,
@@ -8,10 +9,10 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import LanguageToggle from '../../components/translate/LanguageToggle';
 import TextInputArea from '../../components/translate/TextInputArea';
 import Badge from '../../components/ui/Badge';
 import BackHeader from '../../components/ui/BackHeader';
@@ -21,19 +22,55 @@ import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
 import { colors, radius, spacing } from '../../theme';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useSpeechToText } from '../../hooks/useSpeechToText';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import type { TextToSignResult } from '../../services/translation';
+
+import { createSheet } from '../../theme';
 
 export default function TextToSignScreen() {
   const router = useRouter();
-  const { signLanguageType, setSignLanguageType, isDetecting, translateText } = useTranslation();
+  const themeMode = useSettingsStore((state) => state.themeMode);
+  const { signLanguageType, isDetecting, translateText } = useTranslation();
   const [inputValue, setInputValue] = useState('');
   const [result, setResult] = useState<TextToSignResult | null>(null);
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const addHistoryEntry = useHistoryStore((state) => state.addEntry);
+  const avatarGender = useSettingsStore((state) => state.avatarGender);
+
+  // Input suara: transkrip ditambahkan setelah teks yang sudah diketik.
+  const baseTextRef = useRef('');
+  const { isAvailable: sttAvailable, isListening, start: startListening, stop: stopListening } = useSpeechToText({
+    onResult: (transcript) => {
+      const base = baseTextRef.current;
+      setInputValue(base ? `${base} ${transcript}` : transcript);
+    },
+  });
+
+  const handleMicPress = async () => {
+    if (!sttAvailable) {
+      Alert.alert(
+        'Input Suara',
+        'Pengenalan suara membutuhkan development build aplikasi (belum tersedia di Expo Go). Sementara itu, ketik pesanmu secara manual.'
+      );
+      return;
+    }
+
+    if (isListening) {
+      stopListening();
+      return;
+    }
+
+    baseTextRef.current = inputValue.trim();
+    const started = await startListening();
+    if (!started) {
+      Alert.alert('Izin Mikrofon', 'Izinkan akses mikrofon untuk menggunakan input suara.');
+    }
+  };
 
   useEffect(() => {
     Animated.timing(feedbackOpacity, {
@@ -64,13 +101,13 @@ export default function TextToSignScreen() {
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-      <StatusBar style="dark" />
+      <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <BackHeader
             onBack={() => router.back()}
-            right={<LanguageToggle compact onChange={setSignLanguageType} value={signLanguageType} />}
-            title="Teks → Isyarat"
+            right={<Badge text="BISINDO" variant="primary" />}
+            title="Teks/Audio → Isyarat"
           />
 
           <Stack gap={spacing.md} style={styles.visualSection}>
@@ -92,15 +129,31 @@ export default function TextToSignScreen() {
                   ? `Placeholder aktif untuk ${signLanguageType.toUpperCase()}`
                   : 'Masukkan teks di bawah untuk melihat hasil terjemahan visual.'}
               </Text>
+              <View style={styles.avatarPill}>
+                <Ionicons
+                  color={colors.primary}
+                  name={avatarGender === 'male' ? 'man' : 'woman'}
+                  size={15}
+                />
+                <Text variant="label" color="primary">
+                  Peraga: {avatarGender === 'male' ? 'Laki-laki' : 'Perempuan'}
+                </Text>
+              </View>
             </View>
           </Stack>
 
           <Stack gap={spacing.sm} style={styles.inputSection}>
             <Heading variant="title">Masukkan pesan</Heading>
             <Text variant="body" color="secondary" style={styles.sectionSubtitle}>
-              Ketik pesan singkat, lalu tekan tombol terjemahkan untuk melihat placeholder gerakan.
+              Ketik pesan atau gunakan mikrofon, lalu tekan tombol terjemahkan.
             </Text>
-            <TextInputArea onChangeText={setInputValue} onSubmit={handleSubmit} value={inputValue} />
+            <TextInputArea
+              isListening={isListening}
+              onChangeText={setInputValue}
+              onMicPress={handleMicPress}
+              onSubmit={handleSubmit}
+              value={inputValue}
+            />
           </Stack>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -108,7 +161,7 @@ export default function TextToSignScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   safeArea: {
     backgroundColor: colors.background,
     flex: 1,
@@ -148,10 +201,20 @@ const styles = StyleSheet.create({
   visualTitle: {
     marginTop: spacing.xs,
   },
+  avatarPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primarySurface,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    marginTop: spacing.xs,
+  },
   inputSection: {
     flex: 1,
   },
   sectionSubtitle: {
     marginBottom: spacing.xs,
   },
-});
+}));

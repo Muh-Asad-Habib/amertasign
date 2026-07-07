@@ -11,6 +11,8 @@ import Animated, {
 
 import { confettiColors } from '../../theme';
 
+import { createSheet } from '../../theme';
+
 export interface ConfettiProps {
   /** Naikkan nilainya untuk memicu ledakan confetti baru. 0 = diam. */
   runKey: number;
@@ -102,8 +104,8 @@ export default function Confetti({ runKey, count = 28, originY = 80 }: ConfettiP
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   piece: {
     position: 'absolute',
   },
-});
+}));

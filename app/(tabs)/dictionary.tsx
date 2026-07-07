@@ -4,8 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import WordCard from '../../components/dictionary/WordCard';
-import LanguageToggle from '../../components/translate/LanguageToggle';
-import BackHeader from '../../components/ui/BackHeader';
 import Badge from '../../components/ui/Badge';
 import CategoryTabs from '../../components/ui/CategoryTabs';
 import Decor from '../../components/ui/Decor';
@@ -19,7 +17,10 @@ import Squiggle from '../../components/ui/Squiggle';
 import Text from '../../components/ui/Text';
 import { colors, radius, spacing } from '../../theme';
 import { useDictionary } from '../../hooks/useDictionary';
-import type { DictionaryCategory, SignLanguageType } from '../../types';
+import { useThemeMode } from '../../hooks/useThemeMode';
+import type { DictionaryCategory } from '../../types';
+
+import { createSheet } from '../../theme';
 
 const CATEGORY_OPTIONS: Array<{ id: DictionaryCategory | 'semua'; label: string }> = [
   { id: 'semua', label: 'Semua' },
@@ -74,17 +75,15 @@ function ViewChip({
 }
 
 export default function DictionaryScreen() {
+  useThemeMode();
   const router = useRouter();
   const [searchText, setSearchText] = useState('');
   const [activeCategory, setActiveCategory] = useState<DictionaryCategory | 'semua'>('semua');
   const [activeLibraryTab, setActiveLibraryTab] = useState<LibraryTab>('all');
-  const {
-    filteredEntries,
-    favoriteEntries,
-    historyEntries,
-    signLanguageFilter,
-    setSignLanguageFilter,
-  } = useDictionary({ category: activeCategory, search: searchText });
+  const { filteredEntries, favoriteEntries, historyEntries } = useDictionary({
+    category: activeCategory,
+    search: searchText,
+  });
 
   const displayedEntries =
     activeLibraryTab === 'favorites'
@@ -105,7 +104,7 @@ export default function DictionaryScreen() {
       ? 'Simpan kata favorit dulu, lalu buka lagi tab ini untuk akses cepat.'
       : activeLibraryTab === 'history'
         ? 'Buka detail kata untuk mulai membangun riwayat pencarianmu.'
-        : 'Coba ubah kata kunci, kategori, atau jenis bahasa isyarat.';
+        : 'Coba ubah kata kunci atau kategori.';
 
   const handleOpenEntry = (id: string) => {
     router.push({ pathname: '/dictionary/[id]', params: { id } });
@@ -121,8 +120,6 @@ export default function DictionaryScreen() {
     <Screen>
       <Decor preset="header" />
 
-      <BackHeader onBack={() => router.back()} />
-
       <View style={styles.header}>
         <Text variant="kicker" color="primary">
           Kamus
@@ -130,13 +127,11 @@ export default function DictionaryScreen() {
         <Heading variant="hero">Kamus Isyarat</Heading>
         <Squiggle width={92} height={12} />
         <Text variant="body" color="secondary" style={styles.subtitle}>
-          Cari kata BISINDO dan SIBI dengan cepat.
+          Cari kata isyarat BISINDO dengan cepat.
         </Text>
       </View>
 
       <View style={styles.filters}>
-        <LanguageToggle onChange={(value) => setSignLanguageFilter(value)} value={signLanguageFilter} />
-
         <SearchBar
           onChangeText={setSearchText}
           onClear={() => setSearchText('')}
@@ -169,7 +164,7 @@ export default function DictionaryScreen() {
               {displayedEntries.length} hasil ditemukan
             </Text>
           </View>
-          <Badge text={signLanguageFilter.toUpperCase()} variant={signLanguageFilter === 'bisindo' ? 'primary' : 'accent'} />
+          <Badge text="BISINDO" variant="primary" />
         </Row>
       </View>
 
@@ -203,7 +198,7 @@ export default function DictionaryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   header: {
     gap: 6,
     marginBottom: spacing.base,
@@ -250,4 +245,4 @@ const styles = StyleSheet.create({
   separator: {
     height: spacing.md,
   },
-});
+}));

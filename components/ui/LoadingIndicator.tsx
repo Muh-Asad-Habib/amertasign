@@ -4,6 +4,8 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { colors, spacing } from '../../theme';
 import Text from './Text';
 
+import { createSheet } from '../../theme';
+
 interface LoadingIndicatorProps {
   message?: string;
   size?: 'small' | 'large';
@@ -27,7 +29,7 @@ export default function LoadingIndicator({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   container: {
     flex: 1,
     alignItems: 'center',
@@ -37,4 +39,4 @@ const styles = StyleSheet.create({
   message: {
     marginTop: spacing.md,
   },
-});
+}));

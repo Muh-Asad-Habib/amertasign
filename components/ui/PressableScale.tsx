@@ -66,8 +66,8 @@ export default function PressableScale({
 
   const handlePressOut = useCallback(
     (event: GestureResponderEvent) => {
-      // Pantul ceria saat dilepas (overshoot) — rasa "boing" yang fun.
-      scale.value = withSpring(1, motion.springBouncy);
+      // Kembali halus saat dilepas, tanpa pantulan berlebih.
+      scale.value = withSpring(1, motion.springSoft);
       onPressOut?.(event);
     },
     [onPressOut, scale]

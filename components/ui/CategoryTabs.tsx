@@ -3,6 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
 import { colors, fontFamily, radius, touchTargetMin } from '../../theme';
 
+import { createSheet } from '../../theme';
+
 export interface CategoryTabItem {
   id: string;
   label: string;
@@ -46,7 +48,7 @@ export default function CategoryTabs({ categories, activeCategory, onSelect }: C
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   contentContainer: {
     gap: 10,
     paddingRight: 4,
@@ -83,4 +85,4 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.85,
   },
-});
+}));

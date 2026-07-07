@@ -6,6 +6,8 @@ import { colors, fontFamily, radius, shadow, spacing } from '../../theme';
 import Heading from '../ui/Heading';
 import Text from '../ui/Text';
 
+import { createSheet } from '../../theme';
+
 export interface TranslationOutputProps {
   text: string;
   isLoading: boolean;
@@ -70,7 +72,7 @@ export default function TranslationOutput({ text, isLoading, onSpeak }: Translat
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   container: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -120,4 +122,4 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.8,
   },
-});
+}));

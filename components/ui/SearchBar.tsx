@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors, fontFamily, radius, touchTargetMin } from '../../theme';
 
+import { createSheet } from '../../theme';
+
 export interface SearchBarProps {
   value: string;
   onChangeText: (text: string) => void;
@@ -52,7 +54,7 @@ export default function SearchBar({ value, onChangeText, placeholder = 'Cari...'
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   container: {
     alignItems: 'center',
     backgroundColor: colors.surfaceMuted,
@@ -84,4 +86,4 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.75,
   },
-});
+}));

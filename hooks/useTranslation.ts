@@ -2,7 +2,8 @@ import { useCallback, useRef, useState } from 'react';
 
 import { detectSign, textToSign, type TextToSignResult } from '../services/translation';
 
-export type SignLanguageType = 'bisindo' | 'sibi';
+/** Aplikasi hanya mendukung BISINDO (Bahasa Isyarat Indonesia). */
+export type SignLanguageType = 'bisindo';
 
 const EMPTY_VISUAL_RESULT: TextToSignResult = {
   visualUrl: '',

@@ -16,7 +16,7 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#003E9B"
+        "backgroundColor": "#FFFFFF"
       },
       "permissions": [
         "android.permission.CAMERA"
@@ -35,7 +35,21 @@
           "cameraPermission": "AmertaSign membutuhkan akses kamera untuk menerjemahkan bahasa isyarat secara langsung."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-video",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "AmertaSign membutuhkan akses mikrofon untuk mengubah ucapan menjadi teks.",
+          "speechRecognitionPermission": "AmertaSign menggunakan pengenalan suara untuk menerjemahkan ucapan ke bahasa isyarat."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "AmertaSign membutuhkan akses galeri untuk menerjemahkan media bahasa isyarat."
+        }
+      ]
     ]
   }
 }

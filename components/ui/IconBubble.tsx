@@ -33,18 +33,20 @@ export interface IconBubbleProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const toneStyles: Record<IconTone, { bg: string; fg: string }> = {
-  primary: { bg: colors.primarySurface, fg: colors.primary },
-  accent: { bg: colors.accentSurface, fg: colors.accentStrong },
-  success: { bg: colors.successTint, fg: colors.success },
-  warning: { bg: colors.warningTint, fg: colors.accentStrong },
-  error: { bg: colors.errorTint, fg: colors.error },
-  neutral: { bg: colors.surfaceMuted, fg: colors.textSecondary },
-  solid: { bg: colors.primary, fg: colors.textOnPrimary },
-  solidAccent: { bg: colors.accent, fg: colors.textOnAccent },
-  onBrand: { bg: overlay.onBrandSoft, fg: colors.textOnPrimary },
-  onInk: { bg: overlay.onInkSoft, fg: colors.surface },
-};
+/** Dibaca saat render agar mengikuti tema aktif (gelap/terang). */
+const toneStyleFor = (tone: IconTone): { bg: string; fg: string } =>
+  ({
+    primary: { bg: colors.primarySurface, fg: colors.primary },
+    accent: { bg: colors.accentSurface, fg: colors.accentStrong },
+    success: { bg: colors.successTint, fg: colors.success },
+    warning: { bg: colors.warningTint, fg: colors.accentStrong },
+    error: { bg: colors.errorTint, fg: colors.error },
+    neutral: { bg: colors.surfaceMuted, fg: colors.textSecondary },
+    solid: { bg: colors.primary, fg: colors.textOnPrimary },
+    solidAccent: { bg: colors.accent, fg: colors.textOnAccent },
+    onBrand: { bg: overlay.onBrandSoft, fg: colors.textOnPrimary },
+    onInk: { bg: overlay.onInkSoft, fg: colors.surface },
+  })[tone];
 
 const sizeMap: Record<IconSize, { box: number; icon: number; radius: number }> = {
   sm: { box: 40, icon: 20, radius: radius.md },
@@ -66,7 +68,7 @@ export default function IconBubble({
   fg,
   style,
 }: IconBubbleProps) {
-  const t = toneStyles[tone];
+  const t = toneStyleFor(tone);
   const s = sizeMap[size];
   const background = bg ?? t.bg;
   const foreground = fg ?? t.fg;

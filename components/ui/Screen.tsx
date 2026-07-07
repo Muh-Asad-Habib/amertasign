@@ -11,6 +11,9 @@ import { StatusBar } from 'expo-status-bar';
 
 import { colors, layoutSpacing } from '../../theme';
 
+import { createSheet } from '../../theme';
+import { useSettingsStore } from '../../store/useSettingsStore';
+
 export interface ScreenProps {
   children: React.ReactNode;
   /** Bungkus konten dengan ScrollView vertikal. Default: false. */
@@ -29,15 +32,18 @@ export default function Screen({
   scroll = false,
   padded = true,
   edges = ['top'],
-  background = colors.background,
+  background,
   contentStyle,
   style,
 }: ScreenProps) {
+  // Subscribe tema: semua layar berbasis Screen ikut re-render saat mode berubah.
+  const themeMode = useSettingsStore((state) => state.themeMode);
   const padding = padded ? layoutSpacing.screenPadding : 0;
+  const backgroundColor = background ?? colors.background;
 
   return (
-    <SafeAreaView edges={edges} style={[styles.safeArea, { backgroundColor: background }, style]}>
-      <StatusBar style="dark" />
+    <SafeAreaView edges={edges} style={[styles.safeArea, { backgroundColor }, style]}>
+      <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
       {scroll ? (
         <ScrollView
           contentContainerStyle={[{ padding, paddingBottom: padding + layoutSpacing.sectionGap }, contentStyle]}
@@ -53,11 +59,11 @@ export default function Screen({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   safeArea: {
     flex: 1,
   },
   flex: {
     flex: 1,
   },
-});
+}));

@@ -9,6 +9,9 @@ import PressableScale from '../../components/ui/PressableScale';
 import Text from '../../components/ui/Text';
 import { colors, radius, shadow, spacing } from '../../theme';
 
+import { createSheet } from '../../theme';
+import { useSettingsStore } from '../../store/useSettingsStore';
+
 const TAB_CONFIG: Record<
   string,
   {
@@ -18,13 +21,16 @@ const TAB_CONFIG: Record<
   }
 > = {
   index: { label: 'Home', focused: 'home', unfocused: 'home-outline' },
-  live: { label: 'Live', focused: 'videocam', unfocused: 'videocam-outline' },
-  settings: { label: 'Settings', focused: 'settings', unfocused: 'settings-outline' },
+  translate: { label: 'Translate', focused: 'swap-horizontal', unfocused: 'swap-horizontal-outline' },
+  dictionary: { label: 'Dictionary', focused: 'book', unfocused: 'book-outline' },
+  settings: { label: 'Setting', focused: 'settings', unfocused: 'settings-outline' },
 };
 
 /** Bottom nav ala Stitch: item aktif dibungkus pill kuning. */
 function StitchTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  // Subscribe tema agar bar ikut berubah saat mode gelap/terang diganti.
+  useSettingsStore((s) => s.themeMode);
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
@@ -64,13 +70,14 @@ export default function TabsLayout() {
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <StitchTabBar {...props} />}>
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
-      <Tabs.Screen name="live" options={{ title: 'Live' }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+      <Tabs.Screen name="translate" options={{ title: 'Translate' }} />
+      <Tabs.Screen name="dictionary" options={{ title: 'Dictionary' }} />
+      <Tabs.Screen name="settings" options={{ title: 'Setting' }} />
     </Tabs>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   bar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -86,7 +93,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: radius.full,
   },
@@ -99,4 +106,4 @@ const styles = StyleSheet.create({
   labelActive: {
     color: colors.textOnAccent,
   },
-});
+}));

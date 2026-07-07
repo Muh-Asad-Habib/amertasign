@@ -4,8 +4,7 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { colors, fontFamily } from '../../theme';
 
-const DEFAULT_COLOR = colors.primary;
-const TRACK_COLOR = colors.border;
+import { createSheet } from '../../theme';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -22,10 +21,14 @@ export default function ProgressRing({
   progress,
   size = 96,
   strokeWidth = 10,
-  color = DEFAULT_COLOR,
-  trackColor = TRACK_COLOR,
-  labelColor = colors.text,
+  color,
+  trackColor,
+  labelColor,
 }: ProgressRingProps) {
+  // Warna default dibaca saat render agar mengikuti tema aktif.
+  const ringColor = color ?? colors.primary;
+  const ringTrackColor = trackColor ?? colors.border;
+  const ringLabelColor = labelColor ?? colors.text;
   const clampedProgress = Math.max(0, Math.min(1, progress));
   const animatedValue = useRef(new Animated.Value(clampedProgress)).current;
   const [animatedProgress, setAnimatedProgress] = useState(clampedProgress);
@@ -62,7 +65,7 @@ export default function ProgressRing({
           cy={size / 2}
           fill="none"
           r={radius}
-          stroke={trackColor}
+          stroke={ringTrackColor}
           strokeWidth={strokeWidth}
         />
         <AnimatedCircle
@@ -70,7 +73,7 @@ export default function ProgressRing({
           cy={size / 2}
           fill="none"
           r={radius}
-          stroke={color}
+          stroke={ringColor}
           strokeDasharray={`${circumference} ${circumference}`}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
@@ -79,13 +82,13 @@ export default function ProgressRing({
         />
       </Svg>
       <View pointerEvents="none" style={styles.labelContainer}>
-        <Text style={[styles.label, { fontSize: Math.max(14, size * 0.2), color: labelColor }]}>{percentage}%</Text>
+        <Text style={[styles.label, { fontSize: Math.max(14, size * 0.2), color: ringLabelColor }]}>{percentage}%</Text>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -99,4 +102,4 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontFamily: fontFamily.displayBold,
   },
-});
+}));

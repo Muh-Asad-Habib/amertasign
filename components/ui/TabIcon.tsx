@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors, fontFamily } from '../../theme';
 
+import { createSheet } from '../../theme';
+
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 export interface TabIconProps {
@@ -25,7 +27,7 @@ export default function TabIcon({ name, color = colors.textSecondary, focused = 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -39,4 +41,4 @@ const styles = StyleSheet.create({
   focusedLabel: {
     fontFamily: fontFamily.bodySemiBold,
   },
-});
+}));

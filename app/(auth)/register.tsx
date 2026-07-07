@@ -14,10 +14,15 @@ import Text from '../../components/ui/Text';
 import { colors, spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 
+import { createSheet } from '../../theme';
+
+import { useSettingsStore } from '../../store/useSettingsStore';
+
 const USERNAME_REGEX = /^[a-zA-Z0-9._-]{3,20}$/;
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const themeMode = useSettingsStore((state) => state.themeMode);
   const signUp = useAuthStore((state) => state.signUp);
   const isLoading = useAuthStore((state) => state.isLoading);
   const [username, setUsername] = useState('');
@@ -62,7 +67,7 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+      <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
       <Decor preset="corner" />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
@@ -138,7 +143,7 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
@@ -180,4 +185,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: spacing.xl,
   },
-});
+}));

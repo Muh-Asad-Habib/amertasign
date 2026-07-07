@@ -6,6 +6,8 @@ import { colors, overlay, radius, spacing, touchTargetMin } from '../../theme';
 import Heading from './Heading';
 import PressableScale from './PressableScale';
 
+import { createSheet } from '../../theme';
+
 export interface BackHeaderProps {
   title?: string;
   onBack: () => void;
@@ -42,7 +44,7 @@ export default function BackHeader({ title, onBack, right, tone = 'light' }: Bac
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -58,4 +60,4 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
   },
-});
+}));

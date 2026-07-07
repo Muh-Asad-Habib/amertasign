@@ -20,6 +20,15 @@ import { colors, fontFamily, spacing } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
 import { useDictionaryStore } from '../store/useDictionaryStore';
 import { useHistoryStore } from '../store/useHistoryStore';
+import { useSettingsStore } from '../store/useSettingsStore';
+
+import { createSheet } from '../theme';
+
+// Expose auth store on window for the dev screenshot script (dev builds only).
+if (typeof window !== 'undefined' && __DEV__) {
+  (window as any).__authStore = useAuthStore;
+  (window as any).__settingsStore = useSettingsStore;
+}
 
 function AuthLoadingScreen({ fontsReady }: { fontsReady: boolean }) {
   return (
@@ -39,6 +48,7 @@ export default function RootLayout() {
   const segments = useSegments();
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const themeMode = useSettingsStore((state) => state.themeMode);
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -61,7 +71,7 @@ export default function RootLayout() {
 
     const bootstrapAuth = async () => {
       try {
-        await initializeAuth();
+        await Promise.all([initializeAuth(), useSettingsStore.getState().hydrate()]);
       } catch {
         useAuthStore.setState({ isAuthenticated: false, isLoading: false, user: null });
       } finally {
@@ -77,6 +87,13 @@ export default function RootLayout() {
       isMounted = false;
     };
   }, [initializeAuth]);
+
+  // Expose router on window for the dev screenshot script.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && __DEV__) {
+      (window as any).__router = router;
+    }
+  }, [router]);
 
   useEffect(() => {
     if (!isAuthReady) {
@@ -112,7 +129,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       {isReady ? (
         <>
-          <StatusBar style="dark" />
+          <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
           <Stack
             screenOptions={{
               headerShown: false,
@@ -134,7 +151,7 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
@@ -163,4 +180,4 @@ const styles = StyleSheet.create({
   bodyFont: {
     fontFamily: fontFamily.bodyRegular,
   },
-});
+}));

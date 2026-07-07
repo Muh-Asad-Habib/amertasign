@@ -12,6 +12,8 @@ import Squiggle from '../../components/ui/Squiggle';
 import Text from '../../components/ui/Text';
 import { colors, gradients, overlay, spacing } from '../../theme';
 
+import { createSheet } from '../../theme';
+
 export default function SplashScreen() {
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -77,7 +79,7 @@ export default function SplashScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   root: {
     flex: 1,
     backgroundColor: colors.primary,
@@ -120,4 +122,4 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
   },
-});
+}));

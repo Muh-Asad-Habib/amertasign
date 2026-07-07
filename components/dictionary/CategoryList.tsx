@@ -6,6 +6,8 @@ import { colors, radius, spacing } from '../../theme';
 import Heading from '../ui/Heading';
 import Text from '../ui/Text';
 
+import { createSheet } from '../../theme';
+
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 export interface CategoryListItem {
@@ -43,7 +45,7 @@ export default function CategoryList({ categories, onSelect }: CategoryListProps
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -73,4 +75,4 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.88,
   },
-});
+}));

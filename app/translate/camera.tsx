@@ -1,34 +1,41 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import type { CameraType } from 'expo-camera';
 
 import CameraView from '../../components/translate/CameraView';
-import LanguageToggle from '../../components/translate/LanguageToggle';
 import TranslationOutput from '../../components/translate/TranslationOutput';
 import BackHeader from '../../components/ui/BackHeader';
+import Badge from '../../components/ui/Badge';
 import PressableScale from '../../components/ui/PressableScale';
 import Text from '../../components/ui/Text';
 import { colors, palette, radius, spacing } from '../../theme';
 import { useTTS } from '../../hooks/useTTS';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useThemeMode } from '../../hooks/useThemeMode';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
+
+import { createSheet } from '../../theme';
 
 const WAITING_TEXT = 'Menunggu deteksi gerakan...';
 
 export default function CameraTranslateScreen() {
+  useThemeMode();
   const router = useRouter();
   const {
     signLanguageType,
-    setSignLanguageType,
     translatedText: detectedText,
     isDetecting,
     startDetection,
     stopDetection,
   } = useTranslation();
   const [isActive, setIsActive] = useState(false);
+  const [facing, setFacing] = useState<CameraType>('front');
   const [translatedText, setTranslatedText] = useState(WAITING_TEXT);
   const { speak } = useTTS();
   const user = useAuthStore((state) => state.user);
@@ -58,6 +65,28 @@ export default function CameraTranslateScreen() {
     setTranslatedText(WAITING_TEXT);
   }, [isActive, startDetection, stopDetection]);
 
+  const handleFlipCamera = () => {
+    setFacing((current) => (current === 'front' ? 'back' : 'front'));
+  };
+
+  const handlePickFromGallery = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Izin Galeri', 'Izinkan akses galeri untuk menerjemahkan foto atau video isyarat.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images', 'videos'],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      // Media terpilih — jalankan alur deteksi (mock sampai model AI terhubung).
+      setIsActive(true);
+    }
+  };
+
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <StatusBar style="light" />
@@ -65,14 +94,14 @@ export default function CameraTranslateScreen() {
         <View style={styles.topBar}>
           <BackHeader
             onBack={() => router.back()}
-            right={<LanguageToggle compact onChange={setSignLanguageType} theme="dark" value={signLanguageType} />}
-            title="Isyarat → Teks"
+            right={<Badge text="BISINDO" variant="accent" />}
+            title="Isyarat → Teks/Audio"
             tone="dark"
           />
         </View>
 
         <View style={styles.cameraContainer}>
-          <CameraView isActive={isActive} />
+          <CameraView facing={facing} isActive={isActive} />
         </View>
 
         <View style={styles.bottomSheet}>
@@ -91,15 +120,37 @@ export default function CameraTranslateScreen() {
               {isActive ? 'Mendeteksi gerakan tangan...' : 'Ketuk tombol untuk mulai mendeteksi'}
             </Text>
 
-            <PressableScale
-              accessibilityRole="button"
-              accessibilityLabel={isActive ? 'Hentikan deteksi' : 'Mulai deteksi'}
-              accessibilityState={{ selected: isActive }}
-              onPress={() => setIsActive((current) => !current)}
-              style={styles.detectButton}
-            >
-              <View style={[styles.detectButtonInner, isActive && styles.detectButtonInnerActive]} />
-            </PressableScale>
+            <View style={styles.controlsRow}>
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel="Pilih dari galeri"
+                onPress={() => {
+                  void handlePickFromGallery();
+                }}
+                style={styles.sideButton}
+              >
+                <Ionicons color={colors.primary} name="images-outline" size={22} />
+              </PressableScale>
+
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel={isActive ? 'Hentikan deteksi' : 'Mulai deteksi'}
+                accessibilityState={{ selected: isActive }}
+                onPress={() => setIsActive((current) => !current)}
+                style={styles.detectButton}
+              >
+                <View style={[styles.detectButtonInner, isActive && styles.detectButtonInnerActive]} />
+              </PressableScale>
+
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel="Balik kamera"
+                onPress={handleFlipCamera}
+                style={styles.sideButton}
+              >
+                <Ionicons color={colors.primary} name="camera-reverse-outline" size={22} />
+              </PressableScale>
+            </View>
           </View>
         </View>
       </View>
@@ -107,7 +158,7 @@ export default function CameraTranslateScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   safeArea: {
     backgroundColor: palette.ink,
     flex: 1,
@@ -139,6 +190,22 @@ const styles = StyleSheet.create({
   helperText: {
     marginBottom: spacing.md,
   },
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xl,
+  },
+  sideButton: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.full,
+    backgroundColor: colors.primarySurface,
+    borderWidth: 1.5,
+    borderColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   detectButton: {
     alignItems: 'center',
     backgroundColor: colors.error,
@@ -165,4 +232,4 @@ const styles = StyleSheet.create({
     height: 20,
     width: 20,
   },
-});
+}));

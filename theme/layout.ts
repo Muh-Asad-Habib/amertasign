@@ -43,14 +43,14 @@ export const motion = {
     base: 250,
     slow: 420,
   },
-  /** Spring tekan kenyal dengan sedikit pantulan (Reanimated withSpring). */
-  springPress: { damping: 12, stiffness: 300, mass: 0.7 },
+  /** Spring tekan kenyal tanpa pantulan berlebih (Reanimated withSpring). */
+  springPress: { damping: 16, stiffness: 300, mass: 0.7 },
   /** Spring lembut untuk masuk/keluar elemen. */
   springSoft: { damping: 18, stiffness: 180, mass: 0.9 },
-  /** Spring memantul (overshoot) untuk pop & celebrasi ceria. */
-  springBouncy: { damping: 8, stiffness: 170, mass: 0.85 },
-  /** Skala saat ditekan (lebih kenyal). */
-  pressScale: 0.93,
+  /** Spring memantul ringan (overshoot halus) untuk pop & celebrasi. */
+  springBouncy: { damping: 14, stiffness: 170, mass: 0.85 },
+  /** Skala saat ditekan (halus). */
+  pressScale: 0.97,
   /** Jeda antar item pada animasi berurutan (stagger). */
   stagger: 70,
 } as const;

@@ -8,16 +8,15 @@
 
 ## 1. Gambaran Proyek
 
-**AmertaSign** adalah aplikasi penerjemah bahasa isyarat Indonesia (BISINDO & SIBI) dua arah:
+**AmertaSign** adalah aplikasi penerjemah bahasa isyarat Indonesia (BISINDO) dua arah:
 
 | Fitur | Deskripsi | Layar |
 |---|---|---|
-| **Live Translator** | Kamera full-screen mendeteksi gerakan isyarat → kata (real-time, model AI) | Tab **Live** |
-| **Terjemah Isyarat** | Kamera → teks & suara (TTS di sisi client via expo-speech) | `translate/camera` |
-| **Teks ke Isyarat** | Teks → visual peragaan isyarat | `translate/text-to-sign` |
-| **Kamus Isyarat** | Cari kata BISINDO/SIBI per kategori, favorit & riwayat pencarian | `dictionary` |
+| **Isyarat → Teks/Audio** | Kamera → teks & suara (TTS di sisi client via expo-speech) | `translate/camera` |
+| **Teks/Audio → Isyarat** | Teks → visual peragaan isyarat | `translate/text-to-sign` |
+| **Kamus Isyarat** | Cari kata BISINDO per kategori, favorit & riwayat pencarian | Tab **Dictionary** |
 | **Riwayat Terjemahan** | **Hanya user login** yang riwayatnya tersimpan; **tamu tidak** | Tab **Home** |
-| **Pengaturan** | Preferensi bahasa isyarat default, notifikasi, dsb. | Tab **Settings** |
+| **Pengaturan** | Info bahasa isyarat (BISINDO), notifikasi, dsb. | Tab **Setting** |
 
 **Aturan bisnis utama:**
 1. Autentikasi memakai **username + password saja** (tanpa email, tanpa OAuth/Google).
@@ -29,7 +28,7 @@
 ## 2. Model Data (TypeScript types yang dipakai frontend)
 
 ```ts
-type SignLanguageType = 'bisindo' | 'sibi';
+type SignLanguageType = 'bisindo';
 type DictionaryCategory = 'alfabet' | 'angka' | 'kata_umum' | 'frasa';
 
 interface User {
@@ -152,7 +151,7 @@ model User {
   passwordHash           String
   name                   String
   avatarUrl              String?
-  preferredSignLanguage  String   @default("bisindo") // 'bisindo' | 'sibi'
+  preferredSignLanguage  String   @default("bisindo") // 'bisindo'
   streak                 Int      @default(0)
   createdAt              DateTime @default(now())
   histories              TranslationHistory[]
@@ -164,7 +163,7 @@ model TranslationHistory {
   userId            String
   kind              String   // 'isyarat-ke-teks' | 'teks-ke-isyarat'
   text              String
-  signLanguageType  String   // 'bisindo' | 'sibi'
+  signLanguageType  String   // 'bisindo'
   createdAt         DateTime @default(now())
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -175,7 +174,7 @@ model DictionaryEntry {
   id          String @id @default(cuid())
   word        String
   category    String // 'alfabet' | 'angka' | 'kata_umum' | 'frasa'
-  type        String // 'bisindo' | 'sibi'
+  type        String // 'bisindo'
   description String
   imageUrl    String
   videoUrl    String

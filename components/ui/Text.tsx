@@ -5,16 +5,18 @@ import { colors, textStyles, type TextVariant } from '../../theme';
 
 type TextColor = 'default' | 'secondary' | 'tertiary' | 'primary' | 'onPrimary' | 'onAccent' | 'error' | 'success';
 
-const colorMap: Record<TextColor, string> = {
-  default: colors.text,
-  secondary: colors.textSecondary,
-  tertiary: colors.textTertiary,
-  primary: colors.primary,
-  onPrimary: colors.textOnPrimary,
-  onAccent: colors.textOnAccent,
-  error: colors.error,
-  success: colors.success,
-};
+/** Dibaca saat render agar mengikuti tema aktif (gelap/terang). */
+const colorFor = (color: TextColor): string =>
+  ({
+    default: colors.text,
+    secondary: colors.textSecondary,
+    tertiary: colors.textTertiary,
+    primary: colors.primary,
+    onPrimary: colors.textOnPrimary,
+    onAccent: colors.textOnAccent,
+    error: colors.error,
+    success: colors.success,
+  })[color];
 
 export interface TextProps extends RNTextProps {
   variant?: TextVariant;
@@ -34,7 +36,7 @@ export default function Text({
 }: TextProps) {
   return (
     <RNText
-      style={[textStyles[variant], { color: colorMap[color], textAlign: align }, style]}
+      style={[textStyles[variant], { color: colorFor(color), textAlign: align }, style]}
       {...rest}
     >
       {children}

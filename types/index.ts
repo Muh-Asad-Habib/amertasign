@@ -1,4 +1,5 @@
-export type SignLanguageType = 'bisindo' | 'sibi';
+/** Aplikasi hanya mendukung BISINDO (Bahasa Isyarat Indonesia). */
+export type SignLanguageType = 'bisindo';
 export type DictionaryCategory = 'alfabet' | 'angka' | 'kata_umum' | 'frasa';
 
 export interface User {

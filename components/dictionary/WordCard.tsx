@@ -7,7 +7,9 @@ import Badge from '../ui/Badge';
 import Heading from '../ui/Heading';
 import PressableScale from '../ui/PressableScale';
 
-type SignType = 'bisindo' | 'sibi';
+import { createSheet } from '../../theme';
+
+type SignType = 'bisindo';
 
 export interface WordCardProps {
   word: string;
@@ -39,7 +41,7 @@ export default function WordCard({ word, category, type, onPress, imageUrl }: Wo
         </Heading>
         <View style={styles.badges}>
           <Badge size="sm" text={category} variant="neutral" />
-          <Badge size="sm" text={type.toUpperCase()} variant={type === 'bisindo' ? 'primary' : 'accent'} />
+          <Badge size="sm" text={type.toUpperCase()} variant="primary" />
         </View>
       </View>
 
@@ -50,7 +52,7 @@ export default function WordCard({ word, category, type, onPress, imageUrl }: Wo
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   container: {
     alignItems: 'center',
     backgroundColor: colors.surface,
@@ -94,4 +96,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));
