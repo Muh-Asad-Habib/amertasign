@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, fontFamily, radius, touchTargetMin } from '../../theme';
+import { colors, fontFamily, radius, shadow, spacing } from '../../theme';
 
 import { createSheet } from '../../theme';
 
@@ -57,17 +57,17 @@ export default function SearchBar({ value, onChangeText, placeholder = 'Cari...'
 const styles = createSheet((colors) => ({
   container: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
-    borderColor: 'transparent',
-    borderRadius: radius.xl,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.full,
     borderWidth: 1.5,
     flexDirection: 'row',
-    height: touchTargetMin,
-    paddingHorizontal: 14,
+    height: 52,
+    paddingHorizontal: spacing.base,
     gap: 10,
+    ...shadow.sm,
   },
   containerFocused: {
-    backgroundColor: colors.surface,
     borderColor: colors.primary,
   },
   input: {

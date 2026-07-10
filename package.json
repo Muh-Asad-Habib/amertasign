@@ -45,5 +45,9 @@
     "puppeteer": "^24.43.1",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "scripts": {
+    "android": "expo run:android",
+    "ios": "expo run:ios"
+  }
 }

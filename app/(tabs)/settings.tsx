@@ -9,7 +9,7 @@ import PressableScale from '../../components/ui/PressableScale';
 import Screen from '../../components/ui/Screen';
 import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
-import { colors, radius, shadow, spacing } from '../../theme';
+import { colors, layoutSpacing, radius, shadow, spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
 import {
@@ -201,7 +201,7 @@ export default function SettingsScreen() {
   const handleLanguagePress = () => {
     Alert.alert(
       'Bahasa Isyarat',
-      'AmertaSign menggunakan BISINDO (Bahasa Isyarat Indonesia) untuk seluruh fitur terjemahan dan kamus.'
+      'Amerta Sign menggunakan BISINDO (Bahasa Isyarat Indonesia) untuk seluruh fitur terjemahan dan kamus.'
     );
   };
 
@@ -225,7 +225,7 @@ export default function SettingsScreen() {
   const handleAboutPress = () => {
     Alert.alert(
       'Tentang Aplikasi',
-      'AmertaSign membantu pengguna belajar, menerjemahkan, dan mengeksplorasi bahasa isyarat Indonesia secara lebih mudah.'
+      'Amerta Sign membantu pengguna belajar, menerjemahkan, dan mengeksplorasi bahasa isyarat Indonesia secara lebih mudah.'
     );
   };
 
@@ -263,12 +263,12 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen scroll>
+    <Screen scroll contentStyle={{ paddingBottom: layoutSpacing.tabBarClearance }}>
       {/* Brand header dengan logo resmi */}
       <View style={styles.brandRow}>
         <BrandMark size={36} />
         <Heading variant="h2" style={styles.brandText}>
-          AmertaSign
+          Amerta Sign
         </Heading>
       </View>
 

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Pressable, ScrollView, Text } from 'react-native';
 
-import { colors, fontFamily, radius, touchTargetMin } from '../../theme';
+import { fontFamily, radius, shadow } from '../../theme';
 
 import { createSheet } from '../../theme';
 
@@ -14,12 +14,19 @@ export interface CategoryTabsProps {
   categories: CategoryTabItem[];
   activeCategory: string;
   onSelect: (id: string) => void;
+  /** Padding horizontal konten scroll — untuk deretan chip full-bleed. */
+  contentPadding?: number;
 }
 
-export default function CategoryTabs({ categories, activeCategory, onSelect }: CategoryTabsProps) {
+export default function CategoryTabs({
+  categories,
+  activeCategory,
+  onSelect,
+  contentPadding = 0,
+}: CategoryTabsProps) {
   return (
     <ScrollView
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[styles.contentContainer, contentPadding > 0 && { paddingHorizontal: contentPadding }]}
       horizontal
       showsHorizontalScrollIndicator={false}
     >
@@ -52,20 +59,22 @@ const styles = createSheet((colors) => ({
   contentContainer: {
     gap: 10,
     paddingRight: 4,
+    paddingVertical: 2,
   },
   tab: {
     alignItems: 'center',
     borderRadius: radius.full,
     borderWidth: 1,
     justifyContent: 'center',
-    minHeight: touchTargetMin,
-    minWidth: 96,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    minHeight: 44,
+    minWidth: 76,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
   },
   activeTab: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+    ...shadow.sm,
   },
   inactiveTab: {
     backgroundColor: colors.surface,

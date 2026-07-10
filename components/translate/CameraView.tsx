@@ -67,7 +67,7 @@ export default function CameraView({ isActive, facing = 'front' }: CameraViewPro
             Izinkan akses kamera
           </Heading>
           <Text style={styles.subtitle}>
-            AmertaSign butuh kamera untuk mendeteksi gerakan isyarat BISINDO.
+            Amerta Sign butuh kamera untuk mendeteksi gerakan isyarat BISINDO.
           </Text>
           <PressableScale
             accessibilityRole="button"

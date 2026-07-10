@@ -20,6 +20,8 @@ export const layoutSpacing = {
   sectionGap: 24,
   cardPadding: 16,
   stackGap: 12,
+  /** Ruang bawah konten scroll agar tidak tertutup nav bawah mengambang. */
+  tabBarClearance: 112,
 } as const;
 
 export const radius = {

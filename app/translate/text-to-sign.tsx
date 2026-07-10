@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
 import TextInputArea from '../../components/translate/TextInputArea';
 import Badge from '../../components/ui/Badge';
@@ -88,6 +89,9 @@ export default function TextToSignScreen() {
 
     const translationResult = await translateText(message);
     setResult(translationResult);
+
+    // Getar "sukses" saat hasil terjemahan berhasil muncul.
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
     // Simpan riwayat hanya untuk pengguna yang login (bukan tamu).
     if (!isGuest && user) {

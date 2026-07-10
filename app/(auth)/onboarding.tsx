@@ -98,8 +98,7 @@ export default function OnboardingScreen() {
 
   const handleGuest = async () => {
     try {
-      await continueAsGuest();
-      // Navigasi ditangani routing guard di _layout.tsx saat isAuthenticated berubah.
+      await continueAsGuest();// Navigasi ditangani routing guard di _layout.tsx saat isAuthenticated berubah.
     } catch {
       router.replace('/(auth)/login');
     }
@@ -120,7 +119,7 @@ export default function OnboardingScreen() {
         <View style={styles.topBar}>
           <BrandMark size={72} />
           <Heading variant="h2" style={styles.brandName}>
-            AmertaSign
+            Amerta Sign
           </Heading>
         </View>
 

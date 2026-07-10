@@ -22,6 +22,10 @@ export const palette = {
   // Pop — Vermilion (sorotan langka)
   pop: '#E04E2A',
 
+  // Ink navy — turunan gelap biru logo (#0554CA) untuk permukaan kontras
+  // ala referensi: bottom nav, tombol panah, segmented control.
+  inkNavy: '#0F1B33',
+
   // Netral (surface bersih Material 3)
   ink: '#191C1E',
   textSecondary: '#424654',
@@ -57,6 +61,9 @@ const lightColors = {
 
   pop: palette.pop,
 
+  /** Permukaan navy gelap kontras — bottom nav, panah aksi, segmented. */
+  inkNavy: palette.inkNavy,
+
   background: palette.background,
   surface: palette.surface,
   surfaceMuted: palette.surfaceMuted,
@@ -90,6 +97,8 @@ const darkColors: AppColors = {
   accentSurface: '#3B2F10',
 
   pop: '#FF7A4D',
+
+  inkNavy: '#1B2A4A',
 
   background: '#0E1524',
   surface: '#182032',

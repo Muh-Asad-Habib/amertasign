@@ -19,6 +19,8 @@ import { createSheet } from '../../theme';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 const USERNAME_REGEX = /^[a-zA-Z0-9._-]{3,20}$/;
+/** bcrypt di backend hanya memproses 72 byte pertama — batasi agar tidak terpotong diam-diam. */
+const PASSWORD_MAX_LENGTH = 72;
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -46,6 +48,11 @@ export default function RegisterScreen() {
 
     if (password.length < 6) {
       Alert.alert('Password terlalu pendek', 'Password harus terdiri dari minimal 6 karakter.');
+      return;
+    }
+
+    if (password.length > PASSWORD_MAX_LENGTH) {
+      Alert.alert('Password terlalu panjang', `Password maksimal ${PASSWORD_MAX_LENGTH} karakter.`);
       return;
     }
 
@@ -77,7 +84,7 @@ export default function RegisterScreen() {
           </Heading>
           <Squiggle width={84} />
           <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
-            Mulai perjalanan komunikasi tanpa batas bersama AmertaSign
+            Mulai perjalanan komunikasi tanpa batas bersama Amerta Sign
           </Text>
         </View>
 
@@ -98,6 +105,7 @@ export default function RegisterScreen() {
             icon="lock-closed-outline"
             isPasswordVisible={showPassword}
             label="Password"
+            maxLength={PASSWORD_MAX_LENGTH}
             onToggleVisibility={() => setShowPassword((value) => !value)}
             placeholder="Minimal 6 karakter"
             secureTextEntry={!showPassword}
@@ -111,6 +119,7 @@ export default function RegisterScreen() {
             icon="shield-checkmark-outline"
             isPasswordVisible={showConfirmPassword}
             label="Konfirmasi password"
+            maxLength={PASSWORD_MAX_LENGTH}
             onToggleVisibility={() => setShowConfirmPassword((value) => !value)}
             placeholder="Ulangi password"
             secureTextEntry={!showConfirmPassword}

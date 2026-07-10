@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import type { CameraType } from 'expo-camera';
 
@@ -44,6 +45,11 @@ export default function CameraTranslateScreen() {
 
   useEffect(() => {
     setTranslatedText(detectedText || WAITING_TEXT);
+
+    if (detectedText) {
+      // Getar "sukses" saat hasil deteksi berhasil muncul.
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }
 
     // Simpan riwayat hanya untuk pengguna yang login (bukan tamu).
     if (detectedText && !isGuest && user) {
@@ -136,7 +142,11 @@ export default function CameraTranslateScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={isActive ? 'Hentikan deteksi' : 'Mulai deteksi'}
                 accessibilityState={{ selected: isActive }}
-                onPress={() => setIsActive((current) => !current)}
+                onPress={() => {
+                  // Getar sedang menandai mulai/berhenti deteksi (momen penting).
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                  setIsActive((current) => !current);
+                }}
                 style={styles.detectButton}
               >
                 <View style={[styles.detectButtonInner, isActive && styles.detectButtonInnerActive]} />

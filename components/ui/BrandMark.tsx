@@ -33,7 +33,7 @@ export default function BrandMark({ size = 96, onDark = false, style }: BrandMar
           style,
         ]}
       >
-        <Image accessibilityLabel="Logo AmertaSign" source={LOGO} style={{ width: logoSize, height: logoSize }} resizeMode="contain" />
+        <Image accessibilityLabel="Logo Amerta Sign" source={LOGO} style={{ width: logoSize, height: logoSize }} resizeMode="contain" />
       </View>
     );
   }
@@ -41,7 +41,7 @@ export default function BrandMark({ size = 96, onDark = false, style }: BrandMar
   return (
     <View style={style}>
       <Image
-        accessibilityLabel="Logo AmertaSign"
+        accessibilityLabel="Logo Amerta Sign"
         source={LOGO}
         style={{ width: size, height: size }}
         resizeMode="contain"

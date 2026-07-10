@@ -11,7 +11,7 @@ import PressableScale from '../../components/ui/PressableScale';
 import Screen from '../../components/ui/Screen';
 import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
-import { colors, gradients, radius, shadow, spacing } from '../../theme';
+import { colors, gradients, layoutSpacing, radius, shadow, spacing } from '../../theme';
 import { useThemeMode } from '../../hooks/useThemeMode';
 
 import { createSheet } from '../../theme';
@@ -74,7 +74,7 @@ export default function TranslateScreen() {
   const router = useRouter();
 
   return (
-    <Screen scroll>
+    <Screen scroll contentStyle={{ paddingBottom: layoutSpacing.tabBarClearance }}>
       <Stack gap={spacing.lg}>
         <Animated.View entering={FadeInDown.springify().damping(24).stiffness(160)}>
           <Stack gap={spacing.sm}>

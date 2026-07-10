@@ -79,7 +79,7 @@ export default function LoginScreen() {
         <View style={styles.header}>
           <BrandMark size={92} />
           <Heading variant="title" align="center" style={styles.brandName}>
-            AmertaSign
+            Amerta Sign
           </Heading>
           <Squiggle width={84} />
           <Text variant="body" color="secondary" align="center" style={styles.subtitle}>

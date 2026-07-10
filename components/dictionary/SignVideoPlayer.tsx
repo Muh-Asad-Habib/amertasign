@@ -43,7 +43,7 @@ export default function SignVideoPlayer({ videoUrl, word }: SignVideoPlayerProps
           Video peraga segera tersedia
         </Text>
         <Text variant="caption" color="secondary" align="center" style={styles.placeholderCaption}>
-          Video tutorial gerakan "{word}" sedang disiapkan oleh tim AmertaSign.
+          Video tutorial gerakan "{word}" sedang disiapkan oleh tim Amerta Sign.
         </Text>
       </View>
     );

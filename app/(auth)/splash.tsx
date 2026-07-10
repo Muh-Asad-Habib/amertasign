@@ -64,7 +64,7 @@ export default function SplashScreen() {
           </Animated.View>
           <Animated.View style={[styles.copy, { opacity: fadeAnim }]}>
             <Heading variant="display" color="onPrimary" align="center">
-              AmertaSign
+              Amerta Sign
             </Heading>
             <View style={styles.squiggleWrap}>
               <Squiggle color={colors.accent} width={120} height={14} />

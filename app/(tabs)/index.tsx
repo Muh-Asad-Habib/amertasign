@@ -11,7 +11,7 @@ import PressableScale from '../../components/ui/PressableScale';
 import Screen from '../../components/ui/Screen';
 import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
-import { colors, gradients, radius, shadow, spacing } from '../../theme';
+import { colors, gradients, layoutSpacing, radius, shadow, spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore, type TranslationHistoryItem } from '../../store/useHistoryStore';
 import { useThemeMode } from '../../hooks/useThemeMode';
@@ -77,7 +77,7 @@ export default function HomeScreen() {
   const displayName = isGuest ? 'Tamu' : user?.name?.split(' ')[0] || 'Pengguna';
 
   return (
-    <Screen scroll>
+    <Screen scroll contentStyle={{ paddingBottom: layoutSpacing.tabBarClearance }}>
       <Stack gap={spacing.lg}>
         {/* Top App Bar */}
         <Animated.View entering={FadeInDown.springify().damping(24).stiffness(160)}>
@@ -85,7 +85,7 @@ export default function HomeScreen() {
             <View style={styles.brandRow}>
               <BrandMark size={40} />
               <Heading variant="h2" style={styles.brand}>
-                AmertaSign
+                Amerta Sign
               </Heading>
             </View>
             <PressableScale

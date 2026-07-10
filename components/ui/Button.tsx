@@ -85,7 +85,7 @@ export default function Button({
   icon,
   fullWidth = false,
   size = 'md',
-  haptic = true,
+  haptic = false,
   style,
 }: ButtonProps) {
   const textColor = getTextColor(variant);

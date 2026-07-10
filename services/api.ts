@@ -23,6 +23,15 @@ const resolveBaseUrl = (): string => {
 
 export const API_BASE_URL = resolveBaseUrl();
 
+// Keamanan: kredensial (login/register) dikirim ke URL ini. Untuk rilis produksi,
+// EXPO_PUBLIC_API_URL WAJIB memakai https:// agar password & token tidak tersadap.
+if (__DEV__ && API_BASE_URL.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1|10\.|192\.168\.|172\.)/.test(API_BASE_URL)) {
+  console.warn(
+    `[api] API_BASE_URL memakai HTTP tanpa enkripsi (${API_BASE_URL}). ` +
+      'Gunakan HTTPS untuk build produksi agar kredensial aman.'
+  );
+}
+
 // SecureStore tidak tersedia di web — pakai localStorage sebagai fallback.
 const isWeb = Platform.OS === 'web';
 

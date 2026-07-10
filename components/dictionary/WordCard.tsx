@@ -1,8 +1,8 @@
 import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, radius, shadow, spacing } from '../../theme';
+import { colors, popAt, radius, shadow, spacing } from '../../theme';
 import Badge from '../ui/Badge';
 import Heading from '../ui/Heading';
 import PressableScale from '../ui/PressableScale';
@@ -17,9 +17,13 @@ export interface WordCardProps {
   type: SignType;
   onPress: () => void;
   imageUrl?: string;
+  /** Indeks rotasi warna thumbnail (palet permen). Kosong = biru primer. */
+  tint?: number;
 }
 
-export default function WordCard({ word, category, type, onPress, imageUrl }: WordCardProps) {
+export default function WordCard({ word, category, type, onPress, imageUrl, tint }: WordCardProps) {
+  const pop = tint != null ? popAt(tint) : null;
+
   return (
     <PressableScale
       accessibilityRole="button"
@@ -27,11 +31,11 @@ export default function WordCard({ word, category, type, onPress, imageUrl }: Wo
       onPress={onPress}
       style={styles.container}
     >
-      <View style={styles.thumbnail}>
+      <View style={[styles.thumbnail, pop ? { backgroundColor: pop.surface } : null]}>
         {imageUrl ? (
           <Image source={{ uri: imageUrl }} style={styles.image} />
         ) : (
-          <Ionicons color={colors.primary} name="hand-left" size={26} />
+          <Ionicons color={pop ? pop.color : colors.primary} name="hand-left" size={26} />
         )}
       </View>
 
@@ -46,7 +50,7 @@ export default function WordCard({ word, category, type, onPress, imageUrl }: Wo
       </View>
 
       <View style={styles.chevron}>
-        <Ionicons color={colors.primary} name="chevron-forward" size={20} />
+        <Ionicons color={colors.primary} name="arrow-forward" size={18} />
       </View>
     </PressableScale>
   );
@@ -58,7 +62,7 @@ const styles = createSheet((colors) => ({
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: radius.xl,
-    borderWidth: 1.5,
+    borderWidth: 1,
     flexDirection: 'row',
     minHeight: 92,
     padding: spacing.md,

@@ -37,7 +37,7 @@ function AuthLoadingScreen({ fontsReady }: { fontsReady: boolean }) {
       <ActivityIndicator color={colors.primary} size="large" />
       <Text style={[styles.loadingTitle, fontsReady && styles.titleFont]}>Memeriksa sesi Anda...</Text>
       <Text style={[styles.loadingSubtitle, fontsReady && styles.bodyFont]}>
-        Menyiapkan pengalaman belajar terbaik di AmertaSign.
+        Menyiapkan pengalaman belajar terbaik di Amerta Sign.
       </Text>
     </View>
   );
