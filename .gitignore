@@ -40,15 +40,13 @@ yarn-error.*
 /ios
 /android
 
-# agent skills (local only, tidak perlu di-push)
+# editor / IDE
+.idea/
+.vscode/
+.claude/
 .agents/
 skills-lock.json
 
-# editor / MCP config (berisi API key rahasia)
-.vscode/mcp.json
-
-# referensi desain Stitch (aset lokal, tidak perlu di-push)
-docs/stitch/
 
 # local env
 .env
