@@ -7,6 +7,8 @@ import Button from './Button';
 import Heading from './Heading';
 import Text from './Text';
 
+import { createSheet } from '../../theme';
+
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 export interface EmptyStateProps {
@@ -38,7 +40,7 @@ export default function EmptyState({ icon, title, description, actionLabel, onAc
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -64,4 +66,4 @@ const styles = StyleSheet.create({
     marginTop: 20,
     minWidth: 180,
   },
-});
+}));

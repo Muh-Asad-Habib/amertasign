@@ -2,8 +2,20 @@
  * AmertaSign Design System — pintu masuk token tunggal.
  * Impor dari sini: `import { theme } from '../theme'` atau token individual.
  */
-export { colors, palette, gradients, overlay, pops, popAt, confettiColors } from './colors';
-export type { AppColors, Pop } from './colors';
+export {
+  colors,
+  palette,
+  gradients,
+  overlay,
+  pops,
+  popAt,
+  confettiColors,
+  themes,
+  setActiveColorScheme,
+  getActiveColorScheme,
+} from './colors';
+export type { AppColors, Pop, ThemeScheme } from './colors';
+export { createSheet } from './sheet';
 export {
   spacing,
   layoutSpacing,

@@ -14,10 +14,17 @@ import Text from '../../components/ui/Text';
 import { colors, spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 
+import { createSheet } from '../../theme';
+
+import { useSettingsStore } from '../../store/useSettingsStore';
+
 const USERNAME_REGEX = /^[a-zA-Z0-9._-]{3,20}$/;
+/** bcrypt di backend hanya memproses 72 byte pertama — batasi agar tidak terpotong diam-diam. */
+const PASSWORD_MAX_LENGTH = 72;
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const themeMode = useSettingsStore((state) => state.themeMode);
   const signUp = useAuthStore((state) => state.signUp);
   const isLoading = useAuthStore((state) => state.isLoading);
   const [username, setUsername] = useState('');
@@ -44,6 +51,11 @@ export default function RegisterScreen() {
       return;
     }
 
+    if (password.length > PASSWORD_MAX_LENGTH) {
+      Alert.alert('Password terlalu panjang', `Password maksimal ${PASSWORD_MAX_LENGTH} karakter.`);
+      return;
+    }
+
     if (password !== confirmPassword) {
       Alert.alert('Password tidak sama', 'Pastikan konfirmasi password sesuai dengan password Anda.');
       return;
@@ -62,7 +74,7 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+      <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
       <Decor preset="corner" />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
@@ -72,7 +84,7 @@ export default function RegisterScreen() {
           </Heading>
           <Squiggle width={84} />
           <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
-            Mulai perjalanan komunikasi tanpa batas bersama AmertaSign
+            Mulai perjalanan komunikasi tanpa batas bersama Amerta Sign
           </Text>
         </View>
 
@@ -93,6 +105,7 @@ export default function RegisterScreen() {
             icon="lock-closed-outline"
             isPasswordVisible={showPassword}
             label="Password"
+            maxLength={PASSWORD_MAX_LENGTH}
             onToggleVisibility={() => setShowPassword((value) => !value)}
             placeholder="Minimal 6 karakter"
             secureTextEntry={!showPassword}
@@ -106,6 +119,7 @@ export default function RegisterScreen() {
             icon="shield-checkmark-outline"
             isPasswordVisible={showConfirmPassword}
             label="Konfirmasi password"
+            maxLength={PASSWORD_MAX_LENGTH}
             onToggleVisibility={() => setShowConfirmPassword((value) => !value)}
             placeholder="Ulangi password"
             secureTextEntry={!showConfirmPassword}
@@ -138,7 +152,7 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
@@ -180,4 +194,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: spacing.xl,
   },
-});
+}));

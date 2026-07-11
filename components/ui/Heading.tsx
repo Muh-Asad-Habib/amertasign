@@ -5,12 +5,14 @@ import { colors, headingStyles, type HeadingVariant } from '../../theme';
 
 type HeadingColor = 'default' | 'primary' | 'onPrimary' | 'onAccent';
 
-const colorMap: Record<HeadingColor, string> = {
-  default: colors.text,
-  primary: colors.primary,
-  onPrimary: colors.textOnPrimary,
-  onAccent: colors.textOnAccent,
-};
+/** Dibaca saat render agar mengikuti tema aktif (gelap/terang). */
+const colorFor = (color: HeadingColor): string =>
+  ({
+    default: colors.text,
+    primary: colors.primary,
+    onPrimary: colors.textOnPrimary,
+    onAccent: colors.textOnAccent,
+  })[color];
 
 export interface HeadingProps extends RNTextProps {
   variant?: HeadingVariant;
@@ -30,7 +32,7 @@ export default function Heading({
 }: HeadingProps) {
   return (
     <RNText
-      style={[headingStyles[variant], { color: colorMap[color], textAlign: align }, style]}
+      style={[headingStyles[variant], { color: colorFor(color), textAlign: align }, style]}
       {...rest}
     >
       {children}

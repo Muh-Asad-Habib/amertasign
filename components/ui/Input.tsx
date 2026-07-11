@@ -11,6 +11,8 @@ import {
 import { colors, fontFamily, layoutSpacing, radius, touchTargetMin } from '../../theme';
 import Text from './Text';
 
+import { createSheet } from '../../theme';
+
 export interface InputProps extends TextInputProps {
   label?: string;
   icon?: keyof typeof Ionicons.glyphMap;
@@ -89,7 +91,7 @@ export default function Input({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   wrapper: {
     gap: 6,
   },
@@ -128,4 +130,4 @@ const styles = StyleSheet.create({
   helper: {
     marginLeft: 2,
   },
-});
+}));

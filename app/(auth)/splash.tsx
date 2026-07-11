@@ -12,6 +12,8 @@ import Squiggle from '../../components/ui/Squiggle';
 import Text from '../../components/ui/Text';
 import { colors, gradients, overlay, spacing } from '../../theme';
 
+import { createSheet } from '../../theme';
+
 export default function SplashScreen() {
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -62,7 +64,7 @@ export default function SplashScreen() {
           </Animated.View>
           <Animated.View style={[styles.copy, { opacity: fadeAnim }]}>
             <Heading variant="display" color="onPrimary" align="center">
-              AmertaSign
+              Amerta Sign
             </Heading>
             <View style={styles.squiggleWrap}>
               <Squiggle color={colors.accent} width={120} height={14} />
@@ -77,7 +79,7 @@ export default function SplashScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   root: {
     flex: 1,
     backgroundColor: colors.primary,
@@ -120,4 +122,4 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
   },
-});
+}));

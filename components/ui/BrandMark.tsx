@@ -1,58 +1,61 @@
 import React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
-import { colors, gradients, overlay, radius } from '../../theme';
-import GradientSurface from './GradientSurface';
+import { shadow } from '../../theme';
+import { useSettingsStore } from '../../store/useSettingsStore';
+
+const LOGO = require('../../assets/logo.png');
 
 export interface BrandMarkProps {
   size?: number;
-  /** Untuk latar gelap/teal (mis. splash): wadah putih transparan + ikon terang. */
+  /** Untuk latar gelap/biru (mis. splash): wadah kartu putih agar logo biru terbaca. */
   onDark?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
 /**
- * Logo AmertaSign berbasis vektor (ikon tangan) — pengganti emoji 🤟.
- * Konsisten lintas platform & mendukung tema terang/gelap.
+ * Logo resmi AMERTA (dua tangan + gelombang suara) dari assets.
+ * Latar terang: logo transparan langsung. Latar gelap (prop onDark atau
+ * mode gelap aktif): kartu putih membulat agar logo biru tetap terbaca.
  */
 export default function BrandMark({ size = 96, onDark = false, style }: BrandMarkProps) {
-  const iconSize = Math.round(size * 0.46);
-  const cornerRadius = Math.round(size * 0.3);
+  const isDarkTheme = useSettingsStore((state) => state.themeMode) === 'dark';
+  const cornerRadius = Math.round(size * 0.28);
+  const useCard = onDark || isDarkTheme;
 
-  if (onDark) {
+  if (useCard) {
+    const logoSize = Math.round(size * 0.82);
     return (
       <View
         style={[
-          styles.dark,
+          styles.card,
           { width: size, height: size, borderRadius: cornerRadius },
           style,
         ]}
       >
-        <Ionicons color={colors.surface} name="hand-left" size={iconSize} />
+        <Image accessibilityLabel="Logo Amerta Sign" source={LOGO} style={{ width: logoSize, height: logoSize }} resizeMode="contain" />
       </View>
     );
   }
 
   return (
-    <GradientSurface
-      colors={gradients.primary}
-      radius={cornerRadius}
-      shadowLevel="md"
-      style={style}
-      contentStyle={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
-    >
-      <Ionicons color={colors.textOnPrimary} name="hand-left" size={iconSize} />
-    </GradientSurface>
+    <View style={style}>
+      <Image
+        accessibilityLabel="Logo Amerta Sign"
+        source={LOGO}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  dark: {
-    backgroundColor: overlay.onBrandStrong,
+  card: {
+    // Kartu selalu putih — logo biru butuh latar terang di kedua tema.
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: overlay.onBrandSoft,
+    ...shadow.md,
   },
 });

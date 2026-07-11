@@ -13,6 +13,8 @@ import Animated, {
 
 import { confettiColors } from '../../theme';
 
+import { createSheet } from '../../theme';
+
 interface SparkleItem {
   top?: number;
   left?: number;
@@ -86,8 +88,8 @@ export default function Sparkles({ items = DEFAULT_ITEMS, style }: SparklesProps
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   sparkle: {
     position: 'absolute',
   },
-});
+}));

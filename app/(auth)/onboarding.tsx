@@ -1,11 +1,10 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Pressable,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -13,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import BrandMark from '../../components/ui/BrandMark';
 import Button from '../../components/ui/Button';
 import GradientSurface from '../../components/ui/GradientSurface';
 import Heading from '../../components/ui/Heading';
@@ -22,8 +22,15 @@ import Text from '../../components/ui/Text';
 import { colors, gradients, radius, spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 
+import { createSheet } from '../../theme';
+
+import { useSettingsStore } from '../../store/useSettingsStore';
+
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 type GradientStops = readonly [string, string, ...string[]];
+
+/** Jeda pergantian otomatis antar tampilan carousel. */
+const AUTO_SLIDE_INTERVAL_MS = 5_000;
 
 interface OnboardingSlide {
   id: string;
@@ -43,7 +50,7 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
     iconColor: colors.textOnPrimary,
     ringColor: colors.accentSurface,
     title: 'Terjemah Isyarat',
-    description: 'Arahkan kamera untuk menerjemahkan bahasa isyarat secara real-time.',
+    description: 'Arahkan kamera untuk menerjemahkan bahasa isyarat BISINDO menjadi teks dan suara.',
   },
   {
     id: 'chat',
@@ -52,7 +59,7 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
     iconColor: colors.textOnAccent,
     ringColor: colors.primarySurface,
     title: 'Komunikasi Dua Arah',
-    description: 'Ketik pesan dan lihat terjemahannya dalam bahasa isyarat.',
+    description: 'Ketik atau ucapkan pesan dan lihat terjemahannya dalam bahasa isyarat.',
   },
   {
     id: 'learn',
@@ -61,38 +68,40 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
     iconColor: colors.textOnPrimary,
     ringColor: colors.accentSurface,
     title: 'Belajar & Kamus',
-    description: 'Pelajari bahasa isyarat dengan video tutorial dan kamus lengkap.',
+    description: 'Pelajari bahasa isyarat dengan video tutorial dan kamus BISINDO lengkap.',
   },
 ];
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const themeMode = useSettingsStore((state) => state.themeMode);
   const { width } = useWindowDimensions();
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const continueAsGuest = useAuthStore((state) => state.continueAsGuest);
   const isLoading = useAuthStore((state) => state.isLoading);
 
-  const handleSkip = () => {
+  // Carousel berganti otomatis; timer di-reset setiap slide berubah (termasuk geser manual).
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const nextSlide = (currentSlide + 1) % ONBOARDING_SLIDES.length;
+      flatListRef.current?.scrollToIndex({ index: nextSlide, animated: true });
+      setCurrentSlide(nextSlide);
+    }, AUTO_SLIDE_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, [currentSlide]);
+
+  const handleLogin = () => {
     router.replace('/(auth)/login');
   };
 
   const handleGuest = async () => {
     try {
-      await continueAsGuest();
-      router.replace('/(tabs)/');
+      await continueAsGuest();// Navigasi ditangani routing guard di _layout.tsx saat isAuthenticated berubah.
     } catch {
       router.replace('/(auth)/login');
     }
-  };
-
-  const handleNext = () => {
-    if (currentSlide === ONBOARDING_SLIDES.length - 1) {
-      router.replace('/(auth)/login');
-      return;
-    }
-
-    flatListRef.current?.scrollToIndex({ index: currentSlide + 1, animated: true });
   };
 
   const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -100,19 +109,18 @@ export default function OnboardingScreen() {
     setCurrentSlide(nextSlide);
   };
 
-  const isLastSlide = currentSlide === ONBOARDING_SLIDES.length - 1;
-
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+      <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
       <View style={styles.container}>
         <Sparkles />
+
+        {/* Logo brand di atas */}
         <View style={styles.topBar}>
-          <Pressable accessibilityRole="button" hitSlop={8} onPress={handleSkip}>
-            <Text variant="bodyStrong" color="primary">
-              Lewati
-            </Text>
-          </Pressable>
+          <BrandMark size={72} />
+          <Heading variant="h2" style={styles.brandName}>
+            Amerta Sign
+          </Heading>
         </View>
 
         <FlatList
@@ -133,7 +141,7 @@ export default function OnboardingScreen() {
                   shadowLevel="lg"
                   contentStyle={styles.illustrationInner}
                 >
-                  <Ionicons color={item.iconColor} name={item.icon} size={76} />
+                  <Ionicons color={item.iconColor} name={item.icon} size={64} />
                 </GradientSurface>
               </View>
 
@@ -155,7 +163,7 @@ export default function OnboardingScreen() {
               <View key={slide.id} style={[styles.dot, index === currentSlide ? styles.activeDot : undefined]} />
             ))}
           </View>
-          <Button fullWidth title={isLastSlide ? 'Masuk / Daftar' : 'Lanjut'} onPress={handleNext} />
+          <Button fullWidth title="Masuk / Daftar" onPress={handleLogin} />
           <Button disabled={isLoading} fullWidth title="Lanjut sebagai Tamu" variant="ghost" onPress={handleGuest} />
         </View>
       </View>
@@ -163,7 +171,7 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -172,15 +180,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topBar: {
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingTop: spacing.md,
+  },
+  brandName: {
+    color: colors.primary,
   },
   slide: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.lg,
     gap: spacing.md,
   },
   illustration: {
@@ -190,14 +201,14 @@ const styles = StyleSheet.create({
   },
   ring: {
     position: 'absolute',
-    width: 224,
-    height: 224,
+    width: 196,
+    height: 196,
     borderRadius: 999,
     borderWidth: 10,
   },
   illustrationInner: {
-    width: 180,
-    height: 180,
+    width: 156,
+    height: 156,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -230,4 +241,4 @@ const styles = StyleSheet.create({
     width: 28,
     backgroundColor: colors.accent,
   },
-});
+}));

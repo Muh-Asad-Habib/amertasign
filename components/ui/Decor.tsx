@@ -3,6 +3,8 @@ import { StyleSheet, View } from 'react-native';
 
 import { colors } from '../../theme';
 
+import { createSheet } from '../../theme';
+
 export type DecorPreset = 'header' | 'auth' | 'corner' | 'ink';
 
 export interface DecorProps {
@@ -46,7 +48,7 @@ export default function Decor({ preset = 'header' }: DecorProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   blob: {
     position: 'absolute',
     borderRadius: 999,
@@ -121,4 +123,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     opacity: 0.14,
   },
-});
+}));

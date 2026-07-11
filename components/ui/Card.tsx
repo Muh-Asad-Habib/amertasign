@@ -14,7 +14,7 @@ export interface CardProps extends Pick<ViewProps, 'children'> {
   elevated?: boolean;
   padding?: number;
   accessibilityLabel?: string;
-  /** Getaran halus saat ditekan (hanya bila onPress). Default true. */
+  /** Getaran halus saat ditekan (hanya bila onPress). Default false. */
   haptic?: boolean;
 }
 
@@ -38,7 +38,7 @@ export default function Card({
   elevated = false,
   padding = layoutSpacing.cardPadding,
   accessibilityLabel,
-  haptic = true,
+  haptic = false,
 }: CardProps) {
   const resolvedVariant: CardVariant = variant ?? (elevated ? 'elevated' : 'default');
 

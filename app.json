@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "amertaSign",
+    "name": "Amerta Sign",
     "slug": "amertaSign",
     "scheme": "amertasign",
     "version": "1.0.0",
@@ -16,7 +16,7 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#003E9B"
+        "backgroundColor": "#FFFFFF"
       },
       "permissions": [
         "android.permission.CAMERA"
@@ -30,12 +30,35 @@
       "expo-router",
       "expo-font",
       [
-        "expo-camera",
+        "expo-splash-screen",
         {
-          "cameraPermission": "AmertaSign membutuhkan akses kamera untuk menerjemahkan bahasa isyarat secara langsung."
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
         }
       ],
-      "expo-secure-store"
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Amerta Sign membutuhkan akses kamera untuk menerjemahkan bahasa isyarat secara langsung."
+        }
+      ],
+      "expo-secure-store",
+      "expo-video",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Amerta Sign membutuhkan akses mikrofon untuk mengubah ucapan menjadi teks.",
+          "speechRecognitionPermission": "Amerta Sign menggunakan pengenalan suara untuk menerjemahkan ucapan ke bahasa isyarat."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Amerta Sign membutuhkan akses galeri untuk menerjemahkan media bahasa isyarat."
+        }
+      ]
     ]
   }
 }

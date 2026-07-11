@@ -11,6 +11,8 @@ import {
 import { colors, fontFamily, radius, touchTargetMin } from '../../theme';
 import PressableScale from './PressableScale';
 
+import { createSheet } from '../../theme';
+
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
@@ -83,7 +85,7 @@ export default function Button({
   icon,
   fullWidth = false,
   size = 'md',
-  haptic = true,
+  haptic = false,
   style,
 }: ButtonProps) {
   const textColor = getTextColor(variant);
@@ -121,7 +123,7 @@ export default function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   base: {
     alignItems: 'center',
     borderRadius: radius.md,
@@ -148,4 +150,4 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.5,
   },
-});
+}));

@@ -6,13 +6,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
 import Heading from '../../components/ui/Heading';
+import BrandMark from '../../components/ui/BrandMark';
 import PressableScale from '../../components/ui/PressableScale';
 import Screen from '../../components/ui/Screen';
 import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
-import { colors, gradients, radius, shadow, spacing } from '../../theme';
+import { colors, gradients, layoutSpacing, radius, shadow, spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore, type TranslationHistoryItem } from '../../store/useHistoryStore';
+import { useThemeMode } from '../../hooks/useThemeMode';
+
+import { createSheet } from '../../theme';
+
+const EMPTY_HISTORY: TranslationHistoryItem[] = [];
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -30,7 +36,7 @@ function ActionCard({
   delay: number;
 }) {
   return (
-    <Animated.View entering={FadeInDown.delay(delay).springify().damping(15)}>
+    <Animated.View entering={FadeInDown.delay(delay).springify().damping(24).stiffness(160)}>
       <PressableScale
         accessibilityRole="button"
         accessibilityLabel={title}
@@ -60,27 +66,26 @@ function formatTime(iso: string) {
 }
 
 export default function HomeScreen() {
+  useThemeMode();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const history = useHistoryStore((state) =>
-    user && !isGuest ? (state.itemsByUser[user.id] ?? []) : []
+    user && !isGuest ? (state.itemsByUser[user.id] ?? EMPTY_HISTORY) : EMPTY_HISTORY
   );
   const recentHistory = history.slice(0, 5);
   const displayName = isGuest ? 'Tamu' : user?.name?.split(' ')[0] || 'Pengguna';
 
   return (
-    <Screen scroll>
+    <Screen scroll contentStyle={{ paddingBottom: layoutSpacing.tabBarClearance }}>
       <Stack gap={spacing.lg}>
         {/* Top App Bar */}
-        <Animated.View entering={FadeInDown.springify().damping(15)}>
+        <Animated.View entering={FadeInDown.springify().damping(24).stiffness(160)}>
           <View style={styles.topBar}>
             <View style={styles.brandRow}>
-              <View style={styles.logoBadge}>
-                <Ionicons color={colors.textOnPrimary} name="hand-left" size={18} />
-              </View>
+              <BrandMark size={40} />
               <Heading variant="h2" style={styles.brand}>
-                AmertaSign
+                Amerta Sign
               </Heading>
             </View>
             <PressableScale
@@ -94,7 +99,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Hero */}
-        <Animated.View entering={FadeInDown.delay(60).springify().damping(15)}>
+        <Animated.View entering={FadeInDown.delay(60).springify().damping(24).stiffness(160)}>
           <LinearGradient
             colors={gradients.primary}
             start={{ x: 0, y: 0 }}
@@ -118,22 +123,26 @@ export default function HomeScreen() {
               Jembatani percakapan dengan satu gerakan.
             </Text>
 
-            <PressableScale
-              accessibilityRole="button"
-              accessibilityLabel="Mulai penerjemah langsung"
-              onPress={() => router.push('/(tabs)/live')}
-              style={styles.heroCta}
-            >
-              <Ionicons color={colors.textOnAccent} name="videocam" size={20} />
-              <Text variant="bodyStrong" style={styles.heroCtaText}>
-                Mulai Live
-              </Text>
-            </PressableScale>
+            <View style={styles.heroFooter}>
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel="Mulai terjemahan"
+                onPress={() => router.push('/(tabs)/translate')}
+                style={styles.heroCta}
+              >
+                <Ionicons color={colors.textOnAccent} name="swap-horizontal" size={20} />
+                <Text variant="bodyStrong" style={styles.heroCtaText}>
+                  Mulai Terjemahan
+                </Text>
+              </PressableScale>
+
+              <BrandMark onDark size={58} />
+            </View>
           </LinearGradient>
         </Animated.View>
 
         {/* Mode terjemahan */}
-        <Animated.View entering={FadeInDown.delay(120).springify().damping(15)}>
+        <Animated.View entering={FadeInDown.delay(120).springify().damping(24).stiffness(160)}>
           <Text variant="kicker" color="primary" style={styles.sectionKicker}>
             Mode Terjemahan
           </Text>
@@ -144,26 +153,42 @@ export default function HomeScreen() {
             delay={160}
             icon="scan-outline"
             onPress={() => router.push('/translate/camera')}
-            subtitle="Deteksi gerakan isyarat jadi teks & suara"
-            title="Terjemah Isyarat"
+            subtitle="Kamera mendeteksi isyarat jadi teks & suara"
+            title="Isyarat → Teks/Audio"
           />
           <ActionCard
             delay={220}
             icon="chatbubble-ellipses-outline"
             onPress={() => router.push('/translate/text-to-sign')}
-            subtitle="Ubah tulisan menjadi peragaan isyarat"
-            title="Teks ke Isyarat"
+            subtitle="Ubah tulisan atau ucapan jadi peragaan isyarat"
+            title="Teks/Audio → Isyarat"
           />
         </Stack>
 
         {/* Riwayat terjemahan */}
-        <Animated.View entering={FadeInDown.delay(280).springify().damping(15)}>
-          <Text variant="kicker" color="primary" style={styles.sectionKicker}>
-            Riwayat Terjemahan
-          </Text>
+        <Animated.View entering={FadeInDown.delay(280).springify().damping(24).stiffness(160)}>
+          <View style={styles.sectionHeader}>
+            <Text variant="kicker" color="primary">
+              Riwayat Terjemahan
+            </Text>
+            {!isGuest && recentHistory.length > 0 ? (
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel="Lihat semua riwayat"
+                haptic={false}
+                onPress={() => router.push('/history')}
+                style={styles.sectionLink}
+              >
+                <Text variant="label" color="primary">
+                  Lihat Semua
+                </Text>
+                <Ionicons color={colors.primary} name="chevron-forward" size={14} />
+              </PressableScale>
+            ) : null}
+          </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(320).springify().damping(15)}>
+        <Animated.View entering={FadeInDown.delay(320).springify().damping(24).stiffness(160)}>
           {isGuest ? (
             <View style={styles.historyEmpty}>
               <View style={styles.historyEmptyIcon}>
@@ -231,7 +256,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -241,14 +266,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  logoBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   brand: {
     color: colors.primary,
@@ -316,8 +333,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     maxWidth: '82%',
   },
+  heroFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
+  },
   heroCta: {
-    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
@@ -325,7 +347,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     paddingHorizontal: spacing.lg,
     minHeight: 48,
-    marginTop: spacing.lg,
     ...shadow.sm,
   },
   heroCtaText: {
@@ -333,6 +354,19 @@ const styles = StyleSheet.create({
   },
   sectionKicker: {
     marginBottom: -spacing.sm,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: -spacing.sm,
+  },
+  sectionLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    minHeight: 32,
+    paddingHorizontal: spacing.xs,
   },
   actionCard: {
     flexDirection: 'row',
@@ -424,4 +458,4 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-});
+}));

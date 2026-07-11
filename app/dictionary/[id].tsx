@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import WordCard from '../../components/dictionary/WordCard';
+import SignVideoPlayer from '../../components/dictionary/SignVideoPlayer';
 import BackHeader from '../../components/ui/BackHeader';
 import Badge from '../../components/ui/Badge';
 import BrandMark from '../../components/ui/BrandMark';
@@ -21,7 +22,10 @@ import Text from '../../components/ui/Text';
 import { colors, gradients, radius, spacing } from '../../theme';
 import { useDictionary } from '../../hooks/useDictionary';
 import { useTTS } from '../../hooks/useTTS';
+import { useThemeMode } from '../../hooks/useThemeMode';
 import type { DictionaryCategory } from '../../types';
+
+import { createSheet } from '../../theme';
 
 const CATEGORY_LABELS: Record<DictionaryCategory, string> = {
   alfabet: 'Alfabet',
@@ -31,6 +35,7 @@ const CATEGORY_LABELS: Record<DictionaryCategory, string> = {
 };
 
 export default function DictionaryDetailScreen() {
+  useThemeMode();
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -88,17 +93,14 @@ export default function DictionaryDetailScreen() {
           </Row>
         </GradientSurface>
 
-        <Section kicker="Panduan" title="Cara Melakukan">
-          <Text variant="body" color="secondary" style={styles.description}>
-            {entry.description}
-          </Text>
+        <Section kicker="Belajar" title="Video Peraga">
+          <SignVideoPlayer videoUrl={entry.videoUrl} word={entry.word} />
         </Section>
 
         <Row gap={spacing.sm}>
           <Button
             icon={<Ionicons color={favorite ? colors.textOnAccent : colors.primary} name={favorite ? 'star' : 'star-outline'} size={18} />}
             onPress={() => toggleFavorite(entry.id)}
-            size="sm"
             style={styles.actionButton}
             title="Favorit"
             variant={favorite ? 'secondary' : 'outline'}
@@ -106,18 +108,9 @@ export default function DictionaryDetailScreen() {
           <Button
             icon={<Ionicons color={colors.primary} name="volume-high-outline" size={18} />}
             onPress={() => speak(entry.word)}
-            size="sm"
             style={styles.actionButton}
             title="Dengarkan"
             variant="outline"
-          />
-          <Button
-            icon={<Ionicons color={colors.primary} name="share-social-outline" size={18} />}
-            onPress={() => Alert.alert('Bagikan', 'Fitur berbagi akan segera hadir.')}
-            size="sm"
-            style={styles.actionButton}
-            title="Bagikan"
-            variant="ghost"
           />
         </Row>
 
@@ -146,7 +139,7 @@ export default function DictionaryDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   safeArea: {
     backgroundColor: colors.background,
     flex: 1,
@@ -165,10 +158,7 @@ const styles = StyleSheet.create({
   word: {
     marginTop: spacing.xs,
   },
-  description: {
-    lineHeight: 26,
-  },
   actionButton: {
     flex: 1,
   },
-});
+}));

@@ -7,6 +7,8 @@ import Row from './Row';
 import Squiggle from './Squiggle';
 import Text from './Text';
 
+import { createSheet } from '../../theme';
+
 export interface SectionProps {
   /** Kicker kecil uppercase di atas judul (mis. "BELAJAR"). */
   kicker?: string;
@@ -40,7 +42,7 @@ export default function Section({ kicker, title, action, children, gap = layoutS
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet((colors) => ({
   titleBlock: {
     flex: 1,
     gap: 4,
@@ -51,4 +53,4 @@ const styles = StyleSheet.create({
   action: {
     paddingBottom: 6,
   },
-});
+}));

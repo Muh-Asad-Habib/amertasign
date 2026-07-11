@@ -23,12 +23,16 @@ export interface PressableScaleProps extends Omit<PressableProps, 'style'> {
   style?: StyleProp<ViewStyle>;
   /** Skala saat ditekan. Default token motion.pressScale (0.97). */
   scaleTo?: number;
-  /** Getaran halus saat ditekan. Default true. */
+  /**
+   * Getaran halus saat ditekan. Default false — getar hanya dipakai
+   * di momen bermakna (mis. tombol rekam deteksi di fitur Translate),
+   * bukan di setiap sentuhan.
+   */
   haptic?: boolean;
 }
 
 /**
- * Permukaan tappable dengan umpan-balik tekan tactile (spring scale + haptik).
+ * Permukaan tappable dengan umpan-balik tekan tactile (spring scale).
  * Menghormati prefers-reduced-motion: skala dimatikan bila pengguna meminta.
  * Fondasi rasa "berani & hidup" yang dipakai konsisten di seluruh aplikasi.
  */
@@ -36,7 +40,7 @@ export default function PressableScale({
   children,
   style,
   scaleTo = motion.pressScale,
-  haptic = true,
+  haptic = false,
   disabled,
   onPressIn,
   onPressOut,
@@ -66,8 +70,8 @@ export default function PressableScale({
 
   const handlePressOut = useCallback(
     (event: GestureResponderEvent) => {
-      // Pantul ceria saat dilepas (overshoot) — rasa "boing" yang fun.
-      scale.value = withSpring(1, motion.springBouncy);
+      // Kembali halus saat dilepas, tanpa pantulan berlebih.
+      scale.value = withSpring(1, motion.springSoft);
       onPressOut?.(event);
     },
     [onPressOut, scale]
