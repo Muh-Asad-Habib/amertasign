@@ -98,7 +98,10 @@ export default function OnboardingScreen() {
 
   const handleGuest = async () => {
     try {
-      await continueAsGuest();// Navigasi ditangani routing guard di _layout.tsx saat isAuthenticated berubah.
+      await continueAsGuest();
+      // Navigasi eksplisit: guard membiarkan tamu berada di grup auth,
+      // jadi pindah ke beranda harus dilakukan di sini.
+      router.replace('/(tabs)/');
     } catch {
       router.replace('/(auth)/login');
     }

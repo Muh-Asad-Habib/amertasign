@@ -1,18 +1,20 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../../components/ui/Button';
 import BrandMark from '../../components/ui/BrandMark';
 import Decor from '../../components/ui/Decor';
+import GoogleButton from '../../components/ui/GoogleButton';
 import Heading from '../../components/ui/Heading';
 import Input from '../../components/ui/Input';
 import Squiggle from '../../components/ui/Squiggle';
 import Text from '../../components/ui/Text';
-import { colors, spacing } from '../../theme';
+import { spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 
 import { createSheet } from '../../theme';
 
@@ -29,6 +31,11 @@ export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  const { isGoogleLoading, promptGoogleSignIn } = useGoogleAuth({
+    onSuccess: () => router.replace('/(tabs)/'),
+    onError: (message) => Alert.alert('Masuk dengan Google gagal', message),
+  });
 
   const handleLogin = async () => {
     const normalizedUsername = username.trim().toLowerCase();
@@ -112,6 +119,18 @@ export default function LoginScreen() {
             onChangeText={setPassword}
           />
 
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Lupa password"
+            disabled={isLoading}
+            onPress={() => router.push('/(auth)/forgot-password')}
+            style={styles.forgotLink}
+          >
+            <Text variant="bodyStrong" color="primary">
+              Lupa password?
+            </Text>
+          </Pressable>
+
           <Button
             disabled={isLoading || !username.trim() || !password}
             fullWidth
@@ -127,6 +146,13 @@ export default function LoginScreen() {
             </Text>
             <View style={styles.dividerLine} />
           </View>
+
+          <GoogleButton
+            disabled={isLoading}
+            loading={isGoogleLoading}
+            title="Masuk dengan Google"
+            onPress={promptGoogleSignIn}
+          />
 
           <Button
             disabled={isLoading}
@@ -163,23 +189,27 @@ const styles = createSheet((colors) => ({
   },
   content: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
   },
   header: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
-    gap: spacing.sm,
+    marginBottom: spacing.lg,
+    gap: spacing.xs,
   },
   brandName: {
-    marginTop: spacing.xs,
+    marginTop: 0,
   },
   subtitle: {
-    marginTop: spacing.xs,
+    marginTop: 0,
   },
   form: {
     gap: spacing.md,
+  },
+  forgotLink: {
+    alignSelf: 'flex-end',
+    marginTop: -spacing.xs,
   },
   dividerRow: {
     alignItems: 'center',

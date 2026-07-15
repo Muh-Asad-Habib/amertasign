@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { apiRequest } from '../services/api';
 import type { SignLanguageType } from '../types';
+import { useSettingsStore } from './useSettingsStore';
 
 export type TranslationKind = 'isyarat-ke-teks' | 'teks-ke-isyarat';
 
@@ -24,9 +25,25 @@ interface HistoryState {
   getHistory: (userId: string) => TranslationHistoryItem[];
 }
 
-const MAX_ITEMS = 50;
+/** Maksimal riwayat per arah: 10 teks/audio→isyarat dan 10 isyarat→teks/audio. */
+const MAX_ITEMS_PER_KIND = 10;
 
 const isGuest = (userId: string) => !userId || userId === 'guest-user';
+
+/** Urutkan terbaru dulu, lalu batasi tiap arah terjemahan maksimal 10 item. */
+const capPerKind = (items: TranslationHistoryItem[]): TranslationHistoryItem[] => {
+  const sorted = [...items].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  const counts: Record<TranslationKind, number> = {
+    'isyarat-ke-teks': 0,
+    'teks-ke-isyarat': 0,
+  };
+  return sorted.filter((item) => {
+    counts[item.kind] += 1;
+    return counts[item.kind] <= MAX_ITEMS_PER_KIND;
+  });
+};
 
 export const useHistoryStore = create<HistoryState>((set, get) => ({
   itemsByUser: {},
@@ -38,13 +55,23 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
     set({ isLoading: true });
     try {
-      const data = await apiRequest<{ items: TranslationHistoryItem[] }>(
-        `/history?limit=${MAX_ITEMS}`,
-        { auth: true }
-      );
+      // Ambil per arah agar tiap arah tepat maksimal 10 item.
+      const [signToText, textToSign] = await Promise.all([
+        apiRequest<{ items: TranslationHistoryItem[] }>(
+          `/history?limit=${MAX_ITEMS_PER_KIND}&kind=isyarat-ke-teks`,
+          { auth: true }
+        ),
+        apiRequest<{ items: TranslationHistoryItem[] }>(
+          `/history?limit=${MAX_ITEMS_PER_KIND}&kind=teks-ke-isyarat`,
+          { auth: true }
+        ),
+      ]);
       set((state) => ({
         isLoading: false,
-        itemsByUser: { ...state.itemsByUser, [userId]: data.items },
+        itemsByUser: {
+          ...state.itemsByUser,
+          [userId]: capPerKind([...signToText.items, ...textToSign.items]),
+        },
       }));
     } catch {
       set({ isLoading: false });
@@ -52,6 +79,11 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   },
   addEntry: (userId, entry) => {
     if (isGuest(userId)) {
+      return;
+    }
+
+    // Privasi: pengguna bisa mematikan penyimpanan riwayat di pengaturan.
+    if (!useSettingsStore.getState().saveHistoryEnabled) {
       return;
     }
 
@@ -65,7 +97,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     set((state) => ({
       itemsByUser: {
         ...state.itemsByUser,
-        [userId]: [localItem, ...(state.itemsByUser[userId] ?? [])].slice(0, MAX_ITEMS),
+        [userId]: capPerKind([localItem, ...(state.itemsByUser[userId] ?? [])]),
       },
     }));
 

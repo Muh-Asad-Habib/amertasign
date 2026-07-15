@@ -92,6 +92,39 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   auth?: boolean;
+  /** Batas waktu request dalam ms (default 15 detik). */
+  timeoutMs?: number;
+}
+
+/** Batas waktu default agar request tidak menggantung saat server tak terjangkau. */
+const DEFAULT_TIMEOUT_MS = 15000;
+
+/** fetch dengan batas waktu — melempar ApiError NETWORK_TIMEOUT bila lewat. */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new ApiError(
+        0,
+        'NETWORK_TIMEOUT',
+        'Server tidak merespons. Pastikan perangkat satu jaringan dengan komputer dev dan relay/VPN aktif.'
+      );
+    }
+    throw new ApiError(
+      0,
+      'NETWORK_ERROR',
+      'Tidak dapat terhubung ke server. Periksa koneksi jaringan Anda.'
+    );
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function tryRefreshToken(): Promise<boolean> {
@@ -100,11 +133,15 @@ async function tryRefreshToken(): Promise<boolean> {
     return false;
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  });
+  const response = await fetchWithTimeout(
+    `${API_BASE_URL}/api/v1/auth/refresh`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    },
+    DEFAULT_TIMEOUT_MS
+  );
 
   if (!response.ok) {
     await clearTokens();
@@ -131,11 +168,15 @@ async function rawRequest(path: string, options: RequestOptions): Promise<Respon
     }
   }
 
-  return fetch(`${API_BASE_URL}/api/v1${path}`, {
-    method: options.method ?? 'GET',
-    headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
+  return fetchWithTimeout(
+    `${API_BASE_URL}/api/v1${path}`,
+    {
+      method: options.method ?? 'GET',
+      headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    },
+    options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  );
 }
 
 /**

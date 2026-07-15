@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -75,6 +75,17 @@ export default function HomeScreen() {
   );
   const recentHistory = history.slice(0, 5);
   const displayName = isGuest ? 'Tamu' : user?.name?.split(' ')[0] || 'Pengguna';
+  const avatarUrl = !isGuest ? user?.avatarUrl : null;
+  const initial = (isGuest ? 'T' : user?.name?.trim().charAt(0).toUpperCase()) || 'A';
+
+  const handleProfilePress = () => {
+    // Tamu diarahkan ke layar masuk; user login langsung ke edit profil.
+    if (isGuest) {
+      router.replace('/(auth)/login');
+      return;
+    }
+    router.push('/edit-profile');
+  };
 
   return (
     <Screen scroll contentStyle={{ paddingBottom: layoutSpacing.tabBarClearance }}>
@@ -84,16 +95,26 @@ export default function HomeScreen() {
           <View style={styles.topBar}>
             <View style={styles.brandRow}>
               <BrandMark size={40} />
-              <Heading variant="h2" style={styles.brand}>
-                Amerta Sign
+              <Heading variant="h2" style={styles.brand}>Amerta Sign
               </Heading>
             </View>
             <PressableScale
               accessibilityRole="button"
-              accessibilityLabel="Profil pengguna"
+              accessibilityLabel={isGuest ? 'Masuk atau daftar' : 'Edit profil'}
+              onPress={handleProfilePress}
               style={styles.avatarBtn}
             >
-              <Ionicons color={colors.textSecondary} name="person" size={20} />
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              ) : isGuest ? (
+                <Ionicons color={colors.textSecondary} name="person" size={20} />
+              ) : (
+                <View style={styles.avatarInitialWrap}>
+                  <Text variant="bodyStrong" style={styles.avatarInitial}>
+                    {initial}
+                  </Text>
+                </View>
+              )}
             </PressableScale>
           </View>
         </Animated.View>
@@ -136,7 +157,7 @@ export default function HomeScreen() {
                 </Text>
               </PressableScale>
 
-              <BrandMark onDark size={58} />
+              <BrandMark onDark size={40} />
             </View>
           </LinearGradient>
         </Animated.View>
@@ -278,6 +299,24 @@ const styles = createSheet((colors) => ({
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+  },
+  avatarInitialWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    color: colors.textOnPrimary,
+    fontSize: 17,
   },
   hero: {
     borderRadius: radius.xxl,

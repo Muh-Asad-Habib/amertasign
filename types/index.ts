@@ -6,9 +6,10 @@ export interface User {
   id: string;
   name: string;
   username: string;
+  email?: string | null;
   preferredSignLanguage: SignLanguageType;
   streak: number;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
 }
 
 export interface DictionaryEntry {

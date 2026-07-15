@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Image, Switch, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -68,6 +68,61 @@ function SettingsGroup({ title, rows }: { title: string; rows: SettingRowConfig[
       <View style={styles.card}>
         {rows.map((row, index) => (
           <SettingRow key={row.label} {...row} isLast={index === rows.length - 1} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+interface ToggleRowConfig {
+  icon: IoniconName;
+  label: string;
+  caption: string;
+  value: boolean;
+  onChange: (next: boolean) => void;
+  accent?: boolean;
+}
+
+/** Baris pengaturan dengan saklar on/off yang tersimpan otomatis. */
+function ToggleRow({ icon, label, caption, value, onChange, accent, isLast }: ToggleRowConfig & { isLast: boolean }) {
+  return (
+    <>
+      <View style={styles.row}>
+        <View style={styles.rowLeft}>
+          <View style={[styles.rowIcon, accent && styles.rowIconAccent]}>
+            <Ionicons color={accent ? colors.primary : colors.textSecondary} name={icon} size={20} />
+          </View>
+          <View style={styles.rowText}>
+            <Text variant="bodyStrong">{label}</Text>
+            <Text variant="caption" color="secondary">
+              {caption}
+            </Text>
+          </View>
+        </View>
+        <Switch
+          accessibilityLabel={label}
+          ios_backgroundColor={colors.border}
+          thumbColor={colors.surface}
+          trackColor={{ false: colors.border, true: colors.primary }}
+          value={value}
+          onValueChange={onChange}
+        />
+      </View>
+      {!isLast ? <View style={styles.divider} /> : null}
+    </>
+  );
+}
+
+/** Grup pengaturan berisi saklar on/off. */
+function ToggleGroup({ title, rows }: { title: string; rows: ToggleRowConfig[] }) {
+  return (
+    <View style={styles.group}>
+      <Text variant="kicker" color="primary" style={styles.groupTitle}>
+        {title}
+      </Text>
+      <View style={styles.card}>
+        {rows.map((row, index) => (
+          <ToggleRow key={row.label} {...row} isLast={index === rows.length - 1} />
         ))}
       </View>
     </View>
@@ -191,17 +246,46 @@ export default function SettingsScreen() {
   const clearHistory = useHistoryStore((state) => state.clearHistory);
   const themeMode = useSettingsStore((state) => state.themeMode);
   const setThemeMode = useSettingsStore((state) => state.setThemeMode);
+  const pushNotifications = useSettingsStore((state) => state.pushNotifications);
+  const emailNotifications = useSettingsStore((state) => state.emailNotifications);
+  const saveHistoryEnabled = useSettingsStore((state) => state.saveHistoryEnabled);
+  const shareAnonData = useSettingsStore((state) => state.shareAnonData);
+  const setPushNotifications = useSettingsStore((state) => state.setPushNotifications);
+  const setEmailNotifications = useSettingsStore((state) => state.setEmailNotifications);
+  const setSaveHistoryEnabled = useSettingsStore((state) => state.setSaveHistoryEnabled);
+  const setShareAnonData = useSettingsStore((state) => state.setShareAnonData);
   const historyCount = useHistoryStore((state) =>
     user && !isGuest ? (state.itemsByUser[user.id]?.length ?? 0) : 0
   );
 
   const displayName = isGuest ? 'Tamu' : user?.name || 'Pengguna';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'A';
+  const avatarUrl = !isGuest ? user?.avatarUrl : null;
 
   const handleLanguagePress = () => {
     Alert.alert(
       'Bahasa Isyarat',
       'Amerta Sign menggunakan BISINDO (Bahasa Isyarat Indonesia) untuk seluruh fitur terjemahan dan kamus.'
+    );
+  };
+
+  const handleEditProfile = () => {
+    if (isGuest) {
+      // Tamu diarahkan langsung ke layar masuk/daftar.
+      router.replace('/(auth)/login');
+      return;
+    }
+    router.push('/edit-profile');
+  };
+
+  const handleHelpPress = () => {
+    Alert.alert(
+      'Bantuan & Dukungan',
+      'Butuh bantuan menggunakan Amerta Sign?\n\n' +
+        '• Terjemahan isyarat: arahkan kamera ke gerakan tangan pada tab Terjemah.\n' +
+        '• Teks ke isyarat: ketik atau ucapkan kalimat, lalu lihat peragaan avatar.\n' +
+        '• Kamus: cari kosakata BISINDO per kategori.\n\n' +
+        'Hubungi kami: amertasign@gmail.com'
     );
   };
 
@@ -229,9 +313,6 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleSoon = () => {
-    Alert.alert('Segera hadir', 'Fitur ini akan tersedia segera.');
-  };
 
   const handleLogoutPress = () => {
     Alert.alert(
@@ -280,13 +361,22 @@ export default function SettingsScreen() {
           </Text>
         </View>
 
-        {/* Kartu profil ala mockup */}
-        <View style={styles.profileCard}>
-          <View style={styles.profileAvatar}>
-            <Text variant="bodyStrong" style={styles.profileInitial}>
-              {initial}
-            </Text>
-          </View>
+        {/* Kartu profil ala mockup — ketuk untuk edit profil */}
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityLabel={isGuest ? 'Masuk untuk mengubah profil' : 'Edit profil'}
+          onPress={handleEditProfile}
+          style={styles.profileCard}
+        >
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.profileAvatarImage} />
+          ) : (
+            <View style={styles.profileAvatar}>
+              <Text variant="bodyStrong" style={styles.profileInitial}>
+                {initial}
+              </Text>
+            </View>
+          )}
           <View style={styles.profileCopy}>
             <Heading variant="h2" numberOfLines={1}>
               {displayName}
@@ -296,22 +386,28 @@ export default function SettingsScreen() {
             </Text>
           </View>
           {isGuest ? (
-            <PressableScale
-              accessibilityRole="button"
-              accessibilityLabel="Masuk atau daftar"
-              onPress={() => router.replace('/(auth)/login')}
-              style={styles.profileAction}
-            >
+            <View style={styles.profileAction}>
               <Text variant="label" style={styles.profileActionText}>
                 Masuk
               </Text>
-            </PressableScale>
-          ) : null}
-        </View>
+            </View>
+          ) : (
+            <View style={styles.profileEditIcon}>
+              <Ionicons color={colors.primary} name="create-outline" size={20} />
+            </View>
+          )}
+        </PressableScale>
 
         <SettingsGroup
           title="Akun"
           rows={[
+            {
+              icon: 'person-outline',
+              label: 'Edit Profil',
+              value: isGuest ? 'Masuk untuk mengubah profil' : 'Foto, nama, username, email, password',
+              accent: true,
+              onPress: handleEditProfile,
+            },
             {
               icon: 'time-outline',
               label: 'Riwayat Terjemahan',
@@ -335,23 +431,53 @@ export default function SettingsScreen() {
           title="Preferensi"
           rows={[
             {
-              icon: 'notifications-outline',
-              label: 'Notifikasi',
-              value: 'Push, Email',
-              onPress: handleSoon,
-            },
-            {
               icon: themeMode === 'dark' ? 'moon' : 'sunny-outline',
               label: 'Tampilan',
               value: themeMode === 'dark' ? 'Mode Gelap — ketuk untuk mode terang' : 'Mode Terang — ketuk untuk mode gelap',
               accent: true,
               onPress: () => setThemeMode(themeMode === 'dark' ? 'light' : 'dark'),
             },
+          ]}
+        />
+
+        <ToggleGroup
+          title="Notifikasi"
+          rows={[
             {
-              icon: 'lock-closed-outline',
-              label: 'Privasi & Keamanan',
-              value: 'Biometrik, berbagi data',
-              onPress: handleSoon,
+              icon: 'notifications-outline',
+              label: 'Notifikasi Push',
+              caption: 'Pengingat latihan & info fitur baru',
+              accent: true,
+              value: pushNotifications,
+              onChange: setPushNotifications,
+            },
+            {
+              icon: 'mail-outline',
+              label: 'Notifikasi Email',
+              caption: 'Ringkasan & kabar Amerta Sign lewat email',
+              value: emailNotifications,
+              onChange: setEmailNotifications,
+            },
+          ]}
+        />
+
+        <ToggleGroup
+          title="Privasi & Keamanan"
+          rows={[
+            {
+              icon: 'save-outline',
+              label: 'Simpan Riwayat',
+              caption: 'Simpan hasil terjemahan ke riwayat akun',
+              accent: true,
+              value: saveHistoryEnabled,
+              onChange: setSaveHistoryEnabled,
+            },
+            {
+              icon: 'analytics-outline',
+              label: 'Bagikan Data Anonim',
+              caption: 'Bantu tingkatkan akurasi model isyarat',
+              value: shareAnonData,
+              onChange: setShareAnonData,
             },
           ]}
         />
@@ -362,8 +488,8 @@ export default function SettingsScreen() {
             {
               icon: 'help-circle-outline',
               label: 'Bantuan & Dukungan',
-              value: 'FAQ, hubungi kami',
-              onPress: handleSoon,
+              value: 'Panduan penggunaan & kontak',
+              onPress: handleHelpPress,
             },
             {
               icon: 'information-circle-outline',
@@ -433,6 +559,20 @@ const styles = createSheet((colors) => ({
     height: 56,
     borderRadius: radius.full,
     backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileAvatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceMuted,
+  },
+  profileEditIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    backgroundColor: colors.primarySurface,
     alignItems: 'center',
     justifyContent: 'center',
   },

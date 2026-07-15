@@ -15,12 +15,24 @@ interface SettingsState {
   voiceGender: VoiceGender;
   avatarGender: AvatarGender;
   themeMode: ThemeScheme;
+  /** Notifikasi push aplikasi. */
+  pushNotifications: boolean;
+  /** Notifikasi lewat email. */
+  emailNotifications: boolean;
+  /** Simpan riwayat terjemahan (privasi). */
+  saveHistoryEnabled: boolean;
+  /** Bagikan data penggunaan anonim untuk peningkatan model. */
+  shareAnonData: boolean;
   isHydrated: boolean;
   hydrate: () => Promise<void>;
   setSpeechRate: (rate: SpeechRateMultiplier) => void;
   setVoiceGender: (gender: VoiceGender) => void;
   setAvatarGender: (gender: AvatarGender) => void;
   setThemeMode: (mode: ThemeScheme) => void;
+  setPushNotifications: (enabled: boolean) => void;
+  setEmailNotifications: (enabled: boolean) => void;
+  setSaveHistoryEnabled: (enabled: boolean) => void;
+  setShareAnonData: (enabled: boolean) => void;
 }
 
 const STORAGE_KEY = 'amertasign.settings';
@@ -30,6 +42,10 @@ interface PersistedSettings {
   voiceGender: VoiceGender;
   avatarGender: AvatarGender;
   themeMode: ThemeScheme;
+  pushNotifications: boolean;
+  emailNotifications: boolean;
+  saveHistoryEnabled: boolean;
+  shareAnonData: boolean;
 }
 
 const persist = (settings: PersistedSettings) => {
@@ -41,14 +57,22 @@ const snapshot = (state: SettingsState): PersistedSettings => ({
   voiceGender: state.voiceGender,
   avatarGender: state.avatarGender,
   themeMode: state.themeMode,
+  pushNotifications: state.pushNotifications,
+  emailNotifications: state.emailNotifications,
+  saveHistoryEnabled: state.saveHistoryEnabled,
+  shareAnonData: state.shareAnonData,
 });
 
-/** Preferensi aplikasi (suara, peraga, tema) — tersimpan lokal di perangkat. */
+/** Preferensi aplikasi (suara, peraga, tema, notifikasi, privasi) — tersimpan lokal. */
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   speechRate: 1,
   voiceGender: 'female',
   avatarGender: 'female',
   themeMode: 'light',
+  pushNotifications: true,
+  emailNotifications: false,
+  saveHistoryEnabled: true,
+  shareAnonData: false,
   isHydrated: false,
   hydrate: async () => {
     try {
@@ -62,6 +86,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           voiceGender: saved.voiceGender === 'male' ? 'male' : 'female',
           avatarGender: saved.avatarGender === 'male' ? 'male' : 'female',
           themeMode,
+          pushNotifications: saved.pushNotifications !== false,
+          emailNotifications: saved.emailNotifications === true,
+          saveHistoryEnabled: saved.saveHistoryEnabled !== false,
+          shareAnonData: saved.shareAnonData === true,
         });
       }
     } catch {
@@ -85,6 +113,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setThemeMode: (mode) => {
     setActiveColorScheme(mode);
     set({ themeMode: mode });
+    persist(snapshot(get()));
+  },
+  setPushNotifications: (enabled) => {
+    set({ pushNotifications: enabled });
+    persist(snapshot(get()));
+  },
+  setEmailNotifications: (enabled) => {
+    set({ emailNotifications: enabled });
+    persist(snapshot(get()));
+  },
+  setSaveHistoryEnabled: (enabled) => {
+    set({ saveHistoryEnabled: enabled });
+    persist(snapshot(get()));
+  },
+  setShareAnonData: (enabled) => {
+    set({ shareAnonData: enabled });
     persist(snapshot(get()));
   },
 }));

@@ -102,16 +102,21 @@ export default function RootLayout() {
 
     const currentGroup = segments[0];
     const inAuthGroup = currentGroup === '(auth)';
+    // Route callback login Google (deep link amertasign://google-auth) harus
+    // dibiarkan memproses token dulu — jangan dipantulkan ke layar login.
+    const inGoogleAuthCallback = currentGroup === 'google-auth';
 
-    if (isAuthenticated && inAuthGroup) {
+    // Tamu boleh membuka layar login/daftar (mis. dari tombol "Masuk / Daftar").
+    // Hanya user login sungguhan yang dipantulkan keluar dari grup auth.
+    if (isAuthenticated && !isGuest && inAuthGroup) {
       router.replace('/(tabs)/');
       return;
     }
 
-    if (!isAuthenticated && currentGroup && !inAuthGroup) {
+    if (!isAuthenticated && currentGroup && !inAuthGroup && !inGoogleAuthCallback) {
       router.replace('/(auth)/login');
     }
-  }, [isAuthReady, isAuthenticated, router, segments]);
+  }, [isAuthReady, isAuthenticated, isGuest, router, segments]);
 
   // Setelah user login (bukan tamu), muat riwayat terjemahan & favorit dari backend.
   useEffect(() => {
