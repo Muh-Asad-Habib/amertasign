@@ -7,6 +7,8 @@ export interface User {
   name: string;
   username: string;
   email?: string | null;
+  /** False untuk akun yang dibuat via Google — tidak punya password sendiri. */
+  hasPassword?: boolean;
   preferredSignLanguage: SignLanguageType;
   streak: number;
   avatarUrl?: string | null;

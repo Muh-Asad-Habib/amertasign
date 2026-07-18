@@ -46,6 +46,7 @@ export default function EditProfileScreen() {
 
   const displayName = name.trim() || user?.name || 'Pengguna';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'A';
+  const isGoogleAccount = user?.hasPassword === false;
 
   if (isGuest || !user) {
     return (
@@ -254,64 +255,84 @@ export default function EditProfileScreen() {
           </Stack>
         </View>
 
-        {/* Ganti password */}
-        <View style={styles.card}>
-          <Text variant="kicker" color="primary" style={styles.cardTitle}>
-            Ganti Password
-          </Text>
-          <Stack gap={spacing.md}>
-            <Input
-              autoCapitalize="none"
-              autoCorrect={false}
-              icon="lock-closed-outline"
-              isPasswordVisible={showCurrentPassword}
-              label="Password saat ini"
-              maxLength={PASSWORD_MAX_LENGTH}
-              onToggleVisibility={() => setShowCurrentPassword((value) => !value)}
-              placeholder="Password lama Anda"
-              secureTextEntry={!showCurrentPassword}
-              textContentType="password"
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-            />
-            <Input
-              autoCapitalize="none"
-              autoCorrect={false}
-              icon="key-outline"
-              isPasswordVisible={showNewPassword}
-              label="Password baru"
-              maxLength={PASSWORD_MAX_LENGTH}
-              onToggleVisibility={() => setShowNewPassword((value) => !value)}
-              placeholder="Minimal 6 karakter"
-              secureTextEntry={!showNewPassword}
-              textContentType="newPassword"
-              value={newPassword}
-              onChangeText={setNewPassword}
-            />
-            <Input
-              autoCapitalize="none"
-              autoCorrect={false}
-              icon="shield-checkmark-outline"
-              isPasswordVisible={showConfirmNewPassword}
-              label="Konfirmasi password baru"
-              maxLength={PASSWORD_MAX_LENGTH}
-              onToggleVisibility={() => setShowConfirmNewPassword((value) => !value)}
-              placeholder="Ulangi password baru"
-              secureTextEntry={!showConfirmNewPassword}
-              textContentType="password"
-              value={confirmNewPassword}
-              onChangeText={setConfirmNewPassword}
-            />
-            <Button
-              disabled={isSavingPassword || !currentPassword || !newPassword || !confirmNewPassword}
-              fullWidth
-              loading={isSavingPassword}
-              title="Ganti Password"
-              variant="outline"
-              onPress={handleChangePassword}
-            />
-          </Stack>
-        </View>
+        {/* Ganti password — akun Google tidak punya password sendiri */}
+        {isGoogleAccount ? (
+          <View style={styles.card}>
+            <Text variant="kicker" color="primary" style={styles.cardTitle}>
+              Password
+            </Text>
+            <View style={styles.googleInfoRow}>
+              <View style={styles.googleIconWrap}>
+                <Ionicons color={colors.primary} name="logo-google" size={20} />
+              </View>
+              <View style={styles.googleInfoCopy}>
+                <Text variant="bodyStrong">Akun ini masuk dengan Google</Text>
+                <Text variant="caption" color="secondary">
+                  Keamanan akun dikelola oleh Google, jadi tidak ada password yang perlu
+                  diganti di sini.
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <Text variant="kicker" color="primary" style={styles.cardTitle}>
+              Ganti Password
+            </Text>
+            <Stack gap={spacing.md}>
+              <Input
+                autoCapitalize="none"
+                autoCorrect={false}
+                icon="lock-closed-outline"
+                isPasswordVisible={showCurrentPassword}
+                label="Password saat ini"
+                maxLength={PASSWORD_MAX_LENGTH}
+                onToggleVisibility={() => setShowCurrentPassword((value) => !value)}
+                placeholder="Password lama Anda"
+                secureTextEntry={!showCurrentPassword}
+                textContentType="password"
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+              />
+              <Input
+                autoCapitalize="none"
+                autoCorrect={false}
+                icon="key-outline"
+                isPasswordVisible={showNewPassword}
+                label="Password baru"
+                maxLength={PASSWORD_MAX_LENGTH}
+                onToggleVisibility={() => setShowNewPassword((value) => !value)}
+                placeholder="Minimal 6 karakter"
+                secureTextEntry={!showNewPassword}
+                textContentType="newPassword"
+                value={newPassword}
+                onChangeText={setNewPassword}
+              />
+              <Input
+                autoCapitalize="none"
+                autoCorrect={false}
+                icon="shield-checkmark-outline"
+                isPasswordVisible={showConfirmNewPassword}
+                label="Konfirmasi password baru"
+                maxLength={PASSWORD_MAX_LENGTH}
+                onToggleVisibility={() => setShowConfirmNewPassword((value) => !value)}
+                placeholder="Ulangi password baru"
+                secureTextEntry={!showConfirmNewPassword}
+                textContentType="password"
+                value={confirmNewPassword}
+                onChangeText={setConfirmNewPassword}
+              />
+              <Button
+                disabled={isSavingPassword || !currentPassword || !newPassword || !confirmNewPassword}
+                fullWidth
+                loading={isSavingPassword}
+                title="Ganti Password"
+                variant="outline"
+                onPress={handleChangePassword}
+              />
+            </Stack>
+          </View>
+        )}
       </Stack>
     </Screen>
   );
@@ -379,6 +400,23 @@ const styles = createSheet((colors) => ({
   },
   cardTitle: {
     marginLeft: 2,
+  },
+  googleInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  googleIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    backgroundColor: colors.primarySurface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleInfoCopy: {
+    flex: 1,
+    gap: 2,
   },
 }));
 

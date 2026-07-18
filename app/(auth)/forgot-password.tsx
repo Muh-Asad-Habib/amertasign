@@ -207,4 +207,3 @@ const styles = createSheet((colors) => ({
     marginTop: spacing.xl,
   },
 }));
-

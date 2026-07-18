@@ -114,20 +114,6 @@ function ToggleRow({ icon, label, caption, value, onChange, accent, isLast }: To
 }
 
 /** Grup pengaturan berisi saklar on/off. */
-function ToggleGroup({ title, rows }: { title: string; rows: ToggleRowConfig[] }) {
-  return (
-    <View style={styles.group}>
-      <Text variant="kicker" color="primary" style={styles.groupTitle}>
-        {title}
-      </Text>
-      <View style={styles.card}>
-        {rows.map((row, index) => (
-          <ToggleRow key={row.label} {...row} isLast={index === rows.length - 1} />
-        ))}
-      </View>
-    </View>
-  );
-}
 
 /** Pilihan segmen dua/tiga opsi ala mockup (mis. Laki-laki / Perempuan, 0,5x / 1x / 1,5x). */
 function SegmentedControl<T extends string | number>({
@@ -246,14 +232,8 @@ export default function SettingsScreen() {
   const clearHistory = useHistoryStore((state) => state.clearHistory);
   const themeMode = useSettingsStore((state) => state.themeMode);
   const setThemeMode = useSettingsStore((state) => state.setThemeMode);
-  const pushNotifications = useSettingsStore((state) => state.pushNotifications);
-  const emailNotifications = useSettingsStore((state) => state.emailNotifications);
   const saveHistoryEnabled = useSettingsStore((state) => state.saveHistoryEnabled);
-  const shareAnonData = useSettingsStore((state) => state.shareAnonData);
-  const setPushNotifications = useSettingsStore((state) => state.setPushNotifications);
-  const setEmailNotifications = useSettingsStore((state) => state.setEmailNotifications);
   const setSaveHistoryEnabled = useSettingsStore((state) => state.setSaveHistoryEnabled);
-  const setShareAnonData = useSettingsStore((state) => state.setShareAnonData);
   const historyCount = useHistoryStore((state) =>
     user && !isGuest ? (state.itemsByUser[user.id]?.length ?? 0) : 0
   );
@@ -261,13 +241,6 @@ export default function SettingsScreen() {
   const displayName = isGuest ? 'Tamu' : user?.name || 'Pengguna';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'A';
   const avatarUrl = !isGuest ? user?.avatarUrl : null;
-
-  const handleLanguagePress = () => {
-    Alert.alert(
-      'Bahasa Isyarat',
-      'Amerta Sign menggunakan BISINDO (Bahasa Isyarat Indonesia) untuk seluruh fitur terjemahan dan kamus.'
-    );
-  };
 
   const handleEditProfile = () => {
     if (isGuest) {
@@ -415,72 +388,37 @@ export default function SettingsScreen() {
               accent: true,
               onPress: () => router.push('/history'),
             },
-            {
-              icon: 'hand-left-outline',
-              label: 'Bahasa Isyarat',
-              value: 'BISINDO — Bahasa Isyarat Indonesia',
-              accent: true,
-              onPress: handleLanguagePress,
-            },
           ]}
         />
 
         <VoiceSettingsCard />
 
-        <SettingsGroup
-          title="Preferensi"
-          rows={[
-            {
-              icon: themeMode === 'dark' ? 'moon' : 'sunny-outline',
-              label: 'Tampilan',
-              value: themeMode === 'dark' ? 'Mode Gelap — ketuk untuk mode terang' : 'Mode Terang — ketuk untuk mode gelap',
-              accent: true,
-              onPress: () => setThemeMode(themeMode === 'dark' ? 'light' : 'dark'),
-            },
-          ]}
-        />
-
-        <ToggleGroup
-          title="Notifikasi"
-          rows={[
-            {
-              icon: 'notifications-outline',
-              label: 'Notifikasi Push',
-              caption: 'Pengingat latihan & info fitur baru',
-              accent: true,
-              value: pushNotifications,
-              onChange: setPushNotifications,
-            },
-            {
-              icon: 'mail-outline',
-              label: 'Notifikasi Email',
-              caption: 'Ringkasan & kabar Amerta Sign lewat email',
-              value: emailNotifications,
-              onChange: setEmailNotifications,
-            },
-          ]}
-        />
-
-        <ToggleGroup
-          title="Privasi & Keamanan"
-          rows={[
-            {
-              icon: 'save-outline',
-              label: 'Simpan Riwayat',
-              caption: 'Simpan hasil terjemahan ke riwayat akun',
-              accent: true,
-              value: saveHistoryEnabled,
-              onChange: setSaveHistoryEnabled,
-            },
-            {
-              icon: 'analytics-outline',
-              label: 'Bagikan Data Anonim',
-              caption: 'Bantu tingkatkan akurasi model isyarat',
-              value: shareAnonData,
-              onChange: setShareAnonData,
-            },
-          ]}
-        />
+        {/* Preferensi & data — hanya pengaturan yang benar-benar berfungsi */}
+        <View style={styles.group}>
+          <Text variant="kicker" color="primary" style={styles.groupTitle}>
+            Preferensi & Data
+          </Text>
+          <View style={styles.card}>
+            <ToggleRow
+              icon={themeMode === 'dark' ? 'moon' : 'moon-outline'}
+              label="Mode Gelap"
+              caption="Tampilan gelap yang lebih nyaman di mata"
+              accent
+              value={themeMode === 'dark'}
+              onChange={(next) => setThemeMode(next ? 'dark' : 'light')}
+              isLast={false}
+            />
+            <ToggleRow
+              icon="save-outline"
+              label="Simpan Riwayat"
+              caption="Simpan hasil terjemahan ke riwayat akun"
+              accent
+              value={saveHistoryEnabled}
+              onChange={setSaveHistoryEnabled}
+              isLast
+            />
+          </View>
+        </View>
 
         <SettingsGroup
           title="Dukungan"
@@ -523,6 +461,10 @@ export default function SettingsScreen() {
             {isGuest ? 'Keluar Mode Tamu' : 'Keluar'}
           </Text>
         </PressableScale>
+
+        <Text variant="caption" color="tertiary" align="center">
+          Amerta Sign · BISINDO — Bahasa Isyarat Indonesia
+        </Text>
       </Stack>
     </Screen>
   );
