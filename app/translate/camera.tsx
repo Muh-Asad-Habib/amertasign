@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,7 +8,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import type { CameraType } from 'expo-camera';
 
-import CameraView from '../../components/translate/CameraView';
+import CameraView, { type CameraViewHandle } from '../../components/translate/CameraView';
 import TranslationOutput from '../../components/translate/TranslationOutput';
 import BackHeader from '../../components/ui/BackHeader';
 import Badge from '../../components/ui/Badge';
@@ -20,6 +20,8 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeMode } from '../../hooks/useThemeMode';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
+import { ApiError } from '../../services/api';
+import type { MediaUpload } from '../../services/translation';
 
 import { createSheet } from '../../theme';
 
@@ -30,46 +32,62 @@ export default function CameraTranslateScreen() {
   const router = useRouter();
   const {
     signLanguageType,
-    translatedText: detectedText,
     isDetecting,
-    startDetection,
-    stopDetection,
+    translateMedia,
   } = useTranslation();
   const [isActive, setIsActive] = useState(false);
   const [facing, setFacing] = useState<CameraType>('front');
+  const [stage, setStage] = useState<'abjad' | 'kata'>('abjad');
   const [translatedText, setTranslatedText] = useState(WAITING_TEXT);
+  const cameraRef = useRef<CameraViewHandle>(null);
   const { speak } = useTTS();
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const addHistoryEntry = useHistoryStore((state) => state.addEntry);
 
-  useEffect(() => {
-    setTranslatedText(detectedText || WAITING_TEXT);
-
-    if (detectedText) {
-      // Getar "sukses" saat hasil deteksi berhasil muncul.
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  const processMedia = async (media: MediaUpload, recognitionStage: 'abjad' | 'kata') => {
+    setIsActive(true);
+    setTranslatedText(recognitionStage === 'kata' ? 'Menganalisis gerakan...' : 'Menganalisis bentuk tangan...');
+    try {
+      const result = await translateMedia(media, recognitionStage);
+      const text = result.text || result.note || 'Isyarat belum dikenali. Coba ulangi dengan pencahayaan lebih baik.';
+      setTranslatedText(text);
+      if (result.text) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
+        if (!isGuest && user) {
+          addHistoryEntry(user.id, {
+            kind: 'isyarat-ke-teks',
+            text: result.text,
+            signLanguageType,
+          });
+        }
+      }
+    } catch (error) {
+      setTranslatedText(WAITING_TEXT);
+      Alert.alert(
+        'Pengenalan gagal',
+        error instanceof ApiError || error instanceof Error
+          ? error.message
+          : 'Media tidak dapat dikenali.'
+      );
+    } finally {
+      setIsActive(false);
     }
+  };
 
-    // Simpan riwayat hanya untuk pengguna yang login (bukan tamu).
-    if (detectedText && !isGuest && user) {
-      addHistoryEntry(user.id, {
-        kind: 'isyarat-ke-teks',
-        text: detectedText,
-        signLanguageType,
-      });
+  const handleCapture = async () => {
+    if (!cameraRef.current || isActive) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+    try {
+      setIsActive(true);
+      const media = await cameraRef.current.capture();
+      setIsActive(false);
+      await processMedia(media, stage);
+    } catch (error) {
+      setIsActive(false);
+      Alert.alert('Kamera belum siap', error instanceof Error ? error.message : 'Gagal mengambil media.');
     }
-  }, [addHistoryEntry, detectedText, isGuest, signLanguageType, user]);
-
-  useEffect(() => {
-    if (isActive) {
-      void startDetection();
-      return;
-    }
-
-    stopDetection();
-    setTranslatedText(WAITING_TEXT);
-  }, [isActive, startDetection, stopDetection]);
+  };
 
   const handleFlipCamera = () => {
     setFacing((current) => (current === 'front' ? 'back' : 'front'));
@@ -88,8 +106,18 @@ export default function CameraTranslateScreen() {
     });
 
     if (!result.canceled) {
-      // Media terpilih — jalankan alur deteksi (mock sampai model AI terhubung).
-      setIsActive(true);
+      const asset = result.assets[0];
+      const recognitionStage = asset.type === 'video' ? 'kata' : 'abjad';
+      setStage(recognitionStage);
+      await processMedia(
+        {
+          uri: asset.uri,
+          fileName: asset.fileName,
+          mimeType: asset.mimeType,
+          type: asset.type === 'video' ? 'video' : 'image',
+        },
+        recognitionStage
+      );
     }
   };
 
@@ -107,7 +135,7 @@ export default function CameraTranslateScreen() {
         </View>
 
         <View style={styles.cameraContainer}>
-          <CameraView facing={facing} isActive={isActive} />
+          <CameraView facing={facing} isActive={isActive} ref={cameraRef} stage={stage} />
         </View>
 
         <View style={styles.bottomSheet}>
@@ -122,8 +150,26 @@ export default function CameraTranslateScreen() {
           />
 
           <View style={styles.controls}>
+            <View style={styles.stageSelector}>
+              {(['abjad', 'kata'] as const).map((item) => (
+                <PressableScale
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: stage === item }}
+                  disabled={isActive}
+                  key={item}
+                  onPress={() => setStage(item)}
+                  style={[styles.stageButton, stage === item && styles.stageButtonActive]}
+                >
+                  <Text variant="label" color={stage === item ? 'onPrimary' : 'primary'}>
+                    {item === 'abjad' ? 'Foto · Abjad' : 'Video 3 dtk · Kata'}
+                  </Text>
+                </PressableScale>
+              ))}
+            </View>
             <Text variant="body" color="secondary" align="center" style={styles.helperText}>
-              {isActive ? 'Mendeteksi gerakan tangan...' : 'Ketuk tombol untuk mulai mendeteksi'}
+              {isActive
+                ? stage === 'kata' ? 'Rekam dan lakukan gerakan hingga selesai...' : 'Mengambil bentuk tangan...'
+                : stage === 'kata' ? 'Ketuk tombol lalu lakukan satu gerakan kata' : 'Ketuk tombol untuk mengenali satu huruf'}
             </Text>
 
             <View style={styles.controlsRow}>
@@ -142,11 +188,8 @@ export default function CameraTranslateScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={isActive ? 'Hentikan deteksi' : 'Mulai deteksi'}
                 accessibilityState={{ selected: isActive }}
-                onPress={() => {
-                  // Getar sedang menandai mulai/berhenti deteksi (momen penting).
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-                  setIsActive((current) => !current);
-                }}
+                disabled={isActive || isDetecting}
+                onPress={() => void handleCapture()}
                 style={styles.detectButton}
               >
                 <View style={[styles.detectButtonInner, isActive && styles.detectButtonInnerActive]} />
@@ -199,6 +242,24 @@ const styles = createSheet((colors) => ({
   },
   helperText: {
     marginBottom: spacing.md,
+  },
+  stageSelector: {
+    backgroundColor: colors.primarySurface,
+    borderRadius: radius.full,
+    flexDirection: 'row',
+    marginBottom: spacing.md,
+    padding: 4,
+    width: '100%',
+  },
+  stageButton: {
+    alignItems: 'center',
+    borderRadius: radius.full,
+    flex: 1,
+    minHeight: 38,
+    justifyContent: 'center',
+  },
+  stageButtonActive: {
+    backgroundColor: colors.primary,
   },
   controlsRow: {
     flexDirection: 'row',

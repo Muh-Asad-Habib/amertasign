@@ -1,8 +1,14 @@
 import { dictionaryEntries as fallbackEntries } from '../constants/MockData';
 import type { DictionaryEntry } from '../types';
-import { apiRequest } from './api';
+import { apiRequest, resolveApiUrl } from './api';
 
 let cachedEntries: DictionaryEntry[] | null = null;
+
+const normalizeEntry = (entry: DictionaryEntry): DictionaryEntry => ({
+  ...entry,
+  imageUrl: resolveApiUrl(entry.imageUrl),
+  videoUrl: resolveApiUrl(entry.videoUrl),
+});
 
 /**
  * Ambil seluruh entri kamus dari backend (GET /dictionary, paginasi cursor).
@@ -22,7 +28,7 @@ export async function fetchDictionaryEntries(): Promise<DictionaryEntry[]> {
       const data: { items: DictionaryEntry[]; nextCursor: string | null } = await apiRequest(
         `/dictionary${query}`
       );
-      items.push(...data.items);
+      items.push(...data.items.map(normalizeEntry));
       cursor = data.nextCursor;
     } while (cursor);
 
@@ -42,7 +48,7 @@ export async function searchDictionary(search: string): Promise<DictionaryEntry[
     const data = await apiRequest<{ items: DictionaryEntry[] }>(
       `/dictionary?search=${encodeURIComponent(search)}&limit=10`
     );
-    return data.items;
+    return data.items.map(normalizeEntry);
   } catch {
     const normalized = search.trim().toLowerCase();
     return fallbackEntries.filter((entry) => entry.word.toLowerCase().includes(normalized));

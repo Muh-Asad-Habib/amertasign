@@ -23,12 +23,20 @@ const resolveBaseUrl = (): string => {
 
 export const API_BASE_URL = resolveBaseUrl();
 
+/** Ubah path media relatif dari backend menjadi URL absolut untuk Image/VideoView. */
+export function resolveApiUrl(value: string): string {
+  if (!value || /^(https?:|file:|content:|data:)/i.test(value)) {
+    return value;
+  }
+  return `${API_BASE_URL}${value.startsWith('/') ? value : `/${value}`}`;
+}
+
 // Keamanan: kredensial (login/register) dikirim ke URL ini. Untuk rilis produksi,
 // EXPO_PUBLIC_API_URL WAJIB memakai https:// agar password & token tidak tersadap.
 if (__DEV__ && API_BASE_URL.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1|10\.|192\.168\.|172\.)/.test(API_BASE_URL)) {
   console.warn(
     `[api] API_BASE_URL memakai HTTP tanpa enkripsi (${API_BASE_URL}). ` +
-      'Gunakan HTTPS untuk build produksi agar kredensial aman.'
+    'Gunakan HTTPS untuk build produksi agar kredensial aman.'
   );
 }
 
@@ -207,5 +215,32 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     throw new ApiError(response.status, code, message);
   }
 
+  return (json?.data ?? json) as T;
+}
+
+/** Unggah FormData (foto/video) tanpa menetapkan Content-Type secara manual. */
+export async function apiUpload<T>(
+  path: string,
+  formData: FormData,
+  timeoutMs = 60000
+): Promise<T> {
+  const response = await fetchWithTimeout(
+    `${API_BASE_URL}/api/v1${path}`,
+    { method: 'POST', body: formData },
+    timeoutMs
+  );
+  let json: any = null;
+  try {
+    json = await response.json();
+  } catch {
+    // Ditangani sebagai respons invalid di bawah.
+  }
+  if (!response.ok || json?.success === false) {
+    throw new ApiError(
+      response.status,
+      json?.error?.code ?? 'UPLOAD_ERROR',
+      json?.error?.message ?? `Unggah gagal (HTTP ${response.status}).`
+    );
+  }
   return (json?.data ?? json) as T;
 }

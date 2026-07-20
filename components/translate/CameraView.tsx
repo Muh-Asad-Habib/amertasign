@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CameraView as ExpoCamera, useCameraPermissions, type CameraType } from 'expo-camera';
+import type { MediaUpload } from '../../services/translation';
 
 import { colors, fontFamily, gradients, overlay, radius, spacing } from '../../theme';
 import Decor from '../ui/Decor';
@@ -16,16 +17,54 @@ export interface CameraViewProps {
   isActive: boolean;
   /** Kamera depan/belakang — dikontrol tombol flip di layar. */
   facing?: CameraType;
+  stage: 'abjad' | 'kata';
 }
 
-export default function CameraView({ isActive, facing = 'front' }: CameraViewProps) {
+export interface CameraViewHandle {
+  capture(): Promise<MediaUpload>;
+}
+
+const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function CameraView(
+  { isActive, facing = 'front', stage },
+  ref
+) {
   const [permission, requestPermission] = useCameraPermissions();
   const hasCamera = Boolean(permission?.granted);
+  const cameraRef = useRef<ExpoCamera>(null);
+  const [cameraReady, setCameraReady] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    async capture() {
+      if (!cameraRef.current || !cameraReady) {
+        throw new Error('Kamera belum siap. Tunggu sebentar lalu coba lagi.');
+      }
+      if (stage === 'kata') {
+        const result = await cameraRef.current.recordAsync({ maxDuration: 3, mirror: facing === 'front' });
+        if (!result?.uri) {
+          throw new Error('Perekaman video gagal.');
+        }
+        return { uri: result.uri, fileName: 'isyarat.mp4', mimeType: 'video/mp4', type: 'video' };
+      }
+      const result = await cameraRef.current.takePictureAsync({
+        quality: 0.75,
+        mirror: facing === 'front',
+        shutterSound: false,
+      });
+      return { uri: result.uri, fileName: 'isyarat.jpg', mimeType: 'image/jpeg', type: 'image' };
+    },
+  }), [cameraReady, facing, stage]);
 
   return (
     <View style={styles.container}>
       {hasCamera ? (
-        <ExpoCamera facing={facing} style={StyleSheet.absoluteFill} />
+        <ExpoCamera
+          facing={facing}
+          mode={stage === 'kata' ? 'video' : 'picture'}
+          mute
+          onCameraReady={() => setCameraReady(true)}
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+        />
       ) : (
         <>
           <LinearGradient
@@ -85,7 +124,9 @@ export default function CameraView({ isActive, facing = 'front' }: CameraViewPro
       )}
     </View>
   );
-}
+});
+
+export default CameraView;
 
 const CORNER = 30;
 

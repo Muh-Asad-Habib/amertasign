@@ -1,13 +1,21 @@
 import { useCallback, useRef, useState } from 'react';
 
-import { detectSign, textToSign, type TextToSignResult } from '../services/translation';
+import {
+  recognizeMedia,
+  textToSign,
+  type MediaUpload,
+  type SignRecognitionResult,
+  type TextToSignResult,
+} from '../services/translation';
 
 /** Aplikasi hanya mendukung BISINDO (Bahasa Isyarat Indonesia). */
 export type SignLanguageType = 'bisindo';
 
 const EMPTY_VISUAL_RESULT: TextToSignResult = {
-  visualUrl: '',
-  description: '',
+  text: '',
+  signLanguageType: 'bisindo',
+  units: [],
+  unmatched: [],
 };
 
 export function useTranslation() {
@@ -16,20 +24,24 @@ export function useTranslation() {
   const [isDetecting, setIsDetecting] = useState(false);
   const requestIdRef = useRef(0);
 
-  const startDetection = useCallback(async () => {
+  const translateMedia = useCallback(async (
+    media: MediaUpload,
+    stage: 'abjad' | 'kata'
+  ): Promise<SignRecognitionResult> => {
     const requestId = ++requestIdRef.current;
-
     setIsDetecting(true);
     setTranslatedText('');
-
-    const result = await detectSign(true);
-
-    if (requestIdRef.current === requestId) {
-      setTranslatedText(result);
-      setIsDetecting(false);
+    try {
+      const result = await recognizeMedia(media, stage);
+      if (requestIdRef.current === requestId) {
+        setTranslatedText(result.text || result.note || 'Isyarat belum dikenali.');
+      }
+      return result;
+    } finally {
+      if (requestIdRef.current === requestId) {
+        setIsDetecting(false);
+      }
     }
-
-    return result;
   }, []);
 
   const stopDetection = useCallback(() => {
@@ -43,16 +55,18 @@ export function useTranslation() {
       const requestId = ++requestIdRef.current;
 
       setIsDetecting(true);
-
-      const result = await textToSign(text, signLanguageType);
-
-      if (requestIdRef.current === requestId) {
-        setTranslatedText(result.description);
-        setIsDetecting(false);
-        return result;
+      try {
+        const result = await textToSign(text, signLanguageType);
+        if (requestIdRef.current === requestId) {
+          setTranslatedText(result.text);
+          return result;
+        }
+        return EMPTY_VISUAL_RESULT;
+      } finally {
+        if (requestIdRef.current === requestId) {
+          setIsDetecting(false);
+        }
       }
-
-      return EMPTY_VISUAL_RESULT;
     },
     [signLanguageType]
   );
@@ -62,7 +76,7 @@ export function useTranslation() {
     setSignLanguageType,
     translatedText,
     isDetecting,
-    startDetection,
+    translateMedia,
     stopDetection,
     translateText,
   };

@@ -9,14 +9,16 @@ import Text from '../ui/Text';
 import { createSheet } from '../../theme';
 
 export interface SignVideoPlayerProps {
-  /** URL video peraga isyarat; kosong → placeholder "segera tersedia". */
+  /** URL video peraga isyarat; kosong → status media tidak tersedia. */
   videoUrl?: string;
   word: string;
 }
 
 function VideoSurface({ videoUrl }: { videoUrl: string }) {
-  const player = useVideoPlayer(videoUrl, (instance) => {
+  const player = useVideoPlayer({ uri: videoUrl, useCaching: true }, (instance) => {
     instance.loop = true;
+    instance.muted = true;
+    instance.play();
   });
 
   return (
@@ -40,10 +42,10 @@ export default function SignVideoPlayer({ videoUrl, word }: SignVideoPlayerProps
           <Ionicons color={colors.primary} name="videocam-outline" size={26} />
         </View>
         <Text variant="bodyStrong" align="center">
-          Video peraga segera tersedia
+          Media peraga tidak tersedia
         </Text>
         <Text variant="caption" color="secondary" align="center" style={styles.placeholderCaption}>
-          Video tutorial gerakan "{word}" sedang disiapkan oleh tim Amerta Sign.
+          Belum ada video untuk "{word}". Gunakan pencarian alfabet atau kata lain.
         </Text>
       </View>
     );

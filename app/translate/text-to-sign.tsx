@@ -15,9 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
 import TextInputArea from '../../components/translate/TextInputArea';
+import SignSequencePlayer from '../../components/translate/SignSequencePlayer';
 import Badge from '../../components/ui/Badge';
 import BackHeader from '../../components/ui/BackHeader';
-import BrandMark from '../../components/ui/BrandMark';
 import Heading from '../../components/ui/Heading';
 import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
@@ -28,6 +28,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import type { TextToSignResult } from '../../services/translation';
+import { ApiError } from '../../services/api';
 
 import { createSheet } from '../../theme';
 
@@ -41,7 +42,6 @@ export default function TextToSignScreen() {
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const addHistoryEntry = useHistoryStore((state) => state.addEntry);
-  const avatarGender = useSettingsStore((state) => state.avatarGender);
 
   // Input suara: transkrip ditambahkan setelah teks yang sudah diketik.
   const baseTextRef = useRef('');
@@ -87,19 +87,27 @@ export default function TextToSignScreen() {
       return;
     }
 
-    const translationResult = await translateText(message);
-    setResult(translationResult);
+    try {
+      const translationResult = await translateText(message);
+      setResult(translationResult);
 
-    // Getar "sukses" saat hasil terjemahan berhasil muncul.
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      // Getar "sukses" saat hasil terjemahan berhasil muncul.
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
 
-    // Simpan riwayat hanya untuk pengguna yang login (bukan tamu).
-    if (!isGuest && user) {
-      addHistoryEntry(user.id, {
-        kind: 'teks-ke-isyarat',
-        text: message,
-        signLanguageType,
-      });
+      // Simpan riwayat hanya untuk pengguna yang login (bukan tamu).
+      if (!isGuest && user) {
+        addHistoryEntry(user.id, {
+          kind: 'teks-ke-isyarat',
+          text: message,
+          signLanguageType,
+        });
+      }
+    } catch (error) {
+      setResult(null);
+      Alert.alert(
+        'Terjemahan belum tersedia',
+        error instanceof ApiError ? error.message : 'Tidak dapat menerjemahkan teks saat ini.'
+      );
     }
   };
 
@@ -115,7 +123,7 @@ export default function TextToSignScreen() {
           />
 
           <Stack gap={spacing.md} style={styles.visualSection}>
-            <Badge size="md" text="Fitur dalam pengembangan" variant="accent" />
+            <Badge size="md" text="Peraga BISINDO aktif" variant="accent" />
 
             <View style={styles.visualBox}>
               <Animated.View pointerEvents="none" style={[styles.feedbackPill, { opacity: feedbackOpacity }]}>
@@ -124,26 +132,25 @@ export default function TextToSignScreen() {
                 </Text>
               </Animated.View>
 
-              <BrandMark size={92} />
-              <Heading variant="h2" align="center" style={styles.visualTitle}>
-                {result?.description ?? 'Visual bahasa isyarat akan tampil di sini'}
-              </Heading>
-              <Text variant="body" color="secondary" align="center">
-                {result?.visualUrl
-                  ? `Placeholder aktif untuk ${signLanguageType.toUpperCase()}`
-                  : 'Masukkan teks di bawah untuk melihat hasil terjemahan visual.'}
-              </Text>
-              <View style={styles.avatarPill}>
-                <Ionicons
-                  color={colors.primary}
-                  name={avatarGender === 'male' ? 'man' : 'woman'}
-                  size={15}
-                />
-                <Text variant="label" color="primary">
-                  Peraga: {avatarGender === 'male' ? 'Laki-laki' : 'Perempuan'}
-                </Text>
-              </View>
+              {result?.units.length ? (
+                <SignSequencePlayer units={result.units} />
+              ) : (
+                <View style={styles.emptyVisual}>
+                  <Ionicons color={colors.primary} name="hand-left-outline" size={64} />
+                  <Heading variant="h2" align="center" style={styles.visualTitle}>
+                    Visual bahasa isyarat akan tampil di sini
+                  </Heading>
+                  <Text variant="body" color="secondary" align="center">
+                    Masukkan kata atau kalimat. Kata yang belum tersedia akan dieja per huruf.
+                  </Text>
+                </View>
+              )}
             </View>
+            {result?.unmatched.length ? (
+              <Text variant="caption" color="error" align="center">
+                Karakter belum tersedia: {result.unmatched.join(', ')}
+              </Text>
+            ) : null}
           </Stack>
 
           <Stack gap={spacing.sm} style={styles.inputSection}>
@@ -182,16 +189,13 @@ const styles = createSheet((colors) => ({
     marginTop: spacing.sm,
   },
   visualBox: {
-    alignItems: 'center',
-    aspectRatio: 4 / 3,
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: radius.xxl,
     borderWidth: 1.5,
-    justifyContent: 'center',
     overflow: 'hidden',
     padding: spacing.xl,
-    gap: spacing.md,
+    minHeight: 360,
   },
   feedbackPill: {
     backgroundColor: colors.primarySurface,
@@ -205,15 +209,12 @@ const styles = createSheet((colors) => ({
   visualTitle: {
     marginTop: spacing.xs,
   },
-  avatarPill: {
-    flexDirection: 'row',
+  emptyVisual: {
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.primarySurface,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    marginTop: spacing.xs,
+    flex: 1,
+    gap: spacing.md,
+    justifyContent: 'center',
+    minHeight: 300,
   },
   inputSection: {
     flex: 1,

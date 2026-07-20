@@ -1,56 +1,84 @@
 import type { SignLanguageType } from '../types';
-import { searchDictionary } from './dictionary';
+import { apiRequest, apiUpload, resolveApiUrl } from './api';
+
+export type SignMediaType = 'video' | 'image';
+export type SignMatchType = 'exact' | 'spelling';
+
+export interface TextToSignUnit {
+  token: string;
+  word: string;
+  category: string;
+  description: string;
+  videoUrl: string;
+  imageUrl: string;
+  mediaUrl: string;
+  mediaType: SignMediaType;
+  matchType: SignMatchType;
+}
 
 export interface TextToSignResult {
-  visualUrl: string;
-  description: string;
+  text: string;
+  signLanguageType: SignLanguageType;
+  units: TextToSignUnit[];
+  unmatched: string[];
 }
 
-const wait = (duration: number) => new Promise((resolve) => setTimeout(resolve, duration));
-
-/**
- * Deteksi isyarat dari kamera. Backend menyediakan POST /recognize dan
- * WS /ws/recognize yang menerima payload landmark MediaPipe — ekstraksi
- * landmark on-device belum tersedia di app, jadi fungsi ini masih simulasi.
- */
-export async function detectSign(isActive: boolean): Promise<string> {
-  if (!isActive) {
-    await wait(300);
-    return 'Menunggu deteksi gerakan...';
-  }
-
-  await wait(2000);
-  return 'Halo, apa kabar?';
+export interface RecognitionCandidate {
+  label: string;
+  confidence: number;
 }
 
-/**
- * Teks → visual isyarat: cari peragaan dari kamus backend (GET /dictionary?search=).
- */
+export interface SignRecognitionResult {
+  text: string;
+  confidence: number;
+  candidates: RecognitionCandidate[];
+  mode: 'BISINDO';
+  stage: 'abjad' | 'kata';
+  model_loaded: boolean;
+  note?: string | null;
+}
+
+export interface MediaUpload {
+  uri: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  type?: 'image' | 'video' | null;
+}
+
+/** Teks → rangkaian media isyarat dari kamus backend. */
 export async function textToSign(
   text: string,
   signLanguageType: SignLanguageType = 'bisindo'
 ): Promise<TextToSignResult> {
-  const cleanText = text.trim();
-
-  if (!cleanText) {
-    return {
-      visualUrl: '',
-      description: 'Visual bahasa isyarat akan tampil di sini.',
-    };
-  }
-
-  const matches = await searchDictionary(cleanText);
-  const match = matches.find((entry) => entry.type === signLanguageType) ?? matches[0];
-
-  if (match) {
-    return {
-      visualUrl: match.videoUrl || match.imageUrl,
-      description: match.description || `Peragaan isyarat untuk “${match.word}”.`,
-    };
-  }
-
+  const result = await apiRequest<TextToSignResult>('/translate/text-to-sign', {
+    method: 'POST',
+    body: { text: text.trim(), signLanguageType },
+  });
   return {
-    visualUrl: '',
-    description: `Belum ada peragaan untuk “${cleanText}” di kamus. Coba kata lain.`,
+    ...result,
+    units: result.units.map((unit) => ({
+      ...unit,
+      imageUrl: resolveApiUrl(unit.imageUrl),
+      videoUrl: resolveApiUrl(unit.videoUrl),
+      mediaUrl: resolveApiUrl(unit.mediaUrl),
+    })),
   };
+}
+
+/** Foto/video → teks menggunakan MediaPipe + model backend. */
+export async function recognizeMedia(
+  media: MediaUpload,
+  stage: 'abjad' | 'kata'
+): Promise<SignRecognitionResult> {
+  const extension = media.uri.split('?')[0].split('.').pop()?.toLowerCase();
+  const isVideo = stage === 'kata';
+  const name = media.fileName || `isyarat.${extension || (isVideo ? 'mp4' : 'jpg')}`;
+  const mimeType = media.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg');
+  const formData = new FormData();
+  formData.append('stage', stage);
+  formData.append(
+    'file',
+    { uri: media.uri, name, type: mimeType } as unknown as Blob
+  );
+  return apiUpload<SignRecognitionResult>('/translate/sign-to-text', formData);
 }
