@@ -5,6 +5,9 @@ import * as SecureStore from 'expo-secure-store';
 const ACCESS_TOKEN_KEY = 'amertasign.accessToken';
 const REFRESH_TOKEN_KEY = 'amertasign.refreshToken';
 
+// Gateway produksi (nginx di VM API) — HTTPS, bebas CORS, diteruskan ke server hc-ai.
+const PRODUCTION_API_URL = 'https://amertasign.lab-if.tech';
+
 const resolveBaseUrl = (): string => {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL;
   if (fromEnv) {
@@ -12,13 +15,17 @@ const resolveBaseUrl = (): string => {
   }
 
   // Saat dev, arahkan ke mesin yang menjalankan Metro (host yang sama dengan backend).
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const host = hostUri.split(':')[0];
-    return `http://${host}:8000`;
+  if (__DEV__) {
+    const hostUri = Constants.expoConfig?.hostUri;
+    if (hostUri) {
+      const host = hostUri.split(':')[0];
+      return `http://${host}:8000`;
+    }
   }
 
-  return 'http://localhost:8000';
+  // Build rilis (APK) tanpa EXPO_PUBLIC_API_URL: pakai gateway produksi,
+  // bukan localhost — device tidak bisa mengakses localhost milik dev.
+  return PRODUCTION_API_URL;
 };
 
 export const API_BASE_URL = resolveBaseUrl();
