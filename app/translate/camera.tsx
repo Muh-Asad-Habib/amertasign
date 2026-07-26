@@ -222,18 +222,22 @@ const styles = createSheet((colors) => ({
   },
   topBar: {
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   cameraContainer: {
     flex: 1,
+    flexShrink: 1,
+    minHeight: 0,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
+    paddingTop: spacing.sm,
   },
   bottomSheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.xxl,
     borderTopRightRadius: radius.xxl,
-    paddingBottom: spacing.xl,
+    flexShrink: 0,
+    paddingBottom: spacing.lg,
   },
   controls: {
     alignItems: 'center',

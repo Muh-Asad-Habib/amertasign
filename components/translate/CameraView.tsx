@@ -134,7 +134,9 @@ const styles = createSheet((colors) => ({
   container: {
     borderRadius: radius.xxl,
     flex: 1,
-    minHeight: 360,
+    // Tanpa minHeight tetap: biarkan preview menyusut mengikuti ruang tersisa
+    // agar bagian bawah tidak terpotong bottom sheet pada layar pendek.
+    minHeight: 0,
     overflow: 'hidden',
     padding: spacing.lg,
   },

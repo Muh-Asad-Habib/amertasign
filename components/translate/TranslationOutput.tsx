@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors, fontFamily, radius, shadow, spacing } from '../../theme';
@@ -64,9 +64,15 @@ export default function TranslationOutput({ text, isLoading, onSpeak }: Translat
           </Text>
         </Animated.View>
       ) : (
-        <Heading variant="title" style={styles.text}>
-          {text || 'Belum ada hasil terjemahan.'}
-        </Heading>
+        <ScrollView
+          contentContainerStyle={styles.textScrollContent}
+          showsVerticalScrollIndicator={false}
+          style={styles.textScroll}
+        >
+          <Heading variant="title" style={styles.text}>
+            {text || 'Belum ada hasil terjemahan.'}
+          </Heading>
+        </ScrollView>
       )}
     </View>
   );
@@ -79,7 +85,10 @@ const styles = createSheet((colors) => ({
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     borderWidth: 1,
-    minHeight: 200,
+    // Tinggi dikunci pada rentang tetap supaya hasil terjemahan yang panjang
+    // tidak mendorong bottom sheet naik dan memotong preview kamera.
+    minHeight: 184,
+    maxHeight: 232,
     padding: spacing.lg,
     gap: spacing.md,
     ...shadow.lg,
@@ -102,6 +111,13 @@ const styles = createSheet((colors) => ({
   },
   text: {
     fontFamily: fontFamily.displayBold,
+  },
+  textScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  textScrollContent: {
+    paddingBottom: spacing.xs,
   },
   loadingContainer: {
     gap: spacing.md,
