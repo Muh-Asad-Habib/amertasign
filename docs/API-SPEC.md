@@ -121,6 +121,8 @@ Aturan: user hanya bisa akses riwayat miliknya (scope by user ID dari token). Re
 | POST | `/translate/text-to-sign` | `{ text, signLanguageType }` | `TextToSignResult` |
 
 > Catatan: deteksi live kemungkinan berjalan on-device (TFLite/MediaPipe) atau via WebSocket streaming — perlu diskusi arsitektur. Untuk MVP, endpoint `text-to-sign` cukup mengembalikan URL aset video/gambar peragaan dari kamus.
+>
+> Deteksi otomatis huruf/angka/kata pada `sign-to-text` (usulan `stage=auto` + field `kind`) dijelaskan terpisah di [`BACKEND-AUTO-DETECT.txt`](./BACKEND-AUTO-DETECT.txt).
 
 ### 3.5 Profil & Preferensi
 

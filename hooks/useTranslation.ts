@@ -1,8 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
 
 import {
+  recognizeAuto,
   recognizeMedia,
   textToSign,
+  type AutoRecognitionResult,
   type MediaUpload,
   type SignRecognitionResult,
   type TextToSignResult,
@@ -44,8 +46,28 @@ export function useTranslation() {
     }
   }, []);
 
-  const stopDetection = useCallback(() => {
-    requestIdRef.current += 1;
+  /** Rekaman video → deteksi otomatis huruf / angka / kata. */
+  const translateAuto = useCallback(async (
+    video: MediaUpload,
+    durationMs?: number
+  ): Promise<AutoRecognitionResult> => {
+    const requestId = ++requestIdRef.current;
+    setIsDetecting(true);
+    setTranslatedText('');
+    try {
+      const result = await recognizeAuto(video, { durationMs });
+      if (requestIdRef.current === requestId) {
+        setTranslatedText(result.text || result.note || 'Isyarat belum dikenali.');
+      }
+      return result;
+    } finally {
+      if (requestIdRef.current === requestId) {
+        setIsDetecting(false);
+      }
+    }
+  }, []);
+
+  const stopDetection = useCallback(() => {    requestIdRef.current += 1;
     setIsDetecting(false);
     setTranslatedText('');
   }, []);
@@ -77,6 +99,7 @@ export function useTranslation() {
     translatedText,
     isDetecting,
     translateMedia,
+    translateAuto,
     stopDetection,
     translateText,
   };

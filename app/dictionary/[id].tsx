@@ -82,15 +82,17 @@ export default function DictionaryDetailScreen() {
       <Stack gap={spacing.lg}>
         <BackHeader onBack={() => router.back()} />
 
-        <GradientSurface colors={gradients.primary} radius={radius.xxl} shadowLevel="lg" contentStyle={styles.hero}>
-          <BrandMark onDark size={116} />
-          <Heading variant="display" color="onPrimary" align="center" numberOfLines={2} style={styles.word}>
-            {entry.word}
-          </Heading>
-          <Row gap={spacing.sm} justify="center" wrap>
-            <Badge text={entry.type.toUpperCase()} variant={entry.type === 'bisindo' ? 'accent' : 'warning'} />
-            <Badge text={CATEGORY_LABELS[entry.category]} variant="neutral" />
-          </Row>
+        <GradientSurface colors={gradients.primary} radius={radius.xl} shadowLevel="md" contentStyle={styles.hero}>
+          <BrandMark onDark size={44} />
+          <View style={styles.heroInfo}>
+            <Heading variant="title" color="onPrimary" numberOfLines={2} style={styles.word}>
+              {entry.word}
+            </Heading>
+            <Row gap={spacing.xs} wrap>
+              <Badge text={entry.type.toUpperCase()} variant={entry.type === 'bisindo' ? 'accent' : 'warning'} />
+              <Badge text={CATEGORY_LABELS[entry.category]} variant="neutral" />
+            </Row>
+          </View>
         </GradientSurface>
 
         <Section kicker="Belajar" title="Video Peraga">
@@ -151,12 +153,17 @@ const styles = createSheet((colors) => ({
   },
   hero: {
     alignItems: 'center',
+    flexDirection: 'row',
     gap: spacing.base,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.base,
+  },
+  heroInfo: {
+    flex: 1,
+    gap: spacing.xs,
   },
   word: {
-    marginTop: spacing.xs,
+    marginTop: 0,
   },
   actionButton: {
     flex: 1,

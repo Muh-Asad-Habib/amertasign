@@ -258,7 +258,7 @@ export default function SettingsScreen() {
         '• Terjemahan isyarat: arahkan kamera ke gerakan tangan pada tab Terjemah.\n' +
         '• Teks ke isyarat: ketik atau ucapkan kalimat, lalu lihat peragaan avatar.\n' +
         '• Kamus: cari kosakata BISINDO per kategori.\n\n' +
-        'Hubungi kami: amertasign@gmail.com'
+        'Hubungi kami: amertasign.app@gmail.com'
     );
   };
 

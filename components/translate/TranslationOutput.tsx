@@ -12,9 +12,11 @@ export interface TranslationOutputProps {
   text: string;
   isLoading: boolean;
   onSpeak: (text: string) => void;
+  /** Jenis isyarat hasil deteksi otomatis — ditampilkan sebagai badge. */
+  kindLabel?: string | null;
 }
 
-export default function TranslationOutput({ text, isLoading, onSpeak }: TranslationOutputProps) {
+export default function TranslationOutput({ text, isLoading, onSpeak, kindLabel }: TranslationOutputProps) {
   const pulse = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
@@ -41,9 +43,18 @@ export default function TranslationOutput({ text, isLoading, onSpeak }: Translat
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text variant="label" color="secondary" style={styles.eyebrow}>
-          HASIL TERJEMAHAN
-        </Text>
+        <View style={styles.headerLeft}>
+          <Text variant="label" color="secondary" style={styles.eyebrow}>
+            HASIL TERJEMAHAN
+          </Text>
+          {!isLoading && kindLabel ? (
+            <View style={styles.kindBadge}>
+              <Text variant="label" style={styles.kindBadgeText}>
+                {kindLabel.toUpperCase()}
+              </Text>
+            </View>
+          ) : null}
+        </View>
         {!isLoading ? (
           <Pressable
             accessibilityLabel="Putar suara hasil terjemahan"
@@ -97,6 +108,24 @@ const styles = createSheet((colors) => ({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  headerLeft: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexShrink: 1,
+    gap: spacing.sm,
+  },
+  kindBadge: {
+    backgroundColor: colors.primarySurface,
+    borderColor: colors.primarySoft,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  kindBadgeText: {
+    color: colors.primary,
+    letterSpacing: 0.6,
   },
   eyebrow: {
     letterSpacing: 0.3,

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,11 +21,16 @@ import { useThemeMode } from '../../hooks/useThemeMode';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
 import { ApiError } from '../../services/api';
-import type { MediaUpload } from '../../services/translation';
+import { classifySignLabel, SIGN_KIND_LABEL, type MediaUpload, type SignKind } from '../../services/translation';
 
 import { createSheet } from '../../theme';
 
-const WAITING_TEXT = 'Menunggu deteksi gerakan...';
+const WAITING_TEXT = 'Tekan tombol rekam untuk mulai mendeteksi isyarat...';
+/** Batas aman durasi rekaman agar berkas unggahan tidak membengkak. */
+const MAX_RECORDING_SEC = 15;
+/** Jeda minimum sebelum perekaman boleh dihentikan (native butuh waktu siap). */
+const MIN_RECORDING_MS = 800;
+const TIMER_INTERVAL_MS = 200;
 
 export default function CameraTranslateScreen() {
   useThemeMode();
@@ -33,63 +38,154 @@ export default function CameraTranslateScreen() {
   const {
     signLanguageType,
     isDetecting,
+    translateAuto,
     translateMedia,
   } = useTranslation();
-  const [isActive, setIsActive] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const [facing, setFacing] = useState<CameraType>('front');
-  const [stage, setStage] = useState<'abjad' | 'kata'>('abjad');
   const [translatedText, setTranslatedText] = useState(WAITING_TEXT);
+  const [detectedKind, setDetectedKind] = useState<SignKind | null>(null);
   const cameraRef = useRef<CameraViewHandle>(null);
+  const startedAtRef = useRef(0);
   const { speak } = useTTS();
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const addHistoryEntry = useHistoryStore((state) => state.addEntry);
 
-  const processMedia = async (media: MediaUpload, recognitionStage: 'abjad' | 'kata') => {
-    setIsActive(true);
-    setTranslatedText(recognitionStage === 'kata' ? 'Menganalisis gerakan...' : 'Menganalisis bentuk tangan...');
+  // Penunjuk waktu rekaman + hentikan otomatis saat batas aman tercapai.
+  useEffect(() => {
+    if (!isRecording) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startedAtRef.current;
+      setElapsedMs(elapsed);
+      if (elapsed >= MAX_RECORDING_SEC * 1000) {
+        cameraRef.current?.stopRecording();
+      }
+    }, TIMER_INTERVAL_MS);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [isRecording]);
+
+  const saveHistory = useCallback(
+    (text: string) => {
+      if (!isGuest && user) {
+        addHistoryEntry(user.id, {
+          kind: 'isyarat-ke-teks',
+          text,
+          signLanguageType,
+        });
+      }
+    },
+    [addHistoryEntry, isGuest, signLanguageType, user]
+  );
+
+  const showFailure = (error: unknown) => {
+    setTranslatedText(WAITING_TEXT);
+    setDetectedKind(null);
+    Alert.alert(
+      'Pengenalan gagal',
+      error instanceof ApiError || error instanceof Error
+        ? error.message
+        : 'Media tidak dapat dikenali.'
+    );
+  };
+
+  /** Rekaman video → deteksi otomatis huruf / angka / kata. */
+  const processRecording = async (video: MediaUpload, durationMs: number) => {
+    setIsProcessing(true);
+    setTranslatedText('Menganalisis gerakan...');
+    setDetectedKind(null);
     try {
-      const result = await translateMedia(media, recognitionStage);
-      const text = result.text || result.note || 'Isyarat belum dikenali. Coba ulangi dengan pencahayaan lebih baik.';
-      setTranslatedText(text);
+      const result = await translateAuto(video, durationMs);
       if (result.text) {
+        setTranslatedText(result.text);
+        setDetectedKind(result.kind);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
-        if (!isGuest && user) {
-          addHistoryEntry(user.id, {
-            kind: 'isyarat-ke-teks',
-            text: result.text,
-            signLanguageType,
-          });
-        }
+        saveHistory(result.text);
+      } else {
+        setTranslatedText(result.note || 'Isyarat belum dikenali. Coba ulangi dengan gerakan lebih jelas.');
+        setDetectedKind(null);
       }
     } catch (error) {
-      setTranslatedText(WAITING_TEXT);
-      Alert.alert(
-        'Pengenalan gagal',
-        error instanceof ApiError || error instanceof Error
-          ? error.message
-          : 'Media tidak dapat dikenali.'
-      );
+      showFailure(error);
     } finally {
-      setIsActive(false);
+      setIsProcessing(false);
     }
   };
 
-  const handleCapture = async () => {
-    if (!cameraRef.current || isActive) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+  /** Gambar dari galeri hanya bisa dikenali model abjad (huruf). */
+  const processImage = async (media: MediaUpload) => {
+    setIsProcessing(true);
+    setTranslatedText('Menganalisis bentuk tangan...');
+    setDetectedKind(null);
     try {
-      setIsActive(true);
-      const media = await cameraRef.current.capture();
-      setIsActive(false);
-      await processMedia(media, stage);
+      const result = await translateMedia(media, 'abjad');
+      const text = result.text || result.note || 'Isyarat belum dikenali. Coba ulangi dengan pencahayaan lebih baik.';
+      setTranslatedText(text);
+      if (result.text) {
+        setDetectedKind(classifySignLabel(result.text));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
+        saveHistory(result.text);
+      }
     } catch (error) {
-      setIsActive(false);
-      Alert.alert('Kamera belum siap', error instanceof Error ? error.message : 'Gagal mengambil media.');
+      showFailure(error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleToggleRecording = async () => {
+    if (isProcessing) {
+      return;
+    }
+
+    if (isRecording) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+      // Perekam native butuh jeda singkat sebelum bisa dihentikan; klip yang
+      // terlalu pendek juga hampir mustahil dikenali model.
+      const elapsed = Date.now() - startedAtRef.current;
+      if (elapsed < MIN_RECORDING_MS) {
+        setTimeout(() => cameraRef.current?.stopRecording(), MIN_RECORDING_MS - elapsed);
+        return;
+      }
+      cameraRef.current?.stopRecording();
+      return;
+    }
+
+    if (!cameraRef.current) {
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+    startedAtRef.current = Date.now();
+    setElapsedMs(0);
+    setDetectedKind(null);
+    setTranslatedText('Merekam isyarat... ketuk lagi untuk berhenti.');
+    setIsRecording(true);
+
+    try {
+      // Promise ini baru selesai setelah stopRecording() dipanggil.
+      const video = await cameraRef.current.startRecording(MAX_RECORDING_SEC);
+      const durationMs = Date.now() - startedAtRef.current;
+      setIsRecording(false);
+      await processRecording(video, durationMs);
+    } catch (error) {
+      setIsRecording(false);
+      showFailure(error);
     }
   };
 
   const handleFlipCamera = () => {
+    if (isRecording) {
+      return;
+    }
     setFacing((current) => (current === 'front' ? 'back' : 'front'));
   };
 
@@ -105,21 +201,31 @@ export default function CameraTranslateScreen() {
       quality: 0.8,
     });
 
-    if (!result.canceled) {
-      const asset = result.assets[0];
-      const recognitionStage = asset.type === 'video' ? 'kata' : 'abjad';
-      setStage(recognitionStage);
-      await processMedia(
-        {
-          uri: asset.uri,
-          fileName: asset.fileName,
-          mimeType: asset.mimeType,
-          type: asset.type === 'video' ? 'video' : 'image',
-        },
-        recognitionStage
-      );
+    if (result.canceled) {
+      return;
     }
+
+    const asset = result.assets[0];
+    const media: MediaUpload = {
+      uri: asset.uri,
+      fileName: asset.fileName,
+      mimeType: asset.mimeType,
+      type: asset.type === 'video' ? 'video' : 'image',
+    };
+
+    if (media.type === 'video') {
+      await processRecording(media, asset.duration ?? 0);
+      return;
+    }
+    await processImage(media);
   };
+
+  const busy = isProcessing || isDetecting;
+  const helperText = isRecording
+    ? `Sedang merekam · ketuk tombol untuk berhenti (maks ${MAX_RECORDING_SEC} dtk)`
+    : busy
+      ? 'Menganalisis isyarat — huruf, angka, atau kata...'
+      : 'Ketuk tombol rekam, peragakan isyarat, lalu ketuk lagi untuk berhenti';
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
@@ -135,12 +241,19 @@ export default function CameraTranslateScreen() {
         </View>
 
         <View style={styles.cameraContainer}>
-          <CameraView facing={facing} isActive={isActive} ref={cameraRef} stage={stage} />
+          <CameraView
+            elapsedMs={elapsedMs}
+            facing={facing}
+            isProcessing={busy}
+            isRecording={isRecording}
+            ref={cameraRef}
+          />
         </View>
 
         <View style={styles.bottomSheet}>
           <TranslationOutput
-            isLoading={isDetecting}
+            isLoading={busy}
+            kindLabel={detectedKind ? SIGN_KIND_LABEL[detectedKind] : null}
             onSpeak={(text) => {
               if (text !== WAITING_TEXT) {
                 speak(text);
@@ -150,56 +263,40 @@ export default function CameraTranslateScreen() {
           />
 
           <View style={styles.controls}>
-            <View style={styles.stageSelector}>
-              {(['abjad', 'kata'] as const).map((item) => (
-                <PressableScale
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: stage === item }}
-                  disabled={isActive}
-                  key={item}
-                  onPress={() => setStage(item)}
-                  style={[styles.stageButton, stage === item && styles.stageButtonActive]}
-                >
-                  <Text variant="label" color={stage === item ? 'onPrimary' : 'primary'}>
-                    {item === 'abjad' ? 'Foto · Abjad' : 'Video 3 dtk · Kata'}
-                  </Text>
-                </PressableScale>
-              ))}
-            </View>
             <Text variant="body" color="secondary" align="center" style={styles.helperText}>
-              {isActive
-                ? stage === 'kata' ? 'Rekam dan lakukan gerakan hingga selesai...' : 'Mengambil bentuk tangan...'
-                : stage === 'kata' ? 'Ketuk tombol lalu lakukan satu gerakan kata' : 'Ketuk tombol untuk mengenali satu huruf'}
+              {helperText}
             </Text>
 
             <View style={styles.controlsRow}>
               <PressableScale
                 accessibilityRole="button"
                 accessibilityLabel="Pilih dari galeri"
+                disabled={isRecording || busy}
                 onPress={() => {
                   void handlePickFromGallery();
                 }}
-                style={styles.sideButton}
+                style={[styles.sideButton, (isRecording || busy) && styles.sideButtonDisabled]}
               >
                 <Ionicons color={colors.primary} name="images-outline" size={22} />
               </PressableScale>
 
               <PressableScale
                 accessibilityRole="button"
-                accessibilityLabel={isActive ? 'Hentikan deteksi' : 'Mulai deteksi'}
-                accessibilityState={{ selected: isActive }}
-                disabled={isActive || isDetecting}
-                onPress={() => void handleCapture()}
-                style={styles.detectButton}
+                accessibilityLabel={isRecording ? 'Hentikan rekaman' : 'Mulai rekam isyarat'}
+                accessibilityState={{ selected: isRecording }}
+                disabled={busy}
+                onPress={() => void handleToggleRecording()}
+                style={[styles.detectButton, isRecording && styles.detectButtonRecording]}
               >
-                <View style={[styles.detectButtonInner, isActive && styles.detectButtonInnerActive]} />
+                <View style={[styles.detectButtonInner, isRecording && styles.detectButtonInnerActive]} />
               </PressableScale>
 
               <PressableScale
                 accessibilityRole="button"
                 accessibilityLabel="Balik kamera"
+                disabled={isRecording || busy}
                 onPress={handleFlipCamera}
-                style={styles.sideButton}
+                style={[styles.sideButton, (isRecording || busy) && styles.sideButtonDisabled]}
               >
                 <Ionicons color={colors.primary} name="camera-reverse-outline" size={22} />
               </PressableScale>
@@ -246,24 +343,7 @@ const styles = createSheet((colors) => ({
   },
   helperText: {
     marginBottom: spacing.md,
-  },
-  stageSelector: {
-    backgroundColor: colors.primarySurface,
-    borderRadius: radius.full,
-    flexDirection: 'row',
-    marginBottom: spacing.md,
-    padding: 4,
-    width: '100%',
-  },
-  stageButton: {
-    alignItems: 'center',
-    borderRadius: radius.full,
-    flex: 1,
-    minHeight: 38,
-    justifyContent: 'center',
-  },
-  stageButtonActive: {
-    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.sm,
   },
   controlsRow: {
     flexDirection: 'row',
@@ -281,6 +361,9 @@ const styles = createSheet((colors) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  sideButtonDisabled: {
+    opacity: 0.4,
+  },
   detectButton: {
     alignItems: 'center',
     backgroundColor: colors.error,
@@ -296,15 +379,21 @@ const styles = createSheet((colors) => ({
     shadowRadius: 16,
     elevation: 6,
   },
+  detectButtonRecording: {
+    borderColor: colors.error,
+    borderWidth: 6,
+    backgroundColor: colors.surface,
+  },
   detectButtonInner: {
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: radius.full,
     height: 26,
     width: 26,
   },
   detectButtonInnerActive: {
-    borderRadius: 5,
-    height: 20,
-    width: 20,
+    backgroundColor: colors.error,
+    borderRadius: 6,
+    height: 26,
+    width: 26,
   },
 }));

@@ -1,0 +1,299 @@
+========================================================================
+PERMINTAAN PERUBAHAN BACKEND AMERTASIGN
+Deteksi Otomatis Huruf / Angka / Kata pada /translate/sign-to-text
+========================================================================
+
+Ditujukan untuk: tim pengelola server https://amertasign.lab-if.tech
+Tanggal        : 28 Juli 2026
+Dari           : tim aplikasi mobile Amerta Sign
+
+Ringkasan singkat:
+Aplikasi mobile sudah diubah supaya pengguna tidak lagi memilih mode
+"Foto - Abjad" atau "Video 3 detik - Kata". Sekarang pengguna cukup
+menekan tombol rekam, memperagakan isyarat, lalu menekan tombol lagi
+untuk berhenti; aplikasi yang menentukan sendiri apakah isyarat itu
+huruf, angka, atau kata. Namun karena server belum mendukungnya,
+aplikasi harus menambal dari sisi klien dengan mengirim DUA permintaan
+untuk satu rekaman. Kami mohon perubahan di bawah ini agar cukup satu
+permintaan, lebih cepat, lebih hemat kuota, dan lebih akurat.
+
+
+------------------------------------------------------------------------
+1. KONDISI SERVER SAAT INI (hasil pengujian langsung ke produksi)
+------------------------------------------------------------------------
+
+Endpoint: POST /api/v1/translate/sign-to-text
+Body    : multipart/form-data dengan field "stage" dan "file"
+
+  stage = "abjad"
+    - Hanya menerima GAMBAR. Video ditolak dengan:
+      {"success":false,"error":{"code":"STAGE_MEDIA_MISMATCH",
+       "message":"Mode abjad membutuhkan gambar."}}
+    - Label yang dikenali: huruf A sampai Z.
+
+  stage = "kata"
+    - Menerima video.
+    - Label yang dikenali: ANGKA ("1", "10", "16", ...) dan
+      KATA ("Lari", "Mereka", "Olahraga", ...).
+
+  stage = "auto"
+    - BELUM ADA. Server membalas HTTP 422:
+      {"detail":[{"type":"literal_error","loc":["body","stage"],
+       "msg":"Input should be 'abjad' or 'kata'","input":"auto"}]}
+
+GET /health melaporkan:
+  models_available : BISINDO_abjad.joblib, BISINDO_kata.joblib,
+                     SIBI_kata.joblib
+  min_confidence   : 0.6
+
+Contoh respons sukses saat ini:
+  {"success":true,
+   "data":{"text":"1","confidence":0.998,
+           "candidates":[{"label":"1","confidence":0.998}],
+           "mode":"BISINDO","stage":"kata",
+           "model_loaded":true,"note":null}}
+
+
+------------------------------------------------------------------------
+2. MASALAH YANG KAMI TEMUKAN
+------------------------------------------------------------------------
+
+a) Model video (stage=kata) TIDAK memiliki kelas huruf.
+   Bukti pengujian memakai berkas dari dataset resmi kami:
+
+     Dataset/Video/Huruf/A/A_001.MOV
+       -> kandidat: "7" (0.428), "18" (0.210), "17" (0.194)
+     Dataset/Video/Huruf/B/B_001.MOV
+       -> kandidat: "19" (0.608), "18" (0.308), "Lari" (0.053)
+     Dataset/Video/Huruf/C/C_001.MOV
+       -> kandidat: "2" (0.584), "1" (0.390), "Olahraga" (0.009)
+     Dataset/Video/Huruf/M/Huruf M-1.mp4
+       -> kandidat: "Lari" (0.949), "19" (0.051), "9" (0.0002)
+
+   Tidak ada satu pun label huruf yang muncul. Artinya video peragaan
+   huruf tidak akan pernah dikenali sebagai huruf.
+
+b) Kelas angka mendominasi kandidat teratas dan sering mengalahkan
+   kelas kata. Contoh:
+
+     Dataset/Video/Kata/Air/signer0_label0_sample1.mp4
+       -> kandidat: "10" (0.404), "Mereka" (0.325), "6" (0.050)
+
+c) Respons tidak memberi tahu JENIS hasil. Klien hanya menerima label
+   mentah, sehingga harus menebak sendiri dari bentuk string.
+
+d) Akibat poin a dan c, aplikasi terpaksa mengirim dua permintaan untuk
+   satu rekaman: video ke stage=kata, dan satu frame yang diekstrak di
+   perangkat ke stage=abjad. Ini menggandakan latensi dan boros
+   bandwidth pengguna.
+
+
+------------------------------------------------------------------------
+3. YANG KAMI MINTA
+------------------------------------------------------------------------
+
+3.1 Tambahkan nilai stage = "auto"  (PRIORITAS UTAMA)
+
+    POST /api/v1/translate/sign-to-text dengan stage=auto.
+
+    Bila "file" berupa VIDEO, server melakukan:
+      1. Menjalankan model "kata" pada seluruh urutan frame video.
+      2. Menyampling beberapa frame diam dari video (saran: 3 sampai 5
+         frame di sekitar tengah durasi, misalnya pada 40%, 50%, dan
+         60% durasi), lalu menjalankan model "abjad" pada tiap frame
+         dan mengambil confidence tertinggi.
+      3. Membandingkan kandidat terbaik dari kedua model, lalu
+         mengembalikan pemenangnya.
+
+    Bila "file" berupa GAMBAR, stage=auto cukup menjalankan model
+    "abjad".
+
+
+3.2 Tambahkan field "kind" pada respons
+
+    Nilai "kind" adalah salah satu dari: "huruf", "angka", atau "kata".
+    Ditentukan oleh SERVER berdasarkan model/kelas asal label, bukan
+    ditebak dari bentuk string.
+
+    Contoh respons yang kami harapkan:
+
+    {
+      "success": true,
+      "data": {
+        "text": "A",
+        "kind": "huruf",
+        "confidence": 0.93,
+        "stage": "auto",
+        "mode": "BISINDO",
+        "model_loaded": true,
+        "candidates": [
+          { "label": "A",      "kind": "huruf", "confidence": 0.93 },
+          { "label": "10",     "kind": "angka", "confidence": 0.21 },
+          { "label": "Mereka", "kind": "kata",  "confidence": 0.08 }
+        ],
+        "note": null
+      }
+    }
+
+    Aturan yang sudah berlaku sekarang mohon dipertahankan:
+      - "text" diisi HANYA bila confidence >= min_confidence (0.6).
+        Bila di bawah ambang, "text" dikosongkan dan "note" diisi alasan
+        yang ramah pengguna, misalnya
+        "Isyarat belum dikenali, coba ulangi."
+      - "note" diisi "Tidak ada tangan terdeteksi." bila MediaPipe tidak
+        menemukan tangan.
+
+
+3.3 Perbaiki cakupan kelas model
+
+    - Latih ulang model video (stage=kata) DENGAN MENYERTAKAN kelas
+      huruf dari Dataset/Video/Huruf (26 kelas, 541 berkas). Selama
+      huruf belum masuk ke model video, deteksi huruf hanya bisa
+      mengandalkan frame diam.
+
+    - Mohon dipertimbangkan MEMISAHKAN model angka (misalnya
+      BISINDO_angka.joblib) dari model kata, karena saat ini kelas
+      angka mendominasi dan sering menang atas kelas kata (lihat bukti
+      poin 2.b).
+
+    - Bila model dipisah, stage=auto menjalankan ketiganya lalu
+      menormalkan confidence antar model sebelum dibandingkan
+      (misalnya kalibrasi / temperature scaling), karena membandingkan
+      predict_proba mentah antar model yang berbeda tidak adil.
+
+
+3.4 Batasan unggahan
+
+    Durasi rekaman di aplikasi kini ditentukan pengguna (mulai dan
+    berhenti manual), dibatasi maksimal 15 detik, resolusi 720p, tanpa
+    audio. Mohon pastikan server:
+      - menerima berkas hingga sekitar 40 MB,
+      - tidak memutus koneksi sebelum sekitar 120 detik (aplikasi
+        memakai timeout 120 detik untuk unggahan video).
+
+
+3.5 KONTRAK PERSIS DARI SISI APLIKASI MOBILE
+    (mohon disesuaikan, ini yang benar-benar dikirim/dibaca aplikasi)
+
+    A. Yang DIKIRIM aplikasi SEKARANG (dua permintaan per rekaman):
+
+       Permintaan 1 - urutan gerakan
+         POST /api/v1/translate/sign-to-text
+         Content-Type: multipart/form-data
+         field "stage" = "kata"
+         field "file"  = isyarat.mp4  (video/mp4, 720p, maks 15 detik,
+                                       tanpa audio, kamera depan
+                                       ter-mirror)
+         timeout klien : 120 detik
+
+       Permintaan 2 - satu frame diam
+         POST /api/v1/translate/sign-to-text
+         Content-Type: multipart/form-data
+         field "stage" = "abjad"
+         field "file"  = isyarat-frame.jpg (image/jpeg, diambil dari
+                                            tengah durasi rekaman)
+         timeout klien : 60 detik
+
+       Keduanya dikirim TANPA header Authorization (endpoint ini publik
+       seperti sekarang). Mohon jangan diubah menjadi wajib token.
+
+    B. Yang AKAN dikirim aplikasi setelah stage=auto tersedia
+       (satu permintaan saja):
+
+         POST /api/v1/translate/sign-to-text
+         Content-Type: multipart/form-data
+         field "stage" = "auto"
+         field "file"  = isyarat.mp4 (video/mp4, 720p, maks 15 detik)
+         timeout klien : 120 detik
+
+       Untuk unggahan dari galeri berupa gambar:
+         field "stage" = "auto"
+         field "file"  = isyarat.jpg (image/jpeg)
+
+    C. Field respons yang DIBACA aplikasi
+
+       Amplop wajib tetap seperti sekarang:
+         sukses : {"success": true, "data": { ... }}
+         gagal  : {"success": false,
+                   "error": {"code": "...", "message": "..."}}
+       Pesan pada error.message ditampilkan langsung ke pengguna, jadi
+       mohon tetap berbahasa Indonesia dan ramah.
+
+       Di dalam "data", aplikasi membaca:
+         text          (string)  - label final; kosong bila di bawah
+                                   ambang confidence
+         kind          (string)  - BARU: "huruf" | "angka" | "kata"
+         confidence    (number)  - 0..1
+         candidates    (array)   - tiap elemen: { label, confidence,
+                                   dan BARU: kind }
+         note          (string|null) - ditampilkan bila text kosong
+         model_loaded  (boolean)
+         mode, stage   (string)
+
+       Catatan penting: selama field "kind" belum ada, aplikasi menebak
+       jenis dari bentuk label (satu karakter A-Z = huruf, seluruhnya
+       digit = angka, selain itu = kata). Karena itu mohon label huruf
+       tetap dikirim sebagai satu karakter kapital ("A", bukan
+       "Huruf A"), dan label angka tetap berupa digit ("10", bukan
+       "Angka 10"). Bila format label berubah, tampilan di aplikasi
+       ikut salah.
+
+    D. Yang sudah TIDAK dipakai lagi oleh aplikasi
+
+       Aplikasi tidak lagi mengambil foto langsung dari kamera untuk
+       stage=abjad. Semua deteksi dari kamera kini berasal dari video
+       rekaman. stage=abjad hanya dipakai untuk gambar dari galeri dan
+       untuk frame hasil ekstraksi (solusi sementara di poin 6).
+
+
+------------------------------------------------------------------------
+4. KOMPATIBILITAS MUNDUR
+------------------------------------------------------------------------
+
+- stage="abjad" dan stage="kata" HARUS tetap berfungsi seperti sekarang,
+  karena versi aplikasi yang sudah beredar masih memakainya.
+- Field "kind" bersifat tambahan, aman diabaikan klien lama.
+- Setelah stage=auto tersedia, aplikasi akan disederhanakan menjadi satu
+  permintaan saja.
+
+
+------------------------------------------------------------------------
+5. CHECKLIST UNTUK TIM SERVER
+------------------------------------------------------------------------
+
+[ ] Terima nilai stage="auto" pada POST /api/v1/translate/sign-to-text.
+[ ] Untuk video: jalankan model kata (urutan) + model abjad (sampling
+    3-5 frame tengah), lalu ambil kandidat terbaik.
+[ ] Untuk gambar: jalankan model abjad.
+[ ] Tambahkan field "kind" (huruf / angka / kata) pada "data" dan pada
+    tiap elemen "candidates".
+[ ] Latih ulang model video agar mencakup kelas huruf.
+[ ] Pertimbangkan pemisahan model angka + kalibrasi confidence antar
+    model.
+[ ] Naikkan batas ukuran unggahan dan timeout (sekitar 40 MB / 120 detik).
+[ ] Jaga stage="abjad" dan stage="kata" tetap kompatibel.
+[ ] Jaga format label tetap sama: huruf = satu karakter kapital ("A"),
+    angka = digit ("10"), kata = kata biasa ("Mereka").
+[ ] Jaga amplop respons {success, data} / {success, error} dan endpoint
+    tetap publik (tanpa Bearer token).
+
+
+------------------------------------------------------------------------
+6. SOLUSI SEMENTARA DI APLIKASI (sudah diterapkan)
+------------------------------------------------------------------------
+
+Sampai perubahan di atas tersedia, aplikasi melakukan hal berikut:
+
+  1. Mengirim video rekaman ke stage=kata.
+  2. Mengekstrak satu frame di tengah rekaman di perangkat, lalu
+     mengirimnya ke stage=abjad.
+  3. Menjalankan keduanya paralel, lalu memilih hasil dengan confidence
+     tertinggi yang lolos ambang server.
+  4. Menentukan jenis dari bentuk label: satu karakter A-Z dianggap
+     huruf, seluruhnya digit dianggap angka, selain itu dianggap kata.
+
+Cara ini bekerja, tetapi memakai kuota dua kali lipat dan tidak bisa
+memperbaiki masalah model video yang belum punya kelas huruf.
+
+Terima kasih atas bantuannya.
+========================================================================
