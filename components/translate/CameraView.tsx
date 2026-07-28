@@ -106,7 +106,7 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
         : 'Kamera nonaktif';
 
   return (
-    <View style={[styles.container, isRecording && styles.containerRecording]}>
+    <View style={styles.container}>
       {hasCamera ? (
         <ExpoCamera
           facing={facing}
@@ -135,8 +135,6 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
       <View style={[styles.corner, styles.cornerBL, isRecording && styles.cornerRecording]} />
       <View style={[styles.corner, styles.cornerBR, isRecording && styles.cornerRecording]} />
 
-      {isRecording ? <View style={styles.recordingOutline} pointerEvents="none" /> : null}
-
       <View
         style={[
           styles.statusPill,
@@ -157,7 +155,7 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
 
       {hasCamera ? (
         <View style={styles.hintWrap} pointerEvents="none">
-          <View style={[styles.hintPill, isRecording && styles.hintPillRecording]}>
+          <View style={styles.hintPill}>
             <Ionicons
               color={colors.textOnPrimary}
               name={isRecording ? 'stop-circle-outline' : 'hand-left-outline'}
@@ -213,20 +211,6 @@ const styles = createSheet((colors) => ({
     overflow: 'hidden',
     padding: spacing.lg,
   },
-  containerRecording: {
-    shadowColor: colors.error,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    elevation: 10,
-  },
-  recordingOutline: {
-    ...StyleSheet.absoluteFillObject,
-    borderColor: colors.error,
-    borderRadius: radius.xxl,
-    borderWidth: 4,
-    zIndex: 1,
-  },
   corner: {
     position: 'absolute',
     width: CORNER,
@@ -258,8 +242,9 @@ const styles = createSheet((colors) => ({
     backgroundColor: 'rgba(251, 182, 4, 0.28)',
   },
   statusPillRecording: {
-    backgroundColor: colors.error,
-    borderColor: colors.error,
+    // Tint tipis saja, bukan blok merah pekat, agar tidak mendominasi tampilan.
+    backgroundColor: 'rgba(186, 26, 26, 0.32)',
+    borderColor: 'rgba(255, 122, 117, 0.55)',
   },
   statusDot: {
     width: 8,
@@ -271,7 +256,7 @@ const styles = createSheet((colors) => ({
     backgroundColor: colors.accent,
   },
   statusDotRecording: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FF5A55',
     width: 10,
     height: 10,
   },
@@ -299,9 +284,6 @@ const styles = createSheet((colors) => ({
     borderRadius: radius.full,
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.sm,
-  },
-  hintPillRecording: {
-    backgroundColor: 'rgba(197, 34, 31, 0.85)',
   },
   hintText: {
     color: colors.textOnPrimary,
