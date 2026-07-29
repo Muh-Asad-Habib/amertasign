@@ -16,6 +16,8 @@ export interface TextInputAreaProps {
   /** Tampilkan tombol mikrofon untuk input suara. */
   onMicPress?: () => void;
   isListening?: boolean;
+  /** Dipanggil saat kolom teks mendapat fokus (mis. untuk menggulung ke input). */
+  onFocus?: () => void;
 }
 
 export default function TextInputArea({
@@ -24,6 +26,7 @@ export default function TextInputArea({
   onSubmit,
   onMicPress,
   isListening = false,
+  onFocus,
 }: TextInputAreaProps) {
   const characterCount = value.length;
   const isDisabled = value.trim().length === 0;
@@ -33,6 +36,7 @@ export default function TextInputArea({
       <TextInput
         multiline
         onChangeText={onChangeText}
+        onFocus={onFocus}
         placeholder={isListening ? 'Mendengarkan... silakan bicara' : 'Ketik pesan untuk diterjemahkan...'}
         placeholderTextColor={colors.textTertiary}
         style={styles.input}

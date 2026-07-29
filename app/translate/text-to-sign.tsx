@@ -1,12 +1,10 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
-  KeyboardAvoidingView,
-  Platform,
+  LayoutChangeEvent,
   ScrollView,
-  StyleSheet,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +22,7 @@ import Text from '../../components/ui/Text';
 import { colors, radius, spacing } from '../../theme';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useSpeechToText } from '../../hooks/useSpeechToText';
+import { useKeyboardOverlap } from '../../hooks/useKeyboardOverlap';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -42,6 +41,31 @@ export default function TextToSignScreen() {
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const addHistoryEntry = useHistoryStore((state) => state.addEntry);
+
+  // Keyboard di Android edge-to-edge menimpa konten, jadi ruang bawah dan
+  // posisi gulir diatur manual berdasarkan tinggi tumpang tindih sebenarnya.
+  const keyboardOverlap = useKeyboardOverlap();
+  const scrollRef = useRef<ScrollView | null>(null);
+  const inputOffsetRef = useRef(0);
+
+  const handleInputLayout = useCallback((event: LayoutChangeEvent) => {
+    inputOffsetRef.current = event.nativeEvent.layout.y;
+  }, []);
+
+  const scrollToInput = useCallback(() => {
+    scrollRef.current?.scrollTo({
+      y: Math.max(inputOffsetRef.current - spacing.md, 0),
+      animated: true,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (keyboardOverlap <= 0) {
+      return;
+    }
+    const timer = setTimeout(scrollToInput, 60);
+    return () => clearTimeout(timer);
+  }, [keyboardOverlap, scrollToInput]);
 
   // Input suara: transkrip ditambahkan setelah teks yang sudah diketik.
   const baseTextRef = useRef('');
@@ -114,47 +138,53 @@ export default function TextToSignScreen() {
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <BackHeader
-            onBack={() => router.back()}
-            right={<Badge text="BISINDO" variant="primary" />}
-            title="Teks/Audio → Isyarat"
-          />
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={[styles.content, { paddingBottom: spacing.xxl + keyboardOverlap }]}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        style={styles.flex}
+      >
+        <BackHeader
+          onBack={() => router.back()}
+          right={<Badge text="BISINDO" variant="primary" />}
+          title="Teks/Audio → Isyarat"
+        />
 
-          <Stack gap={spacing.md} style={styles.visualSection}>
-            <View style={styles.visualHeader}>
-              <Badge size="md" text="Peraga BISINDO aktif" variant="accent" />
-              <Animated.View pointerEvents="none" style={[styles.feedbackPill, { opacity: feedbackOpacity }]}>
-                <Text variant="caption" color="primary">
-                  Menerjemahkan...
-                </Text>
-              </Animated.View>
-            </View>
-
-            <View style={styles.visualBox}>
-              {result?.units.length ? (
-                <SignSequencePlayer units={result.units} />
-              ) : (
-                <View style={styles.emptyVisual}>
-                  <Ionicons color={colors.primary} name="hand-left-outline" size={64} />
-                  <Heading variant="h2" align="center" style={styles.visualTitle}>
-                    Visual bahasa isyarat akan tampil di sini
-                  </Heading>
-                  <Text variant="body" color="secondary" align="center">
-                    Masukkan kata atau kalimat. Gerakan akan diperagakan otomatis dan berulang.
-                  </Text>
-                </View>
-              )}
-            </View>
-            {result?.unmatched.length ? (
-              <Text variant="caption" color="error" align="center">
-                Karakter belum tersedia: {result.unmatched.join(', ')}
+        <Stack gap={spacing.md} style={styles.visualSection}>
+          <View style={styles.visualHeader}>
+            <Badge size="md" text="Peraga BISINDO aktif" variant="accent" />
+            <Animated.View pointerEvents="none" style={[styles.feedbackPill, { opacity: feedbackOpacity }]}>
+              <Text variant="caption" color="primary">
+                Menerjemahkan...
               </Text>
-            ) : null}
-          </Stack>
+            </Animated.View>
+          </View>
 
-          <Stack gap={spacing.sm} style={styles.inputSection}>
+          <View style={styles.visualBox}>
+            {result?.units.length ? (
+              <SignSequencePlayer units={result.units} />
+            ) : (
+              <View style={styles.emptyVisual}>
+                <Ionicons color={colors.primary} name="hand-left-outline" size={64} />
+                <Heading variant="h2" align="center" style={styles.visualTitle}>
+                  Visual bahasa isyarat akan tampil di sini
+                </Heading>
+                <Text variant="body" color="secondary" align="center">
+                  Masukkan kata atau kalimat. Gerakan akan diperagakan otomatis dan berulang.
+                </Text>
+              </View>
+            )}
+          </View>
+          {result?.unmatched.length ? (
+            <Text variant="caption" color="error" align="center">
+              Karakter belum tersedia: {result.unmatched.join(', ')}
+            </Text>
+          ) : null}
+        </Stack>
+
+        <View onLayout={handleInputLayout}>
+          <Stack gap={spacing.sm}>
             <Heading variant="title">Masukkan pesan</Heading>
             <Text variant="body" color="secondary" style={styles.sectionSubtitle}>
               Ketik pesan atau gunakan mikrofon, lalu tekan tombol terjemahkan.
@@ -162,13 +192,14 @@ export default function TextToSignScreen() {
             <TextInputArea
               isListening={isListening}
               onChangeText={setInputValue}
+              onFocus={scrollToInput}
               onMicPress={handleMicPress}
               onSubmit={handleSubmit}
               value={inputValue}
             />
           </Stack>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -183,7 +214,6 @@ const styles = createSheet((colors) => ({
   },
   content: {
     padding: spacing.lg,
-    paddingBottom: spacing.xxl,
     gap: spacing.xl,
   },
   visualSection: {
@@ -220,9 +250,6 @@ const styles = createSheet((colors) => ({
     gap: spacing.md,
     justifyContent: 'center',
     minHeight: 300,
-  },
-  inputSection: {
-    flex: 1,
   },
   sectionSubtitle: {
     marginBottom: spacing.xs,

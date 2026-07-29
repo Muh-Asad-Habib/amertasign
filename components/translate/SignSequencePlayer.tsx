@@ -350,10 +350,13 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
       </View>
 
       <View style={styles.avatarNote}>
-        <Ionicons color={colors.textTertiary} name="information-circle-outline" size={16} />
+        <Ionicons
+          color={colors.textTertiary}
+          name={avatarGender === 'male' ? 'man-outline' : 'woman-outline'}
+          size={16}
+        />
         <Text variant="caption" color="tertiary" style={styles.avatarNoteText}>
-          Peraga pilihanmu: {AVATAR_LABEL[avatarGender]}. Rekaman avatar masih dalam proses,
-          sementara ini memakai peraga yang tersedia.
+          Karakter peraga: {AVATAR_LABEL[avatarGender]}
         </Text>
       </View>
     </View>
@@ -469,7 +472,7 @@ const styles = createSheet((themeColors) => ({
     paddingHorizontal: spacing.sm,
   },
   avatarNote: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.xs,
   },

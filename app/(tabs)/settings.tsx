@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Image, Switch, View } from 'react-native';
+import { Alert, Image, StyleSheet, Switch, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -126,6 +126,9 @@ function SegmentedControl<T extends string | number>({
   value: T;
   onChange: (next: T) => void;
 }) {
+  // Opsi ikon tanpa keterangan (mis. gender) disusun mendatar agar tidak tinggi.
+  const inline = options.every((option) => option.icon && !option.caption);
+
   return (
     <View style={styles.segmentRow}>
       {options.map((option) => {
@@ -137,7 +140,11 @@ function SegmentedControl<T extends string | number>({
             accessibilityState={{ selected: active }}
             key={String(option.value)}
             onPress={() => onChange(option.value)}
-            style={[styles.segment, active ? styles.segmentActive : styles.segmentInactive]}
+            style={[
+              styles.segment,
+              inline && styles.segmentInline,
+              active ? styles.segmentActive : styles.segmentInactive,
+            ]}
           >
             {option.icon ? (
               <Ionicons color={active ? colors.primary : colors.textSecondary} name={option.icon} size={18} />
@@ -176,8 +183,7 @@ function VoiceSettingsCard() {
         <View style={styles.voiceSection}>
           <Text variant="bodyStrong">Karakter Peraga</Text>
           <Text variant="caption" color="secondary" style={styles.voiceHint}>
-            Pilih avatar penerjemah bahasa isyarat. Rekaman avatar masih dalam proses — sementara
-            ini peragaan memakai video yang sudah tersedia.
+            Karakter yang memperagakan bahasa isyarat.
           </Text>
           <SegmentedControl<AvatarGender>
             onChange={setAvatarGender}
@@ -194,7 +200,7 @@ function VoiceSettingsCard() {
         <View style={styles.voiceSection}>
           <Text variant="bodyStrong">Kecepatan Peraga</Text>
           <Text variant="caption" color="secondary" style={styles.voiceHint}>
-            Tempo pemutaran rangkaian gerakan pada Teks → Isyarat.
+            Tempo pemutaran gerakan pada Teks → Isyarat.
           </Text>
           <SegmentedControl<SignSpeedMultiplier>
             onChange={setSignSpeed}
@@ -229,7 +235,7 @@ function VoiceSettingsCard() {
         <View style={styles.voiceSection}>
           <Text variant="bodyStrong">Kecepatan Suara</Text>
           <Text variant="caption" color="secondary" style={styles.voiceHint}>
-            Atur tempo pembacaan teks.
+            Tempo pembacaan teks.
           </Text>
           <SegmentedControl<SpeechRateMultiplier>
             onChange={setSpeechRate}
@@ -607,16 +613,17 @@ const styles = createSheet((colors) => ({
   },
   voiceCard: {
     padding: spacing.base,
-    gap: spacing.base,
+    gap: spacing.md,
   },
   voiceSection: {
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   voiceHint: {
-    marginBottom: spacing.xs,
+    marginTop: -spacing.xs,
   },
   voiceDivider: {
-    height: 1,
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: -spacing.base,
     backgroundColor: colors.border,
   },
   segmentRow: {
@@ -625,13 +632,18 @@ const styles = createSheet((colors) => ({
   },
   segment: {
     flex: 1,
-    minHeight: 56,
+    minHeight: 52,
     borderRadius: radius.lg,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
     paddingVertical: spacing.sm,
+  },
+  segmentInline: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    minHeight: 48,
   },
   segmentActive: {
     borderColor: colors.primary,
