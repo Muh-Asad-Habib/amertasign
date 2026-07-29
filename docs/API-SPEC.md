@@ -169,6 +169,26 @@ Response `200` (contoh video peragaan huruf):
 - `kind` (baru, additive): `"huruf" | "angka" | "kata"` — ditentukan **server** dari
   model/kelas asal label, bukan dari bentuk string. Juga hadir pada tiap elemen
   `candidates`. `null` bila `text` kosong.
+- **Multi-gerakan** (baru, hanya `stage="auto"` + video): bila rekaman berisi
+  beberapa isyarat berurutan, server membacanya dari awal lalu **menyambung**
+  hasilnya di `text` — ejaan huruf digabung tanpa spasi (`"ABC"`), kata dipisah
+  spasi (`"Makan Minum"`). Rinciannya ada di field additive `segments`
+  (urut waktu; `null` bila hanya satu gerakan):
+
+  ```json
+  "text": "ABC",
+  "kind": "huruf",
+  "segments": [
+    { "label": "A", "kind": "huruf", "confidence": 0.98, "startMs": 0,    "endMs": 933 },
+    { "label": "B", "kind": "huruf", "confidence": 0.97, "startMs": 1000, "endMs": 1933 },
+    { "label": "C", "kind": "huruf", "confidence": 0.99, "startMs": 2000, "endMs": 2933 }
+  ]
+  ```
+
+  Cara kerja: ejaan huruf dideteksi dari run label stabil per frame (tahan tiap
+  huruf ±0,5 dtk); rangkaian kata dipisah dengan **menurunkan tangan sejenak**
+  (±0,5 dtk) di antara kata. Hold statis di tengah satu kata tidak dibaca
+  sebagai ejaan selama model kata yakin (≥0,9), kecuali ada ≥3 huruf berbeda.
 - Format label tidak berubah: huruf = satu karakter kapital (`"A"`), angka = digit
   (`"10"`), kata = kata biasa (`"Mereka"`).
 - `text` diisi hanya bila `confidence >= 0.6` (`min_confidence` di `/health`). Di bawah
