@@ -9,11 +9,20 @@ export type SpeechRateMultiplier = 0.5 | 1 | 1.5;
 export type VoiceGender = 'male' | 'female';
 /** Karakter peraga isyarat untuk visual teks → isyarat. */
 export type AvatarGender = 'male' | 'female';
+/** Pengganda kecepatan peragaan isyarat (0,5x lambat · 1x normal · 1,5x cepat). */
+export type SignSpeedMultiplier = 0.5 | 1 | 1.5;
+
+const SIGN_SPEED_VALUES: SignSpeedMultiplier[] = [0.5, 1, 1.5];
+
+const normalizeSignSpeed = (value: unknown): SignSpeedMultiplier =>
+  SIGN_SPEED_VALUES.includes(value as SignSpeedMultiplier) ? (value as SignSpeedMultiplier) : 1;
 
 interface SettingsState {
   speechRate: SpeechRateMultiplier;
   voiceGender: VoiceGender;
   avatarGender: AvatarGender;
+  /** Kecepatan pemutaran rangkaian peraga isyarat. */
+  signSpeed: SignSpeedMultiplier;
   themeMode: ThemeScheme;
   /** Simpan riwayat terjemahan (privasi). */
   saveHistoryEnabled: boolean;
@@ -22,6 +31,7 @@ interface SettingsState {
   setSpeechRate: (rate: SpeechRateMultiplier) => void;
   setVoiceGender: (gender: VoiceGender) => void;
   setAvatarGender: (gender: AvatarGender) => void;
+  setSignSpeed: (speed: SignSpeedMultiplier) => void;
   setThemeMode: (mode: ThemeScheme) => void;
   setSaveHistoryEnabled: (enabled: boolean) => void;
 }
@@ -32,6 +42,7 @@ interface PersistedSettings {
   speechRate: SpeechRateMultiplier;
   voiceGender: VoiceGender;
   avatarGender: AvatarGender;
+  signSpeed: SignSpeedMultiplier;
   themeMode: ThemeScheme;
   saveHistoryEnabled: boolean;
 }
@@ -44,6 +55,7 @@ const snapshot = (state: SettingsState): PersistedSettings => ({
   speechRate: state.speechRate,
   voiceGender: state.voiceGender,
   avatarGender: state.avatarGender,
+  signSpeed: state.signSpeed,
   themeMode: state.themeMode,
   saveHistoryEnabled: state.saveHistoryEnabled,
 });
@@ -53,6 +65,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   speechRate: 1,
   voiceGender: 'female',
   avatarGender: 'female',
+  signSpeed: 1,
   themeMode: 'light',
   saveHistoryEnabled: true,
   isHydrated: false,
@@ -67,6 +80,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           speechRate: saved.speechRate === 0.5 || saved.speechRate === 1.5 ? saved.speechRate : 1,
           voiceGender: saved.voiceGender === 'male' ? 'male' : 'female',
           avatarGender: saved.avatarGender === 'male' ? 'male' : 'female',
+          signSpeed: normalizeSignSpeed(saved.signSpeed),
           themeMode,
           saveHistoryEnabled: saved.saveHistoryEnabled !== false,
         });
@@ -87,6 +101,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setAvatarGender: (gender) => {
     set({ avatarGender: gender });
+    persist(snapshot(get()));
+  },
+  setSignSpeed: (speed) => {
+    set({ signSpeed: normalizeSignSpeed(speed) });
     persist(snapshot(get()));
   },
   setThemeMode: (mode) => {

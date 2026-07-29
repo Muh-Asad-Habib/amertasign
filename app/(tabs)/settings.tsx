@@ -15,6 +15,7 @@ import { useHistoryStore } from '../../store/useHistoryStore';
 import {
   useSettingsStore,
   type AvatarGender,
+  type SignSpeedMultiplier,
   type SpeechRateMultiplier,
   type VoiceGender,
 } from '../../store/useSettingsStore';
@@ -160,9 +161,11 @@ function VoiceSettingsCard() {
   const speechRate = useSettingsStore((state) => state.speechRate);
   const voiceGender = useSettingsStore((state) => state.voiceGender);
   const avatarGender = useSettingsStore((state) => state.avatarGender);
+  const signSpeed = useSettingsStore((state) => state.signSpeed);
   const setSpeechRate = useSettingsStore((state) => state.setSpeechRate);
   const setVoiceGender = useSettingsStore((state) => state.setVoiceGender);
   const setAvatarGender = useSettingsStore((state) => state.setAvatarGender);
+  const setSignSpeed = useSettingsStore((state) => state.setSignSpeed);
 
   return (
     <View style={styles.group}>
@@ -173,7 +176,8 @@ function VoiceSettingsCard() {
         <View style={styles.voiceSection}>
           <Text variant="bodyStrong">Karakter Peraga</Text>
           <Text variant="caption" color="secondary" style={styles.voiceHint}>
-            Pilih avatar penerjemah bahasa isyarat.
+            Pilih avatar penerjemah bahasa isyarat. Rekaman avatar masih dalam proses — sementara
+            ini peragaan memakai video yang sudah tersedia.
           </Text>
           <SegmentedControl<AvatarGender>
             onChange={setAvatarGender}
@@ -182,6 +186,24 @@ function VoiceSettingsCard() {
               { value: 'female', label: 'Perempuan', icon: 'woman' },
             ]}
             value={avatarGender}
+          />
+        </View>
+
+        <View style={styles.voiceDivider} />
+
+        <View style={styles.voiceSection}>
+          <Text variant="bodyStrong">Kecepatan Peraga</Text>
+          <Text variant="caption" color="secondary" style={styles.voiceHint}>
+            Tempo pemutaran rangkaian gerakan pada Teks → Isyarat.
+          </Text>
+          <SegmentedControl<SignSpeedMultiplier>
+            onChange={setSignSpeed}
+            options={[
+              { value: 0.5, label: '0,5x', caption: 'Lambat' },
+              { value: 1, label: '1x', caption: 'Normal' },
+              { value: 1.5, label: '1,5x', caption: 'Cepat' },
+            ]}
+            value={signSpeed}
           />
         </View>
 

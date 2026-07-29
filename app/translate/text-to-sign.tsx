@@ -123,15 +123,16 @@ export default function TextToSignScreen() {
           />
 
           <Stack gap={spacing.md} style={styles.visualSection}>
-            <Badge size="md" text="Peraga BISINDO aktif" variant="accent" />
-
-            <View style={styles.visualBox}>
+            <View style={styles.visualHeader}>
+              <Badge size="md" text="Peraga BISINDO aktif" variant="accent" />
               <Animated.View pointerEvents="none" style={[styles.feedbackPill, { opacity: feedbackOpacity }]}>
                 <Text variant="caption" color="primary">
                   Menerjemahkan...
                 </Text>
               </Animated.View>
+            </View>
 
+            <View style={styles.visualBox}>
               {result?.units.length ? (
                 <SignSequencePlayer units={result.units} />
               ) : (
@@ -141,7 +142,7 @@ export default function TextToSignScreen() {
                     Visual bahasa isyarat akan tampil di sini
                   </Heading>
                   <Text variant="body" color="secondary" align="center">
-                    Masukkan kata atau kalimat. Kata yang belum tersedia akan dieja per huruf.
+                    Masukkan kata atau kalimat. Gerakan akan diperagakan otomatis dan berulang.
                   </Text>
                 </View>
               )}
@@ -188,23 +189,27 @@ const styles = createSheet((colors) => ({
   visualSection: {
     marginTop: spacing.sm,
   },
+  visualHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'space-between',
+    minHeight: 34,
+  },
   visualBox: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: radius.xxl,
     borderWidth: 1.5,
     overflow: 'hidden',
-    padding: spacing.xl,
-    minHeight: 360,
+    padding: spacing.base,
+    minHeight: 320,
   },
   feedbackPill: {
     backgroundColor: colors.primarySurface,
     borderRadius: radius.full,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    position: 'absolute',
-    right: spacing.md,
-    top: spacing.md,
+    paddingVertical: spacing.xs,
   },
   visualTitle: {
     marginTop: spacing.xs,
