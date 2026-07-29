@@ -118,11 +118,96 @@ Aturan: user hanya bisa akses riwayat miliknya (scope by user ID dari token). Re
 | Method | Path | Body | Response |
 |---|---|---|---|
 | POST | `/translate/sign-to-text` | frame/landmark data (lihat catatan) | `{ text, confidence }` |
-| POST | `/translate/text-to-sign` | `{ text, signLanguageType }` | `TextToSignResult` |
+| POST | `/translate/text-to-sign` | `{ text, signLanguageType, avatar? }` | `TextToSignResult` |
+| GET | `/translate/avatars` | — | `{ avatars: AvatarInfo[], default }` |
 
 > Catatan: deteksi live kemungkinan berjalan on-device (TFLite/MediaPipe) atau via WebSocket streaming — perlu diskusi arsitektur. Untuk MVP, endpoint `text-to-sign` cukup mengembalikan URL aset video/gambar peragaan dari kamus.
 >
 > Deteksi otomatis huruf/angka/kata pada `sign-to-text` (usulan `stage=auto` + field `kind`) dijelaskan terpisah di [`BACKEND-AUTO-DETECT.txt`](./BACKEND-AUTO-DETECT.txt).
+
+#### POST `/translate/text-to-sign`
+
+Body (field tak dikenal diabaikan — kompatibel dengan APK lama):
+
+```json
+{
+  "text": "makan",
+  "signLanguageType": "bisindo",
+  "avatar": "female"
+}
+```
+
+- `avatar` opsional: `"male" | "female"`. Tanpa field ini (atau nilai tak dikenal)
+  server memakai avatar default (`male`).
+- **Fallback, bukan error**: bila media untuk avatar yang diminta belum tersedia,
+  server memakai avatar yang ada dan menandai `avatarFallback: true`.
+
+Response `200`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "text": "makan",
+    "signLanguageType": "bisindo",
+    "avatar": "male",
+    "avatarRequested": "female",
+    "avatarFallback": true,
+    "units": [
+      {
+        "token": "makan",
+        "word": "Makan",
+        "category": "kata_umum",
+        "description": "Isyarat Makan",
+        "videoUrl": "https://amertasign.lab-if.tech/api/v1/media/bisindo/kata/makan.mp4?v=2a9fd439a5",
+        "imageUrl": "https://amertasign.lab-if.tech/api/v1/media/bisindo/kata/makan.jpg?v=31b29889b7",
+        "mediaUrl": "https://amertasign.lab-if.tech/api/v1/media/bisindo/kata/makan.mp4?v=2a9fd439a5",
+        "mediaType": "video",
+        "matchType": "exact",
+        "durationMs": 4534,
+        "avatar": "male"
+      }
+    ],
+    "unmatched": []
+  }
+}
+```
+
+- `durationMs` per unit: video = durasi asli (ms, hasil ffprobe saat ingest);
+  image = durasi tahan yang disarankan untuk ejaan huruf (default `1600`);
+  `null` hanya bila benar-benar tidak diketahui. Mobile memakainya untuk
+  menjadwalkan gerakan berikutnya + timer cadangan.
+- `avatar` (level `data`) = avatar yang benar-benar dipakai; `avatarRequested` =
+  yang diminta klien / default; `avatarFallback` = `true` bila ada unit yang
+  dialihkan ke avatar lain karena medianya belum ada.
+- `avatar` per unit bisa berbeda-beda bila cakupan media avatar baru parsial.
+- `description` ringkas untuk caption ≤ 2 baris: `matchType: "spelling"` →
+  `"Huruf H"` / `"Angka 1"`; `matchType: "exact"` → maks ~60 karakter, tanpa
+  mengulang kata "BISINDO".
+- URL media berversi (`?v=<hash>`) dan dilayani dengan
+  `Cache-Control: public, max-age=31536000, immutable` + dukungan `Range`
+  (`206 Partial Content`) — aman di-cache permanen oleh player.
+
+#### GET `/translate/avatars`
+
+Ketersediaan karakter peraga; mobile memakainya untuk menonaktifkan pilihan
+yang datanya belum siap. Response `200`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "avatars": [
+      { "id": "male",   "label": "Laki-laki", "available": true,  "coverage": 1.0 },
+      { "id": "female", "label": "Perempuan", "available": false, "coverage": 0.0 }
+    ],
+    "default": "male"
+  }
+}
+```
+
+`coverage` = rasio entri kamus yang sudah punya media untuk avatar tersebut
+(0.0–1.0).
 
 ### 3.5 Profil & Preferensi
 
