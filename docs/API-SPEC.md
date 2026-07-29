@@ -117,13 +117,82 @@ Aturan: user hanya bisa akses riwayat miliknya (scope by user ID dari token). Re
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/translate/sign-to-text` | frame/landmark data (lihat catatan) | `{ text, confidence }` |
+| POST | `/translate/sign-to-text` | multipart `stage` + `file` (publik, tanpa token) | `{ text, kind, confidence, candidates, ... }` |
 | POST | `/translate/text-to-sign` | `{ text, signLanguageType, avatar? }` | `TextToSignResult` |
 | GET | `/translate/avatars` | — | `{ avatars: AvatarInfo[], default }` |
 
 > Catatan: deteksi live kemungkinan berjalan on-device (TFLite/MediaPipe) atau via WebSocket streaming — perlu diskusi arsitektur. Untuk MVP, endpoint `text-to-sign` cukup mengembalikan URL aset video/gambar peragaan dari kamus.
 >
 > Deteksi otomatis huruf/angka/kata pada `sign-to-text` (usulan `stage=auto` + field `kind`) dijelaskan terpisah di [`BACKEND-AUTO-DETECT.txt`](./BACKEND-AUTO-DETECT.txt).
+
+#### POST `/translate/sign-to-text`
+
+Endpoint publik (tanpa `Authorization`). Body `multipart/form-data`:
+
+| Field | Nilai |
+|---|---|
+| `stage` | `"abjad"` \| `"kata"` \| `"auto"` |
+| `file` | gambar (`image/jpeg`, `image/png`, …) atau video (`video/mp4`, `video/quicktime`, …) maks **40 MB** |
+
+- `stage="abjad"` — hanya gambar (video → `400 STAGE_MEDIA_MISMATCH`). Model huruf A–Z.
+- `stage="kata"` — hanya video (gambar → `400 STAGE_MEDIA_MISMATCH`). Model angka + kata.
+- `stage="auto"` — **baru**; server menentukan sendiri jenis isyarat:
+  - `file` video → model kata dijalankan pada urutan frame **dan** model abjad pada
+    sampling 5 frame diam (35%–65% durasi); kandidat terbaik kedua model dibandingkan,
+    pemenangnya dikembalikan.
+  - `file` gambar → cukup model abjad.
+- Rekaman disarankan ≤15 detik, 720p, tanpa audio. Timeout proxy ≥300 detik
+  (klien mobile memakai 120 detik).
+
+Response `200` (contoh video peragaan huruf):
+
+```json
+{
+  "success": true,
+  "data": {
+    "text": "A",
+    "kind": "huruf",
+    "confidence": 0.93,
+    "stage": "auto",
+    "mode": "BISINDO",
+    "model_loaded": true,
+    "candidates": [
+      { "label": "A", "kind": "huruf", "confidence": 0.93 },
+      { "label": "10", "kind": "angka", "confidence": 0.21 },
+      { "label": "Mereka", "kind": "kata", "confidence": 0.08 }
+    ],
+    "note": null
+  }
+}
+```
+
+- `kind` (baru, additive): `"huruf" | "angka" | "kata"` — ditentukan **server** dari
+  model/kelas asal label, bukan dari bentuk string. Juga hadir pada tiap elemen
+  `candidates`. `null` bila `text` kosong.
+- Format label tidak berubah: huruf = satu karakter kapital (`"A"`), angka = digit
+  (`"10"`), kata = kata biasa (`"Mereka"`).
+- `text` diisi hanya bila `confidence >= 0.6` (`min_confidence` di `/health`). Di bawah
+  ambang: `text=""`, `kind=null`, `note="Isyarat belum dikenali, coba ulangi."`.
+- Tanpa tangan terdeteksi: `note="Tidak ada tangan terdeteksi."`.
+- `stage="abjad"`/`"kata"` lama tetap berfungsi tanpa perubahan; `kind` ikut terkirim
+  (klien lama aman mengabaikannya).
+
+Error (envelope tetap):
+
+```json
+{ "success": false, "error": { "code": "STAGE_MEDIA_MISMATCH", "message": "Mode abjad membutuhkan gambar." } }
+```
+
+| Kode | Kondisi |
+|---|---|
+| `STAGE_MEDIA_MISMATCH` (400) | abjad+video atau kata+gambar |
+| `UNSUPPORTED_MEDIA` (415) | ekstensi bukan gambar/video yang didukung |
+| `MEDIA_TOO_LARGE` (413) | berkas > 40 MB |
+
+> Catatan: model video belum memiliki kelas huruf (dataset `Dataset/Video/Huruf`
+> belum tersedia di server). Pada `stage="auto"`, deteksi huruf dari video
+> mengandalkan sampling frame diam → model abjad. Setelah dataset video huruf
+> dikirim, model kata akan dilatih ulang dan pemisahan model angka dipertimbangkan.
 
 #### POST `/translate/text-to-sign`
 
