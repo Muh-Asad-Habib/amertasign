@@ -22,8 +22,25 @@ interface HistoryState {
   loadHistory: (userId: string) => Promise<void>;
   addEntry: (userId: string, entry: Omit<TranslationHistoryItem, 'id' | 'createdAt'>) => void;
   clearHistory: (userId: string) => void;
+  /**
+   * Kosongkan riwayat di layar lebih dulu dan tunda penghapusan di server,
+   * sehingga pengguna sempat mengurungkan lewat snackbar.
+   */
+  scheduleClearHistory: (userId: string) => void;
+  /** Batalkan penghapusan yang masih tertunda dan kembalikan riwayat. */
+  undoClearHistory: (userId: string) => void;
   getHistory: (userId: string) => TranslationHistoryItem[];
 }
+
+/** Jeda sebelum penghapusan riwayat benar-benar dikirim ke server. */
+export const CLEAR_HISTORY_UNDO_MS = 5000;
+
+interface PendingClear {
+  items: TranslationHistoryItem[];
+  timer: ReturnType<typeof setTimeout>;
+}
+
+const pendingClears = new Map<string, PendingClear>();
 
 /** Maksimal riwayat per arah: 10 teks/audio→isyarat dan 10 isyarat→teks/audio. */
 const MAX_ITEMS_PER_KIND = 10;
@@ -133,6 +150,44 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     if (!isGuest(userId)) {
       void apiRequest('/history', { method: 'DELETE', auth: true }).catch(() => {});
     }
+  },
+  scheduleClearHistory: (userId) => {
+    const snapshot = get().itemsByUser[userId] ?? [];
+    if (snapshot.length === 0) {
+      return;
+    }
+
+    // Penghapusan sebelumnya yang masih tertunda langsung dieksekusi agar
+    // tidak ada dua timer yang saling menimpa.
+    const existing = pendingClears.get(userId);
+    if (existing) {
+      clearTimeout(existing.timer);
+    }
+
+    set((state) => ({
+      itemsByUser: { ...state.itemsByUser, [userId]: [] },
+    }));
+
+    const timer = setTimeout(() => {
+      pendingClears.delete(userId);
+      if (!isGuest(userId)) {
+        void apiRequest('/history', { method: 'DELETE', auth: true }).catch(() => {});
+      }
+    }, CLEAR_HISTORY_UNDO_MS);
+
+    pendingClears.set(userId, { items: existing?.items ?? snapshot, timer });
+  },
+  undoClearHistory: (userId) => {
+    const pending = pendingClears.get(userId);
+    if (!pending) {
+      return;
+    }
+
+    clearTimeout(pending.timer);
+    pendingClears.delete(userId);
+    set((state) => ({
+      itemsByUser: { ...state.itemsByUser, [userId]: pending.items },
+    }));
   },
   getHistory: (userId) => get().itemsByUser[userId] ?? [],
 }));

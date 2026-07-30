@@ -17,6 +17,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors, fontFamily, spacing } from '../theme';
+import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { useAuthStore } from '../store/useAuthStore';
 import { useDictionaryStore } from '../store/useDictionaryStore';
 import { useHistoryStore } from '../store/useHistoryStore';
@@ -105,10 +106,12 @@ export default function RootLayout() {
     // Route callback login Google (deep link amertasign://google-auth) harus
     // dibiarkan memproses token dulu — jangan dipantulkan ke layar login.
     const inGoogleAuthCallback = currentGroup === 'google-auth';
+    // Panduan onboarding boleh dibuka ulang dari Pengaturan meski sudah masuk.
+    const inOnboardingTour = inAuthGroup && (segments as string[])[1] === 'onboarding';
 
     // Tamu boleh membuka layar login/daftar (mis. dari tombol "Masuk / Daftar").
     // Hanya user login sungguhan yang dipantulkan keluar dari grup auth.
-    if (isAuthenticated && !isGuest && inAuthGroup) {
+    if (isAuthenticated && !isGuest && inAuthGroup && !inOnboardingTour) {
       router.replace('/(tabs)/');
       return;
     }
@@ -118,40 +121,46 @@ export default function RootLayout() {
     }
   }, [isAuthReady, isAuthenticated, isGuest, router, segments]);
 
-  // Setelah user login (bukan tamu), muat riwayat terjemahan & favorit dari backend.
+  // Setelah user siap, muat favorit & riwayat kamus lokal. Riwayat terjemahan
+  // hanya untuk pengguna login (tamu tidak menyimpan riwayat di backend).
   useEffect(() => {
-    if (!isAuthenticated || isGuest || !user) {
+    if (!isAuthenticated || !user) {
       return;
     }
 
-    void useHistoryStore.getState().loadHistory(user.id);
     void useDictionaryStore.getState().loadFavorites();
+
+    if (!isGuest) {
+      void useHistoryStore.getState().loadHistory(user.id);
+    }
   }, [isAuthenticated, isGuest, user]);
 
   const isReady = isAuthReady && fontsReady;
 
   return (
     <SafeAreaProvider>
-      {isReady ? (
-        <>
-          <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              animation: 'slide_from_right',
-              contentStyle: {
-                backgroundColor: colors.background,
-              },
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-          </Stack>
-        </>
-      ) : (
-        <AuthLoadingScreen fontsReady={fontsReady} />
-      )}
+      <ErrorBoundary>
+        {isReady ? (
+          <>
+            <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: 'slide_from_right',
+                contentStyle: {
+                  backgroundColor: colors.background,
+                },
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(tabs)" />
+            </Stack>
+          </>
+        ) : (
+          <AuthLoadingScreen fontsReady={fontsReady} />
+        )}
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

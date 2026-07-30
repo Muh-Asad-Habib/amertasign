@@ -41,7 +41,10 @@ export default function TranslationOutput({ text, isLoading, onSpeak, kindLabel 
   }, [isLoading, pulse]);
 
   return (
-    <View style={styles.container}>
+    <View
+      accessibilityLiveRegion={isLoading ? 'none' : 'polite'}
+      style={styles.container}
+    >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text variant="label" color="secondary" style={styles.eyebrow}>
@@ -57,7 +60,9 @@ export default function TranslationOutput({ text, isLoading, onSpeak, kindLabel 
         </View>
         {!isLoading ? (
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Putar suara hasil terjemahan"
+            hitSlop={8}
             onPress={() => onSpeak(text)}
             style={({ pressed }) => [styles.speakButton, pressed && styles.pressed]}
           >
@@ -134,9 +139,9 @@ const styles = createSheet((colors) => ({
     alignItems: 'center',
     backgroundColor: colors.primarySurface,
     borderRadius: radius.full,
-    height: 40,
+    height: 44,
     justifyContent: 'center',
-    width: 40,
+    width: 44,
   },
   text: {
     fontFamily: fontFamily.displayBold,

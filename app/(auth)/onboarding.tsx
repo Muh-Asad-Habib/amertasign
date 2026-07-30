@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -21,6 +21,7 @@ import Squiggle from '../../components/ui/Squiggle';
 import Text from '../../components/ui/Text';
 import { colors, gradients, radius, spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
+import { markOnboardingSeen } from '../../services/preferences';
 
 import { createSheet } from '../../theme';
 
@@ -74,6 +75,10 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  // mode=tour dipakai saat panduan dibuka ulang dari Pengaturan oleh pengguna
+  // yang sudah masuk — tampilkan tombol selesai, bukan ajakan masuk/daftar.
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const isTour = mode === 'tour';
   const themeMode = useSettingsStore((state) => state.themeMode);
   const { width } = useWindowDimensions();
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
@@ -93,10 +98,12 @@ export default function OnboardingScreen() {
   }, [currentSlide]);
 
   const handleLogin = () => {
+    void markOnboardingSeen();
     router.replace('/(auth)/login');
   };
 
   const handleGuest = async () => {
+    void markOnboardingSeen();
     try {
       await continueAsGuest();
       // Navigasi eksplisit: guard membiarkan tamu berada di grup auth,
@@ -166,8 +173,14 @@ export default function OnboardingScreen() {
               <View key={slide.id} style={[styles.dot, index === currentSlide ? styles.activeDot : undefined]} />
             ))}
           </View>
-          <Button fullWidth title="Masuk / Daftar" onPress={handleLogin} />
-          <Button disabled={isLoading} fullWidth title="Lanjut sebagai Tamu" variant="ghost" onPress={handleGuest} />
+          {isTour ? (
+            <Button fullWidth title="Selesai" onPress={() => router.back()} />
+          ) : (
+            <>
+              <Button fullWidth title="Masuk / Daftar" onPress={handleLogin} />
+              <Button disabled={isLoading} fullWidth title="Lanjut sebagai Tamu" variant="ghost" onPress={handleGuest} />
+            </>
+          )}
         </View>
       </View>
     </SafeAreaView>

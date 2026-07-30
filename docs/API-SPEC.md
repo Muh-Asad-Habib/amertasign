@@ -2,7 +2,10 @@
 
 > Dokumen ini untuk tim backend (Next.js API Routes / Route Handlers).
 > Frontend: aplikasi mobile **React Native + Expo SDK 54** (expo-router v6, Zustand, TypeScript).
-> Semua service saat ini masih **mock in-memory** di sisi mobile dan siap diganti dengan panggilan API.
+> Status: aplikasi mobile **sudah terhubung ke backend nyata**; data statis di
+> `constants/MockData.ts` hanya dipakai sebagai cadangan saat offline.
+> Penyesuaian yang masih dibutuhkan dari sisi server dirangkum di
+> `CATATAN-UNTUK-TIM-SERVER.txt` (root repo).
 
 ---
 
@@ -371,23 +374,29 @@ model Favorite {
 
 ---
 
-## 6. Titik Integrasi di Frontend (file yang akan diganti dari mock → API)
+## 6. Status Integrasi di Frontend
 
-| File frontend | Fungsi mock sekarang | Diganti dengan |
+Aplikasi mobile **sudah memakai backend sungguhan** melalui `services/api.ts`
+(base URL dari `EXPO_PUBLIC_API_URL`, dengan refresh token otomatis).
+Tabel di bawah adalah status terkini, bukan lagi rencana penggantian mock.
+
+| File frontend | Status | Endpoint yang dipakai |
 |---|---|---|
-| `services/auth.ts` | `signInWithUsername`, `signUpWithUsername`, `getCurrentUser`, `signOut` | `/auth/login`, `/auth/register`, `/auth/me`, `/auth/logout` |
-| `store/useHistoryStore.ts` | Simpan riwayat in-memory per userId | `GET/POST/DELETE /history` |
-| `services/translation.ts` | `detectSign` (return teks dummy setelah 2s), `textToSign` (URL dummy) | `/translate/*` |
-| `services/database.ts` | Favorit & riwayat pencarian kamus in-memory | `/favorites`, (opsional `/search-history`) |
-| `constants/MockData.ts` | Data kamus statis (`dictionaryEntries`, `dailyWords`) | `GET /dictionary`, `/dictionary/daily` |
+| `services/auth.ts` | Terhubung API | `/auth/login`, `/auth/register`, `/auth/me`, `/auth/logout`, `/auth/refresh` |
+| `store/useHistoryStore.ts` | Terhubung API (optimistic update lokal) | `GET/POST/DELETE /history` |
+| `services/translation.ts` | Terhubung API (upload multipart + auth) | `/translate/sign-to-text`, `/translate/text-to-sign` |
+| `services/dictionary.ts` | Terhubung API + cache TTL 30 menit dan fallback lokal saat offline | `GET /dictionary` |
+| `services/database.ts` | Favorit user via API; favorit & riwayat pencarian mode tamu disimpan lokal (SecureStore) | `/favorites` |
+| `constants/MockData.ts` | Hanya cadangan offline/demo bila API tidak dapat dihubungi | — |
 
 ---
 
 ## 7. Prioritas Implementasi
 
-1. **Fase 1 (MVP):** Auth (register/login/me/refresh) + Riwayat Terjemahan (CRUD) — ini yang membedakan user login vs tamu.
-2. **Fase 2:** Kamus (list/detail/daily) + Favorit.
-3. **Fase 3:** Endpoint terjemahan AI / streaming, profil lengkap, notifikasi.
+1. ~~**Fase 1 (MVP):** Auth (register/login/me/refresh) + Riwayat Terjemahan (CRUD).~~ Selesai.
+2. ~~**Fase 2:** Kamus (list/detail/daily) + Favorit.~~ Selesai.
+3. **Fase 3 (berjalan):** Proteksi & batasan endpoint terjemahan AI, reset password aman
+   (OTP/reset token), upload avatar multipart, hapus akun. Detail: `CATATAN-UNTUK-TIM-SERVER.txt`.
 
 ---
 

@@ -19,8 +19,7 @@ import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { createSheet } from '../../theme';
 
 import { useSettingsStore } from '../../store/useSettingsStore';
-
-const USERNAME_REGEX = /^[a-zA-Z0-9._-]{3,20}$/;
+import { USERNAME_REGEX, VALIDATION_MESSAGES } from '../../utils/validation';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -46,7 +45,7 @@ export default function LoginScreen() {
     }
 
     if (!USERNAME_REGEX.test(normalizedUsername)) {
-      Alert.alert('Username tidak valid', 'Username 3-20 karakter, hanya huruf, angka, titik, garis bawah, atau strip.');
+      Alert.alert('Username tidak valid', VALIDATION_MESSAGES.username);
       return;
     }
 
@@ -171,7 +170,13 @@ export default function LoginScreen() {
           <Text variant="body" color="secondary">
             Belum punya akun?{' '}
           </Text>
-          <Pressable disabled={isLoading} onPress={() => router.replace('/(auth)/register')}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Daftar akun baru"
+            disabled={isLoading}
+            hitSlop={12}
+            onPress={() => router.replace('/(auth)/register')}
+          >
             <Text variant="bodyStrong" color="primary">
               Daftar
             </Text>

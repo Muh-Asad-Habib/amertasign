@@ -18,7 +18,7 @@ Aplikasi mobile penerjemah bahasa isyarat (SIBI/BISINDO) dua arah berbasis **Rea
 | Framework | React Native 0.81 + Expo SDK 54 |
 | Routing | Expo Router (file-based) |
 | State | Zustand |
-| Styling | NativeWind (Tailwind CSS) + design tokens kustom |
+| Styling | Design tokens kustom (`theme/`) + `StyleSheet` sadar tema |
 | Kamera & Media | expo-camera, expo-video, expo-image-picker |
 | Suara | expo-speech (TTS), expo-speech-recognition (STT) |
 | Penyimpanan | expo-secure-store |
@@ -38,8 +38,16 @@ store/              # Zustand stores (auth, kamus, riwayat, setting)
 hooks/              # Custom hooks
 theme/              # Design tokens (warna, tipografi, layout)
 constants/          # Konstanta & data statis
+utils/              # Utilitas bersama (validasi, format waktu, pesan error)
 types/              # Tipe TypeScript
 docs/               # Spesifikasi API
+```
+
+## Kualitas Kode
+
+```bash
+npm run typecheck   # TypeScript strict
+npm test            # Unit test (jest-expo) untuk utilitas & logic murni
 ```
 
 ## Prasyarat

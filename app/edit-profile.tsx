@@ -14,15 +14,18 @@ import Stack from '../components/ui/Stack';
 import Text from '../components/ui/Text';
 import { colors, radius, shadow, spacing } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
+import { useThemeMode } from '../hooks/useThemeMode';
 
 import { createSheet } from '../theme';
-
-const USERNAME_REGEX = /^[a-zA-Z0-9._-]{3,20}$/;
-const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-/** bcrypt di backend hanya memproses 72 byte pertama — batasi agar tidak terpotong diam-diam. */
-const PASSWORD_MAX_LENGTH = 72;
+import {
+  EMAIL_REGEX,
+  PASSWORD_MAX_LENGTH,
+  USERNAME_REGEX,
+  VALIDATION_MESSAGES,
+} from '../utils/validation';
 
 export default function EditProfileScreen() {
+  useThemeMode();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
@@ -115,12 +118,12 @@ export default function EditProfileScreen() {
     }
 
     if (!USERNAME_REGEX.test(normalizedUsername)) {
-      Alert.alert('Username tidak valid', 'Username 3-20 karakter, hanya huruf, angka, titik, garis bawah, atau strip.');
+      Alert.alert('Username tidak valid', VALIDATION_MESSAGES.username);
       return;
     }
 
     if (normalizedEmail && !EMAIL_REGEX.test(normalizedEmail)) {
-      Alert.alert('Email tidak valid', 'Masukkan alamat email yang benar, contoh: nama@email.com.');
+      Alert.alert('Email tidak valid', VALIDATION_MESSAGES.email);
       return;
     }
 
@@ -153,7 +156,7 @@ export default function EditProfileScreen() {
     }
 
     if (newPassword.length > PASSWORD_MAX_LENGTH) {
-      Alert.alert('Password terlalu panjang', `Password maksimal ${PASSWORD_MAX_LENGTH} karakter.`);
+      Alert.alert('Password terlalu panjang', VALIDATION_MESSAGES.passwordMax);
       return;
     }
 

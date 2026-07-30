@@ -42,8 +42,9 @@ export default function SearchBar({ value, onChangeText, placeholder = 'Cari...'
       />
       {value.length > 0 ? (
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Hapus pencarian"
-          hitSlop={8}
+          hitSlop={10}
           onPress={handleClear}
           style={({ pressed }) => [styles.clearButton, pressed && styles.pressed]}
         >

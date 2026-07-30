@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -27,15 +27,17 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import type { TextToSignResult } from '../../services/translation';
-import { ApiError } from '../../services/api';
+import { toUserMessage } from '../../utils/errors';
 
 import { createSheet } from '../../theme';
 
 export default function TextToSignScreen() {
   const router = useRouter();
+  // Teks dapat dikirim dari riwayat beranda untuk mengulang terjemahan.
+  const { text: initialText } = useLocalSearchParams<{ text?: string }>();
   const themeMode = useSettingsStore((state) => state.themeMode);
   const { signLanguageType, isDetecting, translateText } = useTranslation();
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState(typeof initialText === 'string' ? initialText : '');
   const [result, setResult] = useState<TextToSignResult | null>(null);
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
   const user = useAuthStore((state) => state.user);
@@ -80,7 +82,7 @@ export default function TextToSignScreen() {
     if (!sttAvailable) {
       Alert.alert(
         'Input Suara',
-        'Pengenalan suara membutuhkan development build aplikasi (belum tersedia di Expo Go). Sementara itu, ketik pesanmu secara manual.'
+        'Input suara belum tersedia di perangkat ini. Silakan ketik pesan Anda secara manual.'
       );
       return;
     }
@@ -130,7 +132,7 @@ export default function TextToSignScreen() {
       setResult(null);
       Alert.alert(
         'Terjemahan belum tersedia',
-        error instanceof ApiError ? error.message : 'Tidak dapat menerjemahkan teks saat ini.'
+        toUserMessage(error, 'Tidak dapat menerjemahkan teks saat ini. Coba lagi sebentar lagi.')
       );
     }
   };

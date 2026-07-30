@@ -9,12 +9,14 @@ import EmptyState from '../components/ui/EmptyState';
 import PressableScale from '../components/ui/PressableScale';
 import Screen from '../components/ui/Screen';
 import SearchBar from '../components/ui/SearchBar';
+import Snackbar from '../components/ui/Snackbar';
 import Text from '../components/ui/Text';
 import { colors, radius, shadow, spacing } from '../theme';
 import { useTTS } from '../hooks/useTTS';
 import { useThemeMode } from '../hooks/useThemeMode';
 import { useAuthStore } from '../store/useAuthStore';
-import { useHistoryStore, type TranslationHistoryItem } from '../store/useHistoryStore';
+import { useHistoryStore, CLEAR_HISTORY_UNDO_MS, type TranslationHistoryItem } from '../store/useHistoryStore';
+import { formatDayGroupLabel, formatTime } from '../utils/datetime';
 
 import { createSheet } from '../theme';
 
@@ -25,35 +27,7 @@ const KIND_LABELS = {
   'teks-ke-isyarat': 'Teks ke Isyarat',
 } as const;
 
-const MONTH_NAMES = [
-  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-];
 
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-}
-
-/** Label grup ala mockup: HARI INI, KEMARIN, atau tanggal (mis. 5 Juli 2026). */
-function groupLabel(iso: string) {
-  const date = new Date(iso);
-  const today = startOfDay(new Date());
-  const day = startOfDay(date);
-  const diffDays = Math.round((today - day) / 86_400_000);
-
-  if (diffDays <= 0) {
-    return 'Hari Ini';
-  }
-  if (diffDays === 1) {
-    return 'Kemarin';
-  }
-  return `${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
-}
-
-function formatTime(iso: string) {
-  const date = new Date(iso);
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
 
 function HistoryRow({ item, onSpeak }: { item: TranslationHistoryItem; onSpeak: (text: string) => void }) {
   const isSignToText = item.kind === 'isyarat-ke-teks';
@@ -96,7 +70,9 @@ export default function HistoryScreen() {
   const [searchText, setSearchText] = useState('');
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
-  const clearHistory = useHistoryStore((state) => state.clearHistory);
+  const scheduleClearHistory = useHistoryStore((state) => state.scheduleClearHistory);
+  const undoClearHistory = useHistoryStore((state) => state.undoClearHistory);
+  const [showUndo, setShowUndo] = useState(false);
   const history = useHistoryStore((state) =>
     user && !isGuest ? (state.itemsByUser[user.id] ?? EMPTY_HISTORY) : EMPTY_HISTORY
   );
@@ -111,7 +87,7 @@ export default function HistoryScreen() {
 
     const grouped = new Map<string, TranslationHistoryItem[]>();
     for (const item of filtered) {
-      const label = groupLabel(item.createdAt);
+      const label = formatDayGroupLabel(item.createdAt);
       const bucket = grouped.get(label);
       if (bucket) {
         bucket.push(item);
@@ -128,10 +104,24 @@ export default function HistoryScreen() {
       return;
     }
 
-    Alert.alert('Hapus Riwayat?', `Semua ${history.length} riwayat terjemahan akan dihapus permanen.`, [
+    Alert.alert('Hapus Riwayat?', `Semua ${history.length} riwayat terjemahan akan dihapus.`, [
       { text: 'Batal', style: 'cancel' },
-      { text: 'Hapus', style: 'destructive', onPress: () => clearHistory(user.id) },
+      {
+        text: 'Hapus',
+        style: 'destructive',
+        onPress: () => {
+          scheduleClearHistory(user.id);
+          setShowUndo(true);
+        },
+      },
     ]);
+  };
+
+  const handleUndo = () => {
+    if (user) {
+      undoClearHistory(user.id);
+    }
+    setShowUndo(false);
   };
 
   return (
@@ -201,6 +191,15 @@ export default function HistoryScreen() {
           />
         </>
       )}
+
+      <Snackbar
+        actionLabel="Urungkan"
+        durationMs={CLEAR_HISTORY_UNDO_MS}
+        message="Riwayat terjemahan dihapus"
+        onAction={handleUndo}
+        onDismiss={() => setShowUndo(false)}
+        visible={showUndo}
+      />
     </Screen>
   );
 }
@@ -274,8 +273,8 @@ const styles = createSheet((colors) => ({
     lineHeight: 21,
   },
   speakBtn: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: radius.full,
     backgroundColor: colors.primarySurface,
     alignItems: 'center',

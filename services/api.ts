@@ -225,17 +225,59 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return (json?.data ?? json) as T;
 }
 
-/** Unggah FormData (foto/video) tanpa menetapkan Content-Type secara manual. */
+interface UploadOptions {
+  timeoutMs?: number;
+  /** Sertakan Bearer token bila pengguna sedang login (default: true). */
+  auth?: boolean;
+}
+
+async function rawUpload(
+  path: string,
+  formData: FormData,
+  timeoutMs: number,
+  auth: boolean
+): Promise<Response> {
+  // Content-Type sengaja tidak diset agar runtime menambahkan boundary multipart.
+  const headers: Record<string, string> = {};
+
+  if (auth) {
+    const token = await getAccessToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  return fetchWithTimeout(
+    `${API_BASE_URL}/api/v1${path}`,
+    { method: 'POST', headers, body: formData },
+    timeoutMs
+  );
+}
+
+/**
+ * Unggah FormData (foto/video). Menyertakan Bearer token bila tersedia agar
+ * endpoint terproteksi menerima identitas pengguna; mode tamu tetap jalan
+ * karena header hanya ditambahkan saat token ada.
+ */
 export async function apiUpload<T>(
   path: string,
   formData: FormData,
-  timeoutMs = 60000
+  options: UploadOptions | number = {}
 ): Promise<T> {
-  const response = await fetchWithTimeout(
-    `${API_BASE_URL}/api/v1${path}`,
-    { method: 'POST', body: formData },
-    timeoutMs
-  );
+  // Kompatibilitas: pemanggil lama mengirim timeout sebagai angka.
+  const { timeoutMs = 60000, auth = true } =
+    typeof options === 'number' ? { timeoutMs: options, auth: true } : options;
+
+  let response = await rawUpload(path, formData, timeoutMs, auth);
+
+  // Access token kedaluwarsa → refresh sekali lalu ulangi unggahan.
+  if (response.status === 401 && auth) {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      response = await rawUpload(path, formData, timeoutMs, auth);
+    }
+  }
+
   let json: any = null;
   try {
     json = await response.json();

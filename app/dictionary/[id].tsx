@@ -23,16 +23,9 @@ import { colors, gradients, radius, spacing } from '../../theme';
 import { useDictionary } from '../../hooks/useDictionary';
 import { useTTS } from '../../hooks/useTTS';
 import { useThemeMode } from '../../hooks/useThemeMode';
-import type { DictionaryCategory } from '../../types';
+import { CATEGORY_LABELS } from '../../constants/Dictionary';
 
 import { createSheet } from '../../theme';
-
-const CATEGORY_LABELS: Record<DictionaryCategory, string> = {
-  alfabet: 'Alfabet',
-  angka: 'Angka',
-  kata_umum: 'Kata Umum',
-  frasa: 'Frasa',
-};
 
 export default function DictionaryDetailScreen() {
   useThemeMode();

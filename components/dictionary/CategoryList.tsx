@@ -28,6 +28,7 @@ export default function CategoryList({ categories, onSelect }: CategoryListProps
       {categories.map((category) => (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={`Kategori ${category.label}, ${category.count} kata`}
           key={category.id}
           onPress={() => onSelect(category)}
           style={({ pressed }) => [styles.card, pressed && styles.pressed]}

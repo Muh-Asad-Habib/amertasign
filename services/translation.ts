@@ -100,7 +100,7 @@ export async function recognizeMedia(
   return apiUpload<SignRecognitionResult>(
     '/translate/sign-to-text',
     formData,
-    isVideo ? VIDEO_UPLOAD_TIMEOUT_MS : IMAGE_UPLOAD_TIMEOUT_MS
+    { timeoutMs: isVideo ? VIDEO_UPLOAD_TIMEOUT_MS : IMAGE_UPLOAD_TIMEOUT_MS }
   );
 }
 

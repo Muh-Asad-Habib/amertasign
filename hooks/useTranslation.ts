@@ -13,6 +13,8 @@ import {
 /** Aplikasi hanya mendukung BISINDO (Bahasa Isyarat Indonesia). */
 export type SignLanguageType = 'bisindo';
 
+const SIGN_LANGUAGE_TYPE: SignLanguageType = 'bisindo';
+
 const EMPTY_VISUAL_RESULT: TextToSignResult = {
   text: '',
   signLanguageType: 'bisindo',
@@ -21,7 +23,6 @@ const EMPTY_VISUAL_RESULT: TextToSignResult = {
 };
 
 export function useTranslation() {
-  const [signLanguageType, setSignLanguageType] = useState<SignLanguageType>('bisindo');
   const [translatedText, setTranslatedText] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
   const requestIdRef = useRef(0);
@@ -67,35 +68,32 @@ export function useTranslation() {
     }
   }, []);
 
-  const stopDetection = useCallback(() => {    requestIdRef.current += 1;
+  const stopDetection = useCallback(() => {
+    requestIdRef.current += 1;
     setIsDetecting(false);
     setTranslatedText('');
   }, []);
 
-  const translateText = useCallback(
-    async (text: string) => {
-      const requestId = ++requestIdRef.current;
+  const translateText = useCallback(async (text: string) => {
+    const requestId = ++requestIdRef.current;
 
-      setIsDetecting(true);
-      try {
-        const result = await textToSign(text, signLanguageType);
-        if (requestIdRef.current === requestId) {
-          setTranslatedText(result.text);
-          return result;
-        }
-        return EMPTY_VISUAL_RESULT;
-      } finally {
-        if (requestIdRef.current === requestId) {
-          setIsDetecting(false);
-        }
+    setIsDetecting(true);
+    try {
+      const result = await textToSign(text, SIGN_LANGUAGE_TYPE);
+      if (requestIdRef.current === requestId) {
+        setTranslatedText(result.text);
+        return result;
       }
-    },
-    [signLanguageType]
-  );
+      return EMPTY_VISUAL_RESULT;
+    } finally {
+      if (requestIdRef.current === requestId) {
+        setIsDetecting(false);
+      }
+    }
+  }, []);
 
   return {
-    signLanguageType,
-    setSignLanguageType,
+    signLanguageType: SIGN_LANGUAGE_TYPE,
     translatedText,
     isDetecting,
     translateMedia,

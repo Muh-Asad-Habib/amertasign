@@ -27,7 +27,8 @@ export default function WordCard({ word, category, type, onPress, imageUrl, tint
   return (
     <PressableScale
       accessibilityRole="button"
-      accessibilityLabel={word}
+      accessibilityLabel={`${word}, kategori ${category}, ${type}`}
+      accessibilityHint="Ketuk untuk melihat detail isyarat"
       onPress={onPress}
       style={styles.container}
     >

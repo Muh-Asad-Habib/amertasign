@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Linking, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CameraView as ExpoCamera, useCameraPermissions, type CameraType } from 'expo-camera';
@@ -44,6 +44,9 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
 ) {
   const [permission, requestPermission] = useCameraPermissions();
   const hasCamera = Boolean(permission?.granted);
+  // Setelah izin ditolak permanen, dialog sistem tak akan muncul lagi —
+  // arahkan pengguna ke Pengaturan agar tidak menemui tombol yang "diam".
+  const canRequestPermission = permission?.canAskAgain !== false;
   const cameraRef = useRef<ExpoCamera>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const blink = useRef(new Animated.Value(1)).current;
@@ -102,7 +105,17 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
     : isProcessing
       ? 'Menganalisis...'
       : hasCamera
-        ? 'Kamera siaga'
+        ? 'Siap merekam'
+        : 'Kamera nonaktif';
+
+  // Label pembaca layar sengaja tanpa timer agar TalkBack hanya mengumumkan
+  // perubahan status, bukan setiap detik perekaman.
+  const statusAnnouncement = isRecording
+    ? 'Sedang merekam isyarat'
+    : isProcessing
+      ? 'Sedang menganalisis isyarat, mohon tunggu'
+      : hasCamera
+        ? 'Kamera siap merekam'
         : 'Kamera nonaktif';
 
   return (
@@ -136,6 +149,9 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
       <View style={[styles.corner, styles.cornerBR, isRecording && styles.cornerRecording]} />
 
       <View
+        accessible
+        accessibilityLabel={statusAnnouncement}
+        accessibilityLiveRegion="polite"
         style={[
           styles.statusPill,
           isProcessing && styles.statusPillActive,
@@ -177,22 +193,44 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
             Izinkan akses kamera
           </Heading>
           <Text style={styles.subtitle}>
-            Amerta Sign butuh kamera untuk mendeteksi gerakan isyarat BISINDO.
+            {canRequestPermission
+              ? 'Amerta Sign butuh kamera untuk mendeteksi gerakan isyarat BISINDO.'
+              : 'Izin kamera sedang diblokir. Buka Pengaturan perangkat, lalu aktifkan izin Kamera untuk Amerta Sign.'}
           </Text>
           <PressableScale
             accessibilityRole="button"
-            accessibilityLabel="Izinkan kamera"
+            accessibilityLabel={canRequestPermission ? 'Izinkan kamera' : 'Buka pengaturan aplikasi'}
             onPress={() => {
-              void requestPermission();
+              if (canRequestPermission) {
+                void requestPermission();
+                return;
+              }
+              void Linking.openSettings();
             }}
             style={styles.permissionBtn}
           >
             <Text variant="bodyStrong" style={styles.permissionText}>
-              Izinkan Kamera
+              {canRequestPermission ? 'Izinkan Kamera' : 'Buka Pengaturan'}
             </Text>
           </PressableScale>
         </View>
       )}
+
+      {/* Overlay proses AI: memberi umpan balik jelas bahwa analisis berjalan. */}
+      {isProcessing ? (
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={styles.processingOverlay}
+          pointerEvents="none"
+        >
+          <View style={styles.processingCard}>
+            <ActivityIndicator color={colors.accent} size="large" />
+            <Text style={styles.processingText}>Menganalisis isyarat...</Text>
+            <Text style={styles.processingHint}>Mohon tunggu sebentar</Text>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 });
@@ -328,5 +366,33 @@ const styles = createSheet((colors) => ({
   },
   permissionText: {
     color: colors.textOnAccent,
+  },
+  processingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10, 14, 22, 0.55)',
+    zIndex: 3,
+  },
+  processingCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(10, 14, 22, 0.85)',
+    borderColor: overlay.onInkBorder,
+    borderRadius: radius.xxl,
+    borderWidth: 1,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+  },
+  processingText: {
+    color: colors.textOnPrimary,
+    fontFamily: fontFamily.bodySemiBold,
+    fontSize: 15,
+    marginTop: spacing.xs,
+  },
+  processingHint: {
+    color: 'rgba(255, 253, 248, 0.7)',
+    fontFamily: fontFamily.bodyRegular,
+    fontSize: 13,
   },
 }));

@@ -23,10 +23,12 @@ import Screen from '../../components/ui/Screen';
 import SearchBar from '../../components/ui/SearchBar';
 import Squiggle from '../../components/ui/Squiggle';
 import Text from '../../components/ui/Text';
+import { WordCardSkeleton } from '../../components/ui/Skeleton';
 import { colors, createSheet, layoutSpacing, radius, shadow, spacing } from '../../theme';
 import { useDictionary } from '../../hooks/useDictionary';
 import { useThemeMode } from '../../hooks/useThemeMode';
 import type { DictionaryCategory, DictionaryEntry } from '../../types';
+import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '../../constants/Dictionary';
 
 const CATEGORY_OPTIONS: Array<{ id: DictionaryCategory | 'semua'; label: string }> = [
   { id: 'semua', label: 'Semua' },
@@ -36,12 +38,7 @@ const CATEGORY_OPTIONS: Array<{ id: DictionaryCategory | 'semua'; label: string 
   { id: 'frasa', label: 'Frasa' },
 ];
 
-const CATEGORY_LABELS: Record<DictionaryCategory, string> = {
-  alfabet: 'Alfabet',
-  angka: 'Angka',
-  kata_umum: 'Kata Umum',
-  frasa: 'Frasa',
-};
+const CATEGORY_LABELS = SHARED_CATEGORY_LABELS;
 
 type LibraryTab = 'all' | 'favorites' | 'history';
 
@@ -58,6 +55,8 @@ const VIEW_TABS: Array<{ id: LibraryTab; label: string; icon: React.ComponentPro
 type ListRow =
   | { kind: 'search'; key: string }
   | { kind: 'filters'; key: string }
+  | { kind: 'offline'; key: string }
+  | { kind: 'skeleton'; key: string }
   | { kind: 'empty'; key: string }
   | { kind: 'entry'; key: string; entry: DictionaryEntry; index: number };
 
@@ -99,10 +98,11 @@ export default function DictionaryScreen() {
   const heroHeightRef = useRef(0);
   const pinnedRef = useRef(false);
 
-  const { filteredEntries, favoriteEntries, historyEntries } = useDictionary({
-    category: activeCategory,
-    search: searchText,
-  });
+  const { filteredEntries, favoriteEntries, historyEntries, isLoadingEntries, isOffline, refresh } =
+    useDictionary({
+      category: activeCategory,
+      search: searchText,
+    });
 
 
   const displayedEntries =
@@ -119,18 +119,65 @@ export default function DictionaryScreen() {
         ? 'Riwayat dilihat'
         : 'Semua hasil';
 
-  const emptyDescription =
+  const hasSearchQuery = searchText.trim().length > 0;
+
+  const resetFilters = () => {
+    setSearchText('');
+    setActiveCategory('semua');
+    setActiveLibraryTab('all');
+  };
+
+  /** Pesan kosong dibedakan per tab agar pengguna tahu langkah berikutnya. */
+  const emptyState =
     activeLibraryTab === 'favorites'
-      ? 'Simpan kata favorit dulu, lalu buka lagi tab ini untuk akses cepat.'
+      ? {
+          icon: 'star-outline' as const,
+          title: 'Belum ada favorit',
+          description: 'Ketuk ikon bintang pada detail kata untuk menyimpannya di sini.',
+          actionLabel: 'Jelajahi Kamus',
+          onAction: () => setActiveLibraryTab('all'),
+        }
       : activeLibraryTab === 'history'
-        ? 'Buka detail kata untuk mulai membangun riwayat pencarianmu.'
-        : 'Coba ubah kata kunci atau kategori.';
+        ? {
+            icon: 'time-outline' as const,
+            title: 'Riwayat masih kosong',
+            description: 'Kata yang Anda buka akan muncul di sini agar mudah dilihat kembali.',
+            actionLabel: 'Jelajahi Kamus',
+            onAction: () => setActiveLibraryTab('all'),
+          }
+        : hasSearchQuery || activeCategory !== 'semua'
+          ? {
+              icon: 'search-outline' as const,
+              title: 'Tidak ada hasil',
+              description: 'Coba ubah kata kunci atau pilih kategori lain.',
+              actionLabel: 'Reset Filter',
+              onAction: resetFilters,
+            }
+          : {
+              icon: 'cloud-offline-outline' as const,
+              title: 'Kamus belum tersedia',
+              description: 'Data kamus belum bisa dimuat. Periksa koneksi lalu muat ulang.',
+              actionLabel: 'Muat Ulang',
+              onAction: () => void refresh(),
+            };
 
   const rows = useMemo<ListRow[]>(() => {
     const header: ListRow[] = [
       { kind: 'search', key: 'search' },
       { kind: 'filters', key: 'filters' },
     ];
+    if (isOffline) {
+      header.push({ kind: 'offline', key: 'offline' });
+    }
+    if (isLoadingEntries) {
+      return [
+        ...header,
+        ...Array.from({ length: 5 }, (_, index) => ({
+          kind: 'skeleton' as const,
+          key: `skeleton-${index}`,
+        })),
+      ];
+    }
     if (displayedEntries.length === 0) {
       return [...header, { kind: 'empty', key: 'empty' }];
     }
@@ -143,18 +190,12 @@ export default function DictionaryScreen() {
         index,
       })),
     ];
-  }, [displayedEntries]);
+  }, [displayedEntries, isLoadingEntries, isOffline]);
 
   const handleOpenEntry = (id: string) => {
     router.push({ pathname: '/dictionary/[id]', params: { id } });
   };
 
-
-  const resetFilters = () => {
-    setSearchText('');
-    setActiveCategory('semua');
-    setActiveLibraryTab('all');
-  };
 
   const handleHeroLayout = (event: LayoutChangeEvent) => {
     heroHeightRef.current = event.nativeEvent.layout.height;
@@ -217,15 +258,43 @@ export default function DictionaryScreen() {
             </Row>
           </View>
         );
+      case 'offline':
+        return (
+          <View style={styles.padded}>
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel="Muat ulang kamus"
+              accessibilityHint="Menampilkan data contoh karena server belum terjangkau"
+              onPress={() => void refresh()}
+              style={styles.offlineBanner}
+            >
+              <Ionicons color={colors.warning} name="cloud-offline-outline" size={18} />
+              <View style={styles.offlineCopy}>
+                <Text variant="label" color="secondary">
+                  Mode offline — menampilkan data contoh
+                </Text>
+                <Text variant="caption" color="tertiary">
+                  Ketuk untuk mencoba memuat ulang
+                </Text>
+              </View>
+            </PressableScale>
+          </View>
+        );
+      case 'skeleton':
+        return (
+          <View style={styles.entryRow}>
+            <WordCardSkeleton />
+          </View>
+        );
       case 'empty':
         return (
           <View style={styles.emptyRow}>
             <EmptyState
-              actionLabel="Reset Filter"
-              description={emptyDescription}
-              icon="search-outline"
-              onAction={resetFilters}
-              title="Tidak ada hasil"
+              actionLabel={emptyState.actionLabel}
+              description={emptyState.description}
+              icon={emptyState.icon}
+              onAction={emptyState.onAction}
+              title={emptyState.title}
             />
           </View>
         );
@@ -304,6 +373,21 @@ export default function DictionaryScreen() {
 }
 
 const styles = createSheet((colors) => ({
+  offlineBanner: {
+    alignItems: 'center',
+    backgroundColor: colors.warningTint,
+    borderRadius: radius.lg,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  offlineCopy: {
+    flex: 1,
+    gap: 2,
+  },
   list: {
     flex: 1,
   },
@@ -369,7 +453,7 @@ const styles = createSheet((colors) => ({
     flexDirection: 'row',
     gap: 6,
     justifyContent: 'center',
-    minHeight: 40,
+    minHeight: 44,
   },
   segmentActive: {
     backgroundColor: colors.surface,

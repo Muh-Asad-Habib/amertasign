@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, View } from 'react-native';
 import Text from '../components/ui/Text';
 import { colors, spacing, createSheet } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
+import { useThemeMode } from '../hooks/useThemeMode';
 import { claimGoogleAuthResult, googleAuthClaimKey } from '../services/googleAuthClaim';
 
 /**
@@ -14,6 +15,7 @@ import { claimGoogleAuthResult, googleAuthClaimKey } from '../services/googleAut
  * di sini lalu arahkan ke beranda / kembali ke login bila gagal.
  */
 export default function GoogleAuthCallbackScreen() {
+  const themeMode = useThemeMode();
   const router = useRouter();
   const params = useLocalSearchParams<{
     accessToken?: string;
@@ -65,7 +67,7 @@ export default function GoogleAuthCallbackScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
       <ActivityIndicator color={colors.primary} size="large" />
       <Text variant="body" color="secondary" align="center" style={styles.caption}>
         Menyelesaikan masuk dengan Google...

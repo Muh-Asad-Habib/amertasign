@@ -407,7 +407,7 @@ const styles = createSheet((themeColors) => ({
     backgroundColor: themeColors.surfaceMuted,
     borderRadius: radius.full,
     justifyContent: 'center',
-    minHeight: 32,
+    minHeight: 40,
     paddingHorizontal: spacing.md,
   },
   chipActive: {
@@ -449,8 +449,8 @@ const styles = createSheet((themeColors) => ({
     alignItems: 'center',
     borderRadius: radius.full,
     justifyContent: 'center',
-    minHeight: 32,
-    paddingHorizontal: spacing.sm,
+    minHeight: 38,
+    paddingHorizontal: spacing.md,
   },
   speedChipActive: {
     backgroundColor: themeColors.primary,

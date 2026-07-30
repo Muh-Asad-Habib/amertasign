@@ -15,6 +15,7 @@ import { colors, gradients, layoutSpacing, radius, shadow, spacing } from '../..
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore, type TranslationHistoryItem } from '../../store/useHistoryStore';
 import { useThemeMode } from '../../hooks/useThemeMode';
+import { formatTime } from '../../utils/datetime';
 
 import { createSheet } from '../../theme';
 
@@ -58,11 +59,6 @@ function ActionCard({
       </PressableScale>
     </Animated.View>
   );
-}
-
-function formatTime(iso: string) {
-  const date = new Date(iso);
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
 export default function HomeScreen() {
@@ -247,7 +243,16 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.historyList}>
               {recentHistory.map((item: TranslationHistoryItem) => (
-                <View key={item.id} style={styles.historyItem}>
+                <PressableScale
+                  accessibilityRole="button"
+                  accessibilityLabel={`Terjemahkan ulang: ${item.text}`}
+                  accessibilityHint="Membuka layar teks ke isyarat dengan teks ini"
+                  key={item.id}
+                  onPress={() =>
+                    router.push({ pathname: '/translate/text-to-sign', params: { text: item.text } })
+                  }
+                  style={styles.historyItem}
+                >
                   <View style={styles.historyIcon}>
                     <Ionicons
                       color={colors.primary}
@@ -267,7 +272,7 @@ export default function HomeScreen() {
                   <Text variant="label" color="tertiary">
                     {formatTime(item.createdAt)}
                   </Text>
-                </View>
+                </PressableScale>
               ))}
             </View>
           )}

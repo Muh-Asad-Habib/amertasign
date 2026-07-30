@@ -20,7 +20,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeMode } from '../../hooks/useThemeMode';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
-import { ApiError } from '../../services/api';
+import { toUserMessage } from '../../utils/errors';
 import { classifySignLabel, SIGN_KIND_LABEL, type MediaUpload, type SignKind } from '../../services/translation';
 
 import { createSheet } from '../../theme';
@@ -91,9 +91,7 @@ export default function CameraTranslateScreen() {
     setDetectedKind(null);
     Alert.alert(
       'Pengenalan gagal',
-      error instanceof ApiError || error instanceof Error
-        ? error.message
-        : 'Media tidak dapat dikenali.'
+      toUserMessage(error, 'Media tidak dapat dikenali. Coba rekam ulang dengan pencahayaan lebih baik.')
     );
   };
 

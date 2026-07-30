@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, Image, StyleSheet, Switch, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,11 +7,12 @@ import Heading from '../../components/ui/Heading';
 import BrandMark from '../../components/ui/BrandMark';
 import PressableScale from '../../components/ui/PressableScale';
 import Screen from '../../components/ui/Screen';
+import Snackbar from '../../components/ui/Snackbar';
 import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
 import { colors, layoutSpacing, radius, shadow, spacing } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useHistoryStore } from '../../store/useHistoryStore';
+import { useHistoryStore, CLEAR_HISTORY_UNDO_MS } from '../../store/useHistoryStore';
 import {
   useSettingsStore,
   type AvatarGender,
@@ -257,7 +258,9 @@ export default function SettingsScreen() {
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const logout = useAuthStore((state) => state.logout);
-  const clearHistory = useHistoryStore((state) => state.clearHistory);
+  const scheduleClearHistory = useHistoryStore((state) => state.scheduleClearHistory);
+  const undoClearHistory = useHistoryStore((state) => state.undoClearHistory);
+  const [showUndoHistory, setShowUndoHistory] = useState(false);
   const themeMode = useSettingsStore((state) => state.themeMode);
   const setThemeMode = useSettingsStore((state) => state.setThemeMode);
   const saveHistoryEnabled = useSettingsStore((state) => state.saveHistoryEnabled);
@@ -301,10 +304,24 @@ export default function SettingsScreen() {
       return;
     }
 
-    Alert.alert('Hapus Riwayat?', `Semua ${historyCount} riwayat terjemahan akan dihapus permanen.`, [
+    Alert.alert('Hapus Riwayat?', `Semua ${historyCount} riwayat terjemahan akan dihapus.`, [
       { text: 'Batal', style: 'cancel' },
-      { text: 'Hapus', style: 'destructive', onPress: () => clearHistory(user.id) },
+      {
+        text: 'Hapus',
+        style: 'destructive',
+        onPress: () => {
+          scheduleClearHistory(user.id);
+          setShowUndoHistory(true);
+        },
+      },
     ]);
+  };
+
+  const handleUndoClearHistory = () => {
+    if (user) {
+      undoClearHistory(user.id);
+    }
+    setShowUndoHistory(false);
   };
 
   const handleAboutPress = () => {
@@ -452,6 +469,12 @@ export default function SettingsScreen() {
           title="Dukungan"
           rows={[
             {
+              icon: 'sparkles-outline',
+              label: 'Panduan Awal',
+              value: 'Lihat kembali pengenalan fitur',
+              onPress: () => router.push('/(auth)/onboarding?mode=tour'),
+            },
+            {
               icon: 'help-circle-outline',
               label: 'Bantuan & Dukungan',
               value: 'Panduan penggunaan & kontak',
@@ -494,6 +517,15 @@ export default function SettingsScreen() {
           Amerta Sign · BISINDO — Bahasa Isyarat Indonesia
         </Text>
       </Stack>
+
+      <Snackbar
+        actionLabel="Urungkan"
+        durationMs={CLEAR_HISTORY_UNDO_MS}
+        message="Riwayat terjemahan dihapus"
+        onAction={handleUndoClearHistory}
+        onDismiss={() => setShowUndoHistory(false)}
+        visible={showUndoHistory}
+      />
     </Screen>
   );
 }
@@ -555,7 +587,7 @@ const styles = createSheet((colors) => ({
     gap: 2,
   },
   profileAction: {
-    minHeight: 36,
+    minHeight: 44,
     borderRadius: radius.full,
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.base,

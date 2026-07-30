@@ -35,7 +35,8 @@ export default function CategoryTabs({
 
         return (
           <Pressable
-            accessibilityRole="button"
+            accessibilityRole="tab"
+            accessibilityLabel={`Kategori ${category.label}`}
             accessibilityState={{ selected: isActive }}
             key={category.id}
             onPress={() => onSelect(category.id)}

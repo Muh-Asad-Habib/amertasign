@@ -20,10 +20,10 @@ const TAB_CONFIG: Record<
     unfocused: keyof typeof Ionicons.glyphMap;
   }
 > = {
-  index: { label: 'Home', focused: 'home', unfocused: 'home-outline' },
-  translate: { label: 'Translate', focused: 'swap-horizontal', unfocused: 'swap-horizontal-outline' },
-  dictionary: { label: 'Dictionary', focused: 'book', unfocused: 'book-outline' },
-  settings: { label: 'Setting', focused: 'settings', unfocused: 'settings-outline' },
+  index: { label: 'Beranda', focused: 'home', unfocused: 'home-outline' },
+  translate: { label: 'Terjemah', focused: 'swap-horizontal', unfocused: 'swap-horizontal-outline' },
+  dictionary: { label: 'Kamus', focused: 'book', unfocused: 'book-outline' },
+  settings: { label: 'Pengaturan', focused: 'settings', unfocused: 'settings-outline' },
 };
 
 /** Bottom nav mengambang: pill surface lembut, item aktif pill emas berlabel. */
@@ -84,10 +84,10 @@ function StitchTabBar({ state, navigation }: BottomTabBarProps) {
 export default function TabsLayout() {
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <StitchTabBar {...props} />}>
-      <Tabs.Screen name="index" options={{ title: 'Home' }} />
-      <Tabs.Screen name="translate" options={{ title: 'Translate' }} />
-      <Tabs.Screen name="dictionary" options={{ title: 'Dictionary' }} />
-      <Tabs.Screen name="settings" options={{ title: 'Setting' }} />
+      <Tabs.Screen name="index" options={{ title: 'Beranda' }} />
+      <Tabs.Screen name="translate" options={{ title: 'Terjemah' }} />
+      <Tabs.Screen name="dictionary" options={{ title: 'Kamus' }} />
+      <Tabs.Screen name="settings" options={{ title: 'Pengaturan' }} />
     </Tabs>
   );
 }

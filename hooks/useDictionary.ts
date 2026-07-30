@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { dictionaryEntries as fallbackEntries } from '../constants/MockData';
-import { fetchDictionaryEntries } from '../services/dictionary';
+import { fetchDictionaryEntries, invalidateDictionaryCache } from '../services/dictionary';
 import { useDictionaryStore } from '../store/useDictionaryStore';
 import type { DictionaryCategory, DictionaryEntry } from '../types';
 
@@ -16,6 +17,7 @@ export function useDictionary(options: UseDictionaryOptions = {}) {
   const { category = 'semua', search = '' } = options;
   const [entries, setEntries] = useState<DictionaryEntry[]>(fallbackEntries);
   const [isLoadingEntries, setIsLoadingEntries] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
   const favorites = useDictionaryStore((state) => state.favorites);
   const searchHistory = useDictionaryStore((state) => state.searchHistory);
   const signLanguageFilter = useDictionaryStore((state) => state.signLanguageFilter);
@@ -24,13 +26,27 @@ export function useDictionary(options: UseDictionaryOptions = {}) {
   const setSignLanguageFilter = useDictionaryStore((state) => state.setSignLanguageFilter);
   const isFavorite = useDictionaryStore((state) => state.isFavorite);
 
+  const load = useCallback(async (options: { silent?: boolean } = {}) => {
+    if (!options.silent) {
+      setIsLoadingEntries(true);
+    }
+    try {
+      const result = await fetchDictionaryEntries();
+      setEntries(result.entries);
+      setIsOffline(result.isFallback);
+    } finally {
+      setIsLoadingEntries(false);
+    }
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
     void fetchDictionaryEntries()
-      .then((items) => {
+      .then((result) => {
         if (isMounted) {
-          setEntries(items);
+          setEntries(result.entries);
+          setIsOffline(result.isFallback);
         }
       })
       .finally(() => {
@@ -43,6 +59,25 @@ export function useDictionary(options: UseDictionaryOptions = {}) {
       isMounted = false;
     };
   }, []);
+
+  // Saat aplikasi kembali dibuka, ambil data terbaru bila sebelumnya offline
+  // agar pengguna tidak terjebak melihat data contoh sepanjang sesi.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && isOffline) {
+        invalidateDictionaryCache();
+        void load({ silent: true });
+      }
+    });
+
+    return () => subscription.remove();
+  }, [isOffline, load]);
+
+  /** Muat ulang paksa dari backend (pull-to-refresh / tombol coba lagi). */
+  const refresh = useCallback(async () => {
+    invalidateDictionaryCache();
+    await load({ silent: true });
+  }, [load]);
 
   const normalizedSearch = search.trim().toLowerCase();
 
@@ -78,6 +113,8 @@ export function useDictionary(options: UseDictionaryOptions = {}) {
   return {
     allEntries: entries,
     isLoadingEntries,
+    isOffline,
+    refresh,
     filteredEntries,
     favoriteEntries,
     historyEntries,

@@ -11,10 +11,13 @@ import Sparkles from '../../components/ui/Sparkles';
 import Squiggle from '../../components/ui/Squiggle';
 import Text from '../../components/ui/Text';
 import { colors, gradients, overlay, spacing } from '../../theme';
+import { hasSeenOnboarding } from '../../services/preferences';
+import { useThemeMode } from '../../hooks/useThemeMode';
 
 import { createSheet } from '../../theme';
 
 export default function SplashScreen() {
+  useThemeMode();
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -34,11 +37,21 @@ export default function SplashScreen() {
       }),
     ]).start();
 
+    let isMounted = true;
+    // Onboarding hanya untuk pengguna baru; yang sudah pernah melihatnya
+    // langsung diarahkan ke login agar tidak mengulang langkah yang sama.
     const timeout = setTimeout(() => {
-      router.replace('/(auth)/onboarding');
+      void hasSeenOnboarding().then((seen) => {
+        if (isMounted) {
+          router.replace(seen ? '/(auth)/login' : '/(auth)/onboarding');
+        }
+      });
     }, 2500);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+    };
   }, [router, fadeAnim, scaleAnim]);
 
   return (
