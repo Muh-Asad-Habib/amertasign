@@ -14,14 +14,19 @@ import BackHeader from '../../components/ui/BackHeader';
 import Badge from '../../components/ui/Badge';
 import PressableScale from '../../components/ui/PressableScale';
 import Text from '../../components/ui/Text';
-import { colors, palette, radius, spacing } from '../../theme';
+import { colors, overlay, palette, radius, spacing, touchTargetMin } from '../../theme';
 import { useTTS } from '../../hooks/useTTS';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeMode } from '../../hooks/useThemeMode';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
 import { toUserMessage } from '../../utils/errors';
-import { classifySignLabel, SIGN_KIND_LABEL, type MediaUpload, type SignKind } from '../../services/translation';
+import {
+  classifySignLabel,
+  SIGN_KIND_LABEL,
+  type MediaUpload,
+  type SequenceKind,
+} from '../../services/translation';
 
 import { createSheet } from '../../theme';
 
@@ -38,15 +43,16 @@ export default function CameraTranslateScreen() {
   const {
     signLanguageType,
     isDetecting,
-    translateAuto,
+    translateSequence,
     translateMedia,
   } = useTranslation();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [facing, setFacing] = useState<CameraType>('front');
+  const [torchEnabled, setTorchEnabled] = useState(false);
   const [translatedText, setTranslatedText] = useState(WAITING_TEXT);
-  const [detectedKind, setDetectedKind] = useState<SignKind | null>(null);
+  const [detectedKind, setDetectedKind] = useState<SequenceKind | null>(null);
   const cameraRef = useRef<CameraViewHandle>(null);
   const startedAtRef = useRef(0);
   const { speak } = useTTS();
@@ -95,13 +101,13 @@ export default function CameraTranslateScreen() {
     );
   };
 
-  /** Rekaman video → deteksi otomatis huruf / angka / kata. */
+  /** Rekaman video → rangkaian isyarat (beberapa huruf/angka + kata). */
   const processRecording = async (video: MediaUpload, durationMs: number) => {
     setIsProcessing(true);
-    setTranslatedText('Menganalisis gerakan...');
+    setTranslatedText('Menganalisis rangkaian gerakan...');
     setDetectedKind(null);
     try {
-      const result = await translateAuto(video, durationMs);
+      const result = await translateSequence(video, durationMs);
       if (result.text) {
         setTranslatedText(result.text);
         setDetectedKind(result.kind);
@@ -184,6 +190,8 @@ export default function CameraTranslateScreen() {
     if (isRecording) {
       return;
     }
+    // Senter hanya ada di kamera belakang — padamkan saat pindah ke depan.
+    setTorchEnabled(false);
     setFacing((current) => (current === 'front' ? 'back' : 'front'));
   };
 
@@ -220,10 +228,10 @@ export default function CameraTranslateScreen() {
 
   const busy = isProcessing || isDetecting;
   const helperText = isRecording
-    ? `Sedang merekam · ketuk tombol untuk berhenti (maks ${MAX_RECORDING_SEC} dtk)`
+    ? `Peragakan beberapa isyarat, tahan tiap isyarat ±2 detik (maks ${MAX_RECORDING_SEC} dtk)`
     : busy
-      ? 'Menganalisis isyarat — huruf, angka, atau kata...'
-      : 'Ketuk tombol rekam, peragakan isyarat, lalu ketuk lagi untuk berhenti';
+      ? 'Menganalisis rangkaian isyarat — huruf, angka, atau kata...'
+      : 'Ketuk rekam, peragakan satu atau beberapa isyarat, lalu ketuk lagi untuk berhenti';
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
@@ -245,7 +253,23 @@ export default function CameraTranslateScreen() {
             isProcessing={busy}
             isRecording={isRecording}
             ref={cameraRef}
+            torchEnabled={torchEnabled}
           />
+          {facing === 'back' ? (
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel={torchEnabled ? 'Matikan senter' : 'Nyalakan senter'}
+              accessibilityState={{ selected: torchEnabled }}
+              onPress={() => setTorchEnabled((value) => !value)}
+              style={[styles.torchButton, torchEnabled && styles.torchButtonActive]}
+            >
+              <Ionicons
+                color={torchEnabled ? colors.textOnAccent : colors.textOnPrimary}
+                name={torchEnabled ? 'flash' : 'flash-off'}
+                size={20}
+              />
+            </PressableScale>
+          ) : null}
         </View>
 
         <View style={styles.bottomSheet}>
@@ -326,6 +350,24 @@ const styles = createSheet((colors) => ({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
     paddingTop: spacing.sm,
+  },
+  torchButton: {
+    position: 'absolute',
+    top: spacing.lg,
+    right: spacing.xl,
+    width: touchTargetMin,
+    height: touchTargetMin,
+    borderRadius: radius.full,
+    backgroundColor: overlay.inkScrim,
+    borderWidth: 1,
+    borderColor: overlay.onInkBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 4,
+  },
+  torchButtonActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accentStrong,
   },
   bottomSheet: {
     backgroundColor: colors.surface,

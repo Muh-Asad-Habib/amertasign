@@ -1,10 +1,12 @@
 import React from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleProp,
-  StyleSheet,
   View,
   ViewStyle,
+  type RefreshControlProps,
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -20,6 +22,10 @@ export interface ScreenProps {
   scroll?: boolean;
   /** Terapkan padding tepi standar (screenPadding). Default: true. */
   padded?: boolean;
+  /** Hindari keyboard menutupi input (iOS; Android memakai resize bawaan). Default: false. */
+  keyboardAvoiding?: boolean;
+  /** RefreshControl untuk pull-to-refresh (hanya berlaku saat scroll aktif). */
+  refreshControl?: React.ReactElement<RefreshControlProps>;
   edges?: Edge[];
   background?: string;
   contentStyle?: StyleProp<ViewStyle>;
@@ -31,6 +37,8 @@ export default function Screen({
   children,
   scroll = false,
   padded = true,
+  keyboardAvoiding = false,
+  refreshControl,
   edges = ['top'],
   background,
   contentStyle,
@@ -41,19 +49,32 @@ export default function Screen({
   const padding = padded ? layoutSpacing.screenPadding : 0;
   const backgroundColor = background ?? colors.background;
 
+  const content = scroll ? (
+    <ScrollView
+      contentContainerStyle={[{ padding, paddingBottom: padding + layoutSpacing.sectionGap }, contentStyle]}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={refreshControl}
+      showsVerticalScrollIndicator={false}
+      style={styles.flex}
+    >
+      {children}
+    </ScrollView>
+  ) : (
+    <View style={[styles.flex, { padding }, contentStyle]}>{children}</View>
+  );
+
   return (
     <SafeAreaView edges={edges} style={[styles.safeArea, { backgroundColor }, style]}>
       <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
-      {scroll ? (
-        <ScrollView
-          contentContainerStyle={[{ padding, paddingBottom: padding + layoutSpacing.sectionGap }, contentStyle]}
-          showsVerticalScrollIndicator={false}
+      {keyboardAvoiding ? (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.flex}
         >
-          {children}
-        </ScrollView>
+          {content}
+        </KeyboardAvoidingView>
       ) : (
-        <View style={[styles.flex, { padding }, contentStyle]}>{children}</View>
+        content
       )}
     </SafeAreaView>
   );

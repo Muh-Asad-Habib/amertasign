@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../../components/ui/Button';
@@ -19,7 +19,12 @@ import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { createSheet } from '../../theme';
 
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { USERNAME_REGEX, VALIDATION_MESSAGES } from '../../utils/validation';
+import { PASSWORD_MIN_LENGTH, USERNAME_REGEX, VALIDATION_MESSAGES } from '../../utils/validation';
+
+interface FieldErrors {
+  username?: string;
+  password?: string;
+}
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -30,32 +35,42 @@ export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const passwordRef = useRef<TextInput>(null);
 
   const { isGoogleLoading, promptGoogleSignIn } = useGoogleAuth({
     onSuccess: () => router.replace('/(tabs)/'),
     onError: (message) => Alert.alert('Masuk dengan Google gagal', message),
   });
 
-  const handleLogin = async () => {
+  /** Validasi lokal — error tampil inline di bawah field terkait. */
+  const validate = (): boolean => {
     const normalizedUsername = username.trim().toLowerCase();
+    const nextErrors: FieldErrors = {};
 
-    if (!normalizedUsername || !password) {
-      Alert.alert('Data belum lengkap', 'Masukkan username dan password Anda terlebih dahulu.');
-      return;
+    if (!normalizedUsername) {
+      nextErrors.username = 'Masukkan username Anda.';
+    } else if (!USERNAME_REGEX.test(normalizedUsername)) {
+      nextErrors.username = VALIDATION_MESSAGES.username;
     }
 
-    if (!USERNAME_REGEX.test(normalizedUsername)) {
-      Alert.alert('Username tidak valid', VALIDATION_MESSAGES.username);
-      return;
+    if (!password) {
+      nextErrors.password = 'Masukkan password Anda.';
+    } else if (password.length < PASSWORD_MIN_LENGTH) {
+      nextErrors.password = VALIDATION_MESSAGES.passwordMin;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Password terlalu pendek', 'Password harus terdiri dari minimal 6 karakter.');
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleLogin = async () => {
+    if (!validate()) {
       return;
     }
 
     try {
-      await signIn(normalizedUsername, password);
+      await signIn(username.trim().toLowerCase(), password);
       router.replace('/(tabs)/');
     } catch (error) {
       Alert.alert(
@@ -81,108 +96,136 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
       <Decor preset="corner" />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <BrandMark size={92} />
-          <Heading variant="title" align="center" style={styles.brandName}>
-            Amerta Sign
-          </Heading>
-          <Squiggle width={84} />
-          <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
-            Masuk ke akun Anda
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          <Input
-            autoCapitalize="none"
-            autoCorrect={false}
-            icon="person-outline"
-            label="Username"
-            placeholder="username_anda"
-            textContentType="username"
-            value={username}
-            onChangeText={setUsername}
-          />
-          <Input
-            autoCapitalize="none"
-            autoCorrect={false}
-            icon="lock-closed-outline"
-            isPasswordVisible={showPassword}
-            label="Password"
-            onToggleVisibility={() => setShowPassword((value) => !value)}
-            placeholder="Minimal 6 karakter"
-            secureTextEntry={!showPassword}
-            textContentType="password"
-            value={password}
-            onChangeText={setPassword}
-          />
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Lupa password"
-            disabled={isLoading}
-            onPress={() => router.push('/(auth)/forgot-password')}
-            style={styles.forgotLink}
-          >
-            <Text variant="bodyStrong" color="primary">
-              Lupa password?
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex}
+      >
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <BrandMark size={92} />
+            <Heading variant="title" align="center" style={styles.brandName}>
+              Amerta Sign
+            </Heading>
+            <Squiggle width={84} />
+            <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
+              Masuk ke akun Anda
             </Text>
-          </Pressable>
-
-          <Button
-            disabled={isLoading || !username.trim() || !password}
-            fullWidth
-            loading={isLoading}
-            title="Masuk"
-            onPress={handleLogin}
-          />
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text variant="caption" color="secondary" style={styles.dividerText}>
-              atau
-            </Text>
-            <View style={styles.dividerLine} />
           </View>
 
-          <GoogleButton
-            disabled={isLoading}
-            loading={isGoogleLoading}
-            title="Masuk dengan Google"
-            onPress={promptGoogleSignIn}
-          />
+          <View style={styles.form}>
+            <Input
+              autoCapitalize="none"
+              autoComplete="username"
+              autoCorrect={false}
+              editable={!isLoading}
+              error={errors.username}
+              icon="person-outline"
+              label="Username"
+              placeholder="username_anda"
+              returnKeyType="next"
+              textContentType="username"
+              value={username}
+              onChangeText={(value) => {
+                setUsername(value);
+                if (errors.username) {
+                  setErrors((prev) => ({ ...prev, username: undefined }));
+                }
+              }}
+              onSubmitEditing={() => passwordRef.current?.focus()}
+            />
+            <Input
+              ref={passwordRef}
+              autoCapitalize="none"
+              autoComplete="current-password"
+              autoCorrect={false}
+              editable={!isLoading}
+              error={errors.password}
+              icon="lock-closed-outline"
+              isPasswordVisible={showPassword}
+              label="Password"
+              onToggleVisibility={() => setShowPassword((value) => !value)}
+              placeholder="Minimal 6 karakter"
+              returnKeyType="done"
+              secureTextEntry={!showPassword}
+              textContentType="password"
+              value={password}
+              onChangeText={(value) => {
+                setPassword(value);
+                if (errors.password) {
+                  setErrors((prev) => ({ ...prev, password: undefined }));
+                }
+              }}
+              onSubmitEditing={handleLogin}
+            />
 
-          <Button
-            disabled={isLoading}
-            fullWidth
-            title="Lanjut sebagai Tamu"
-            variant="ghost"
-            onPress={handleGuestLogin}
-          />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Lupa password"
+              accessibilityHint="Buka halaman reset password"
+              disabled={isLoading}
+              hitSlop={12}
+              onPress={() => router.push('/(auth)/forgot-password')}
+              style={styles.forgotLink}
+            >
+              <Text variant="bodyStrong" color="primary">
+                Lupa password?
+              </Text>
+            </Pressable>
 
-          <Text variant="caption" color="secondary" align="center">
-            Mode tamu tidak menyimpan riwayat terjemahan.
-          </Text>
-        </View>
+            <Button
+              disabled={isLoading || !username.trim() || !password}
+              fullWidth
+              loading={isLoading}
+              title="Masuk"
+              onPress={handleLogin}
+            />
 
-        <View style={styles.footer}>
-          <Text variant="body" color="secondary">
-            Belum punya akun?{' '}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Daftar akun baru"
-            disabled={isLoading}
-            hitSlop={12}
-            onPress={() => router.replace('/(auth)/register')}
-          >
-            <Text variant="bodyStrong" color="primary">
-              Daftar
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text variant="caption" color="secondary" style={styles.dividerText}>
+                atau
+              </Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <GoogleButton
+              disabled={isLoading}
+              loading={isGoogleLoading}
+              title="Masuk dengan Google"
+              onPress={promptGoogleSignIn}
+            />
+
+            <Button
+              disabled={isLoading}
+              fullWidth
+              title="Lanjut sebagai Tamu"
+              variant="ghost"
+              onPress={handleGuestLogin}
+            />
+
+            <Text variant="caption" color="secondary" align="center">
+              Mode tamu tidak menyimpan riwayat terjemahan.
             </Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+          </View>
+
+          <View style={styles.footer}>
+            <Text variant="body" color="secondary">
+              Belum punya akun?{' '}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Daftar akun baru"
+              disabled={isLoading}
+              hitSlop={12}
+              onPress={() => router.replace('/(auth)/register')}
+            >
+              <Text variant="bodyStrong" color="primary">
+                Daftar
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -191,6 +234,9 @@ const styles = createSheet((colors) => ({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
+  },
+  flex: {
+    flex: 1,
   },
   content: {
     flexGrow: 1,

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppState } from 'react-native';
 
-import { dictionaryEntries as fallbackEntries } from '../constants/MockData';
 import { fetchDictionaryEntries, invalidateDictionaryCache } from '../services/dictionary';
 import { useDictionaryStore } from '../store/useDictionaryStore';
 import type { DictionaryCategory, DictionaryEntry } from '../types';
@@ -15,7 +14,9 @@ interface UseDictionaryOptions {
 
 export function useDictionary(options: UseDictionaryOptions = {}) {
   const { category = 'semua', search = '' } = options;
-  const [entries, setEntries] = useState<DictionaryEntry[]>(fallbackEntries);
+  // Mulai kosong (bukan data contoh) — layar menampilkan skeleton selama
+  // isLoadingEntries; fallback mock hanya dipakai bila backend tak terjangkau.
+  const [entries, setEntries] = useState<DictionaryEntry[]>([]);
   const [isLoadingEntries, setIsLoadingEntries] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
   const favorites = useDictionaryStore((state) => state.favorites);

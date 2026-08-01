@@ -1,7 +1,8 @@
 import React from 'react';
-import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Image, StyleProp, View, ViewStyle } from 'react-native';
 
-import { shadow } from '../../theme';
+import { palette, shadow } from '../../theme';
+import { createSheet } from '../../theme';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 const LOGO = require('../../assets/logo.png');
@@ -50,12 +51,13 @@ export default function BrandMark({ size = 96, onDark = false, style }: BrandMar
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createSheet(() => ({
   card: {
-    // Kartu selalu putih — logo biru butuh latar terang di kedua tema.
-    backgroundColor: '#FFFFFF',
+    // Kartu selalu putih di kedua tema (pengecualian brand yang disengaja):
+    // logo biru butuh latar terang agar tetap terbaca.
+    backgroundColor: palette.white,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadow.md,
   },
-});
+}));

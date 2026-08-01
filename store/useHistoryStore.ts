@@ -30,6 +30,15 @@ interface HistoryState {
   /** Batalkan penghapusan yang masih tertunda dan kembalikan riwayat. */
   undoClearHistory: (userId: string) => void;
   getHistory: (userId: string) => TranslationHistoryItem[];
+  /**
+   * Eksekusi segera semua penghapusan tertunda (dipanggil sebelum logout,
+   * selagi token masih valid — timer yang menyala setelah logout akan gagal 401).
+   * Await selesai sebelum POST /auth/logout agar DELETE tidak balapan dengan
+   * pencabutan sesi di server.
+   */
+  flushPendingClears: () => Promise<void>;
+  /** Bersihkan seluruh riwayat di memori (dipanggil saat logout) agar tidak bocor antar akun. */
+  reset: () => void;
 }
 
 /** Jeda sebelum penghapusan riwayat benar-benar dikirim ke server. */
@@ -72,8 +81,9 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
     set({ isLoading: true });
     try {
-      // Ambil per arah agar tiap arah tepat maksimal 10 item.
-      const [signToText, textToSign] = await Promise.all([
+      // Ambil per arah agar tiap arah tepat maksimal 10 item. allSettled:
+      // satu arah gagal tidak membatalkan arah lainnya (muat parsial).
+      const results = await Promise.allSettled([
         apiRequest<{ items: TranslationHistoryItem[] }>(
           `/history?limit=${MAX_ITEMS_PER_KIND}&kind=isyarat-ke-teks`,
           { auth: true }
@@ -83,12 +93,21 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
           { auth: true }
         ),
       ]);
+
+      const items = results.flatMap((result) =>
+        result.status === 'fulfilled' ? result.value.items : []
+      );
+      const allFailed = results.every((result) => result.status === 'rejected');
+
       set((state) => ({
         isLoading: false,
-        itemsByUser: {
-          ...state.itemsByUser,
-          [userId]: capPerKind([...signToText.items, ...textToSign.items]),
-        },
+        // Semua permintaan gagal → pertahankan data lama daripada mengosongkan layar.
+        itemsByUser: allFailed
+          ? state.itemsByUser
+          : {
+              ...state.itemsByUser,
+              [userId]: capPerKind(items),
+            },
       }));
     } catch {
       set({ isLoading: false });
@@ -190,4 +209,20 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     }));
   },
   getHistory: (userId) => get().itemsByUser[userId] ?? [],
+  flushPendingClears: async () => {
+    const deletions: Promise<unknown>[] = [];
+    pendingClears.forEach(({ timer }, userId) => {
+      clearTimeout(timer);
+      if (!isGuest(userId)) {
+        deletions.push(apiRequest('/history', { method: 'DELETE', auth: true }));
+      }
+    });
+    pendingClears.clear();
+    await Promise.allSettled(deletions);
+  },
+  reset: () => {
+    pendingClears.forEach(({ timer }) => clearTimeout(timer));
+    pendingClears.clear();
+    set({ itemsByUser: {}, isLoading: false });
+  },
 }));

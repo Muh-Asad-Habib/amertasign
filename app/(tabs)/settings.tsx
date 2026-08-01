@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Image, StyleSheet, Switch, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -10,7 +10,7 @@ import Screen from '../../components/ui/Screen';
 import Snackbar from '../../components/ui/Snackbar';
 import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
-import { colors, layoutSpacing, radius, shadow, spacing } from '../../theme';
+import { colors, layoutSpacing, radius, shadow, spacing, touchTargetMin } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore, CLEAR_HISTORY_UNDO_MS } from '../../store/useHistoryStore';
 import {
@@ -272,6 +272,13 @@ export default function SettingsScreen() {
   const displayName = isGuest ? 'Tamu' : user?.name || 'Pengguna';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'A';
   const avatarUrl = !isGuest ? user?.avatarUrl : null;
+  // Foto profil gagal dimuat (URL rusak/offline) → tampilkan inisial.
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const showAvatarImage = Boolean(avatarUrl) && !avatarFailed;
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
 
   const handleEditProfile = () => {
     if (isGuest) {
@@ -386,8 +393,13 @@ export default function SettingsScreen() {
           onPress={handleEditProfile}
           style={styles.profileCard}
         >
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.profileAvatarImage} />
+          {showAvatarImage ? (
+            <Image
+              accessibilityLabel={`Foto profil ${displayName}`}
+              source={{ uri: avatarUrl as string }}
+              style={styles.profileAvatarImage}
+              onError={() => setAvatarFailed(true)}
+            />
           ) : (
             <View style={styles.profileAvatar}>
               <Text variant="bodyStrong" style={styles.profileInitial}>
@@ -587,7 +599,7 @@ const styles = createSheet((colors) => ({
     gap: 2,
   },
   profileAction: {
-    minHeight: 44,
+    minHeight: touchTargetMin,
     borderRadius: radius.full,
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.base,

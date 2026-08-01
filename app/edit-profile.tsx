@@ -1,8 +1,8 @@
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Image, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, BackHandler, Image, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import BackHeader from '../components/ui/BackHeader';
@@ -50,6 +50,40 @@ export default function EditProfileScreen() {
   const displayName = name.trim() || user?.name || 'Pengguna';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'A';
   const isGoogleAccount = user?.hasPassword === false;
+
+  // Perubahan belum tersimpan: data profil berbeda dari akun, atau field password terisi.
+  const isDirty =
+    Boolean(user) &&
+    (name.trim() !== (user?.name ?? '') ||
+      username.trim().toLowerCase() !== (user?.username ?? '') ||
+      email.trim().toLowerCase() !== (user?.email ?? '') ||
+      avatarChanged ||
+      Boolean(currentPassword || newPassword || confirmNewPassword));
+
+  const handleBack = useCallback(() => {
+    if (!isDirty) {
+      router.back();
+      return;
+    }
+
+    Alert.alert('Buang perubahan?', 'Perubahan yang belum disimpan akan hilang.', [
+      { text: 'Lanjut mengedit', style: 'cancel' },
+      { text: 'Buang', style: 'destructive', onPress: () => router.back() },
+    ]);
+  }, [isDirty, router]);
+
+  // Tombol back fisik Android juga melewati penjaga perubahan belum tersimpan.
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isDirty) {
+        handleBack();
+        return true;
+      }
+      return false;
+    });
+
+    return () => subscription.remove();
+  }, [handleBack, isDirty]);
 
   if (isGuest || !user) {
     return (
@@ -183,8 +217,8 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <Screen scroll>
-      <BackHeader title="Edit Profil" onBack={() => router.back()} />
+    <Screen keyboardAvoiding scroll>
+      <BackHeader title="Edit Profil" onBack={handleBack} />
 
       <Stack gap={spacing.lg} style={styles.body}>
         {/* Foto profil */}
@@ -220,15 +254,20 @@ export default function EditProfileScreen() {
           </Text>
           <Stack gap={spacing.md}>
             <Input
+              autoComplete="name"
+              editable={!isLoading}
               icon="id-card-outline"
               label="Nama tampilan"
               placeholder="Nama Anda"
+              textContentType="name"
               value={name}
               onChangeText={setName}
             />
             <Input
               autoCapitalize="none"
+              autoComplete="username"
               autoCorrect={false}
+              editable={!isLoading}
               icon="person-outline"
               label="Username"
               placeholder="username_anda"
@@ -238,7 +277,9 @@ export default function EditProfileScreen() {
             />
             <Input
               autoCapitalize="none"
+              autoComplete="email"
               autoCorrect={false}
+              editable={!isLoading}
               icon="mail-outline"
               keyboardType="email-address"
               label="Email"
@@ -285,7 +326,9 @@ export default function EditProfileScreen() {
             <Stack gap={spacing.md}>
               <Input
                 autoCapitalize="none"
+                autoComplete="current-password"
                 autoCorrect={false}
+                editable={!isSavingPassword}
                 icon="lock-closed-outline"
                 isPasswordVisible={showCurrentPassword}
                 label="Password saat ini"
@@ -299,7 +342,9 @@ export default function EditProfileScreen() {
               />
               <Input
                 autoCapitalize="none"
+                autoComplete="password-new"
                 autoCorrect={false}
+                editable={!isSavingPassword}
                 icon="key-outline"
                 isPasswordVisible={showNewPassword}
                 label="Password baru"
@@ -313,7 +358,9 @@ export default function EditProfileScreen() {
               />
               <Input
                 autoCapitalize="none"
+                autoComplete="password-new"
                 autoCorrect={false}
+                editable={!isSavingPassword}
                 icon="shield-checkmark-outline"
                 isPasswordVisible={showConfirmNewPassword}
                 label="Konfirmasi password baru"
@@ -321,7 +368,7 @@ export default function EditProfileScreen() {
                 onToggleVisibility={() => setShowConfirmNewPassword((value) => !value)}
                 placeholder="Ulangi password baru"
                 secureTextEntry={!showConfirmNewPassword}
-                textContentType="password"
+                textContentType="newPassword"
                 value={confirmNewPassword}
                 onChangeText={setConfirmNewPassword}
               />

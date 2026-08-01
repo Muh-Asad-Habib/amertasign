@@ -7,7 +7,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'alfabet',
     type: 'bisindo',
     description: 'Tangan dominan membentuk huruf A dengan kepalan lembut dan ibu jari di sisi telunjuk.',
-    imageUrl: 'https://via.placeholder.com/300?text=A',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -16,7 +16,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'alfabet',
     type: 'bisindo',
     description: 'Telapak tangan terbuka tegak dengan jari-jari rapat dan ibu jari menekuk ke depan telapak.',
-    imageUrl: 'https://via.placeholder.com/300?text=B',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -25,7 +25,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'alfabet',
     type: 'bisindo',
     description: 'Jari-jari dan ibu jari melengkung membentuk setengah lingkaran seperti huruf C.',
-    imageUrl: 'https://via.placeholder.com/300?text=C',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -34,7 +34,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'alfabet',
     type: 'bisindo',
     description: 'Telunjuk tegak lurus, jari lain bertemu ibu jari membentuk lingkaran kecil.',
-    imageUrl: 'https://via.placeholder.com/300?text=D',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -43,7 +43,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'alfabet',
     type: 'bisindo',
     description: 'Ujung semua jari ditekuk mendekati telapak, ibu jari sejajar di depan jari.',
-    imageUrl: 'https://via.placeholder.com/300?text=E',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -52,7 +52,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'alfabet',
     type: 'bisindo',
     description: 'Ibu jari dan telunjuk membentuk lingkaran, tiga jari lainnya tegak ke atas.',
-    imageUrl: 'https://via.placeholder.com/300?text=F',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -61,7 +61,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'angka',
     type: 'bisindo',
     description: 'Telunjuk tegak ke atas, jari lain menggenggam lembut ke telapak tangan.',
-    imageUrl: 'https://via.placeholder.com/300?text=1',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -70,7 +70,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'angka',
     type: 'bisindo',
     description: 'Telunjuk dan jari tengah terbuka membentuk huruf V, jari lain tertutup.',
-    imageUrl: 'https://via.placeholder.com/300?text=2',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -79,7 +79,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'angka',
     type: 'bisindo',
     description: 'Ibu jari, telunjuk, dan jari tengah terbuka; dua jari lain menutup ke telapak.',
-    imageUrl: 'https://via.placeholder.com/300?text=3',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -88,7 +88,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'angka',
     type: 'bisindo',
     description: 'Empat jari terbuka tegak rapat, ibu jari menekuk ke dalam telapak.',
-    imageUrl: 'https://via.placeholder.com/300?text=4',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -97,7 +97,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'angka',
     type: 'bisindo',
     description: 'Semua jari dan ibu jari terbuka lebar dengan telapak menghadap ke depan.',
-    imageUrl: 'https://via.placeholder.com/300?text=5',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -106,7 +106,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'kata_umum',
     type: 'bisindo',
     description: 'Tangan terbuka di dekat pelipis lalu digerakkan kecil ke luar sebagai sapaan ramah.',
-    imageUrl: 'https://via.placeholder.com/300?text=Halo',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -115,7 +115,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'kata_umum',
     type: 'bisindo',
     description: 'Ujung jari tangan dominan menyentuh dagu lalu bergerak ke depan dengan halus.',
-    imageUrl: 'https://via.placeholder.com/300?text=Terima+Kasih',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -124,7 +124,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'kata_umum',
     type: 'bisindo',
     description: 'Kedua telapak tangan dikepalkan lembut lalu digerakkan melingkar kecil di dada.',
-    imageUrl: 'https://via.placeholder.com/300?text=Maaf',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -133,7 +133,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'kata_umum',
     type: 'bisindo',
     description: 'Telapak tangan terbuka diletakkan di depan dada lalu didorong sedikit ke depan.',
-    imageUrl: 'https://via.placeholder.com/300?text=Tolong',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -142,7 +142,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'kata_umum',
     type: 'bisindo',
     description: 'Dua jari telunjuk dan tengah dari kedua tangan saling bersilangan dua kali.',
-    imageUrl: 'https://via.placeholder.com/300?text=Nama',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -151,7 +151,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'kata_umum',
     type: 'bisindo',
     description: 'Telunjuk tangan dominan menunjuk ringan ke arah dada sendiri.',
-    imageUrl: 'https://via.placeholder.com/300?text=Saya',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -160,7 +160,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'kata_umum',
     type: 'bisindo',
     description: 'Telunjuk diarahkan lembut ke lawan bicara sebagai penanda orang kedua.',
-    imageUrl: 'https://via.placeholder.com/300?text=Kamu',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -169,7 +169,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'kata_umum',
     type: 'bisindo',
     description: 'Ujung jari rapat menyentuh area mulut berulang satu kali seperti gerakan menyuap.',
-    imageUrl: 'https://via.placeholder.com/300?text=Makan',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -178,7 +178,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'kata_umum',
     type: 'bisindo',
     description: 'Tangan membentuk seolah memegang gelas lalu dimiringkan ke arah mulut.',
-    imageUrl: 'https://via.placeholder.com/300?text=Minum',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -187,7 +187,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'frasa',
     type: 'bisindo',
     description: 'Gabungan isyarat selamat dan pagi dengan gerakan terbuka dari dada lalu menunjukkan matahari terbit.',
-    imageUrl: 'https://via.placeholder.com/300?text=Selamat+Pagi',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -196,7 +196,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'frasa',
     type: 'bisindo',
     description: 'Tangan dominan membentuk isyarat tanya lalu diikuti gerakan kabar di depan dada.',
-    imageUrl: 'https://via.placeholder.com/300?text=Apa+Kabar',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -205,7 +205,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'frasa',
     type: 'bisindo',
     description: 'Kedua telunjuk diarahkan saling mendekat lalu bergerak menjauh sebagai penanda perpisahan.',
-    imageUrl: 'https://via.placeholder.com/300?text=Sampai+Jumpa',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -214,7 +214,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'frasa',
     type: 'bisindo',
     description: 'Isyarat selamat dilanjutkan gerakan telapak turun menutup seperti malam datang.',
-    imageUrl: 'https://via.placeholder.com/300?text=Selamat+Malam',
+    imageUrl: '',
     videoUrl: '',
   },
   {
@@ -223,7 +223,7 @@ export const dictionaryEntries: DictionaryEntry[] = [
     category: 'frasa',
     type: 'bisindo',
     description: 'Rangkaian isyarat saya, mau, lalu makan dengan jeda singkat yang jelas di setiap kata.',
-    imageUrl: 'https://via.placeholder.com/300?text=Saya+Mau+Makan',
+    imageUrl: '',
     videoUrl: '',
   },
 ];

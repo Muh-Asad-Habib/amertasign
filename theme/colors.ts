@@ -41,6 +41,8 @@ export const palette = {
   successTint: '#E4F0E8',
   error: '#BA1A1A',
   errorTint: '#FFDAD6',
+  /** Merah terang untuk indikator rekam di atas permukaan gelap (kamera). */
+  errorBright: '#FF5A55',
   warning: '#7C5800',
   warningTint: '#FFDEA7',
 } as const;
@@ -192,7 +194,23 @@ export const overlay = {
   /** Lingkaran ikon di atas permukaan brand gelap. */
   onBrandSoft: 'rgba(255, 255, 255, 0.18)',
   onBrandStrong: 'rgba(255, 255, 255, 0.28)',
+  /** Lapisan dekoratif paling tipis di atas permukaan brand (lingkaran hero). */
+  onBrandFaint: 'rgba(255, 255, 255, 0.08)',
+  /** Lapisan sedang di atas permukaan brand (badge, lingkaran ikon kartu aksi). */
+  onBrandMuted: 'rgba(255, 255, 255, 0.14)',
   /** Sorotan di atas permukaan tinta gelap (kamera). */
   onInkSoft: 'rgba(255, 255, 255, 0.1)',
   onInkBorder: 'rgba(255, 255, 255, 0.16)',
+  /** Scrim tinta di atas preview kamera (pill status, overlay proses). */
+  inkScrim: 'rgba(10, 14, 22, 0.55)',
+  /** Scrim tinta pekat (kartu proses analisis). */
+  inkScrimStrong: 'rgba(10, 14, 22, 0.85)',
+  /** Teks putih hangat di atas permukaan tinta (kamera). */
+  onInkText: 'rgba(255, 253, 248, 0.9)',
+  onInkTextSoft: 'rgba(255, 253, 248, 0.7)',
+  /** Tint emas tipis — status "menganalisis" di kamera. */
+  accentTint: 'rgba(251, 182, 4, 0.28)',
+  /** Tint & border merah tipis — status "merekam" di kamera. */
+  errorTint: 'rgba(186, 26, 26, 0.32)',
+  errorBorder: 'rgba(255, 122, 117, 0.55)',
 } as const;

@@ -1,0 +1,660 @@
+================================================================
+DAFTAR LENGKAP PERUBAHAN YANG DIBUTUHKAN DI SERVER — AmertaSign
+Dari: Tim Mobile
+Versi: GABUNGAN (menggantikan "CATATAN-UNTUK-TIM-SERVER.txt" dan
+addendum sebelumnya — cukup pakai dokumen ini saja, poin 1-20)
+================================================================
+
+Kalau tim server SUDAH mengerjakan sebagian poin dari dokumen
+sebelumnya, tidak masalah: cek ulang poinnya di sini, tandai
+"sudah sesuai", lanjut ke poin berikutnya.
+
+PALING PENTING DI DOKUMEN INI:
+  - Poin 14 : MODE MULTI-ISYARAT (inti produk — mohon dibaca dulu)
+  - Poin 1  : Keamanan reset password
+  - Poin 17 & 20 : Konfirmasi kontrak (cek cepat, risiko bug produksi)
+
+
+================================================================
+CARA MEMAKAI DOKUMEN INI  —  BACA DULU SEBELUM MENGUBAH APA PUN
+================================================================
+PENTING: JANGAN langsung menerapkan semua poin di bawah tanpa
+pengecekan. Termasuk bila pengerjaan dibantu AI — AI TIDAK BOLEH
+langsung menulis ulang kode berdasarkan dokumen ini saja.
+
+Urutannya WAJIB begini untuk SETIAP poin (bagian 1 sampai 20):
+
+  LANGKAH 1 — CEK KONDISI SEKARANG
+    Buka kode / konfigurasi yang bersangkutan dan pastikan dulu:
+    - Apakah perilaku yang diminta SUDAH ada? Kalau sudah sesuai,
+      LEWATI poin itu, jangan diubah. Cukup balas "sudah sesuai".
+    - Kalau belum ada, catat di mana persisnya perlu diubah.
+
+  LANGKAH 2 — NILAI DAMPAKNYA
+    - Apakah perubahan ini merusak endpoint lain yang sudah jalan?
+    - Apakah ada klien/layanan lain yang ikut terpengaruh?
+    - Kalau ada risiko, JANGAN dieksekusi. Tanyakan dulu ke tim mobile.
+
+  LANGKAH 3 — BARU UBAH, SATU POIN SATU KALI
+    - Kerjakan bertahap, jangan borongan dalam satu commit besar.
+    - Jangan mengubah bentuk response yang sudah dipakai mobile
+      (lihat "Aturan dasar" di bawah) kecuali diminta eksplisit.
+
+  LANGKAH 4 — UJI SEBELUM DIANGGAP SELESAI
+    - Uji endpoint yang diubah (minimal lewat curl/Postman):
+      kasus normal, kasus gagal, dan kasus tanpa token.
+    - Pastikan endpoint LAIN yang tidak disentuh masih normal.
+
+  LANGKAH 5 — LAPORKAN
+    Balas ke tim mobile per poin dengan status:
+      "sudah sesuai" / "sudah diubah" / "belum dikerjakan" /
+      "tidak bisa, alasannya ..."
+
+ATURAN KERAS:
+- Jangan menghapus atau mengganti nama endpoint yang sudah dipakai
+  aplikasi mobile tanpa memberi tahu tim mobile lebih dulu.
+- Jangan mengubah format response { success, data } / { success, error }.
+- Kalau ada poin di dokumen ini yang terasa keliru atau bertentangan
+  dengan kondisi server sebenarnya, JANGAN dipaksakan. Tanyakan dulu.
+- Kalau ragu pada satu poin, lewati poin itu dan tandai sebagai
+  "perlu diskusi", jangan menebak.
+
+Kalau semua sudah dicek dan aman, silakan lanjutkan pengerjaan.
+
+
+================================================================
+ATURAN DASAR (SUDAH DIPAKAI MOBILE — MOHON JANGAN DIUBAH)
+================================================================
+- Sukses : { "success": true, "data": ... }
+- Gagal  : { "success": false, "error": { "code": "...", "message": "..." } }
+- Auth   : Bearer JWT di header Authorization
+           Refresh: POST /api/v1/auth/refresh { "refreshToken": "..." }
+- Base URL: https://amertasign.lab-if.tech/api/v1
+
+
+================================================================
+1. KEAMANAN RESET PASSWORD  (paling penting setelah poin 14)
+================================================================
+Masalah:
+  POST /auth/forgot-password sekarang menerima
+  { username, email, newPassword } dan langsung mengganti password
+  hanya dengan mencocokkan username + email.
+  Siapa pun yang tahu username + email seseorang bisa membajak akun.
+
+Ganti menjadi 3 tahap:
+  1) POST /auth/password-reset/request
+     body: { "identifier": "<username atau email>" }
+     - Kirim OTP 6 digit / link sekali pakai ke email terdaftar.
+     - SELALU balas sukses generik (jangan bocorkan akun ada/tidak).
+     - Rate limit: 1 permintaan / 60 detik, maks 5 / jam
+       (per identifier dan per IP).
+  2) POST /auth/password-reset/verify
+     body: { "identifier": "...", "otp": "123456" }
+     - Balas resetToken sementara (sekali pakai, umur pendek).
+     - Maks 5 percobaan salah, lalu blokir sementara.
+  3) POST /auth/password-reset/confirm
+     body: { "resetToken": "...", "newPassword": "..." }
+     - Token disimpan sebagai hash, expire <= 15 menit, sekali pakai.
+     - Setelah password diganti, revoke SEMUA refresh token / sesi
+       lama milik user tersebut.
+
+Catatan: OTP dan reset token disimpan dalam bentuk hash.
+Jangan pernah menulis OTP / password ke log.
+Selama alur baru belum siap, endpoint lama tetap dipakai mobile.
+
+
+================================================================
+2. KEBIJAKAN AKSES MODE TAMU  (WAJIB DIIKUTI)
+================================================================
+Aplikasi punya MODE TAMU (tanpa akun). Aturannya:
+
+  MODE TAMU BOLEH MEMAKAI SEMUA FITUR, KECUALI RIWAYAT TERJEMAHAN.
+
+Matriks akses yang harus berlaku di server:
+
+  Endpoint                              Tamu (tanpa token)   Login
+  ------------------------------------  -------------------  --------
+  POST /translate/sign-to-text          BOLEH                Boleh
+  POST /translate/text-to-sign          BOLEH                Boleh
+  GET  /dictionary                      BOLEH                Boleh
+  GET  /dictionary?search=...           BOLEH                Boleh
+  GET  /dictionary/{id}                 BOLEH                Boleh
+  GET/POST/DELETE /history              TIDAK (butuh token)  Boleh
+  GET/PUT/DELETE /favorites             TIDAK (butuh token)  Boleh
+  GET  /auth/me, PATCH /users/me        TIDAK (butuh token)  Boleh
+
+Penjelasan tambahan:
+- Favorit mode tamu DISIMPAN DI PERANGKAT (lokal), jadi server tidak
+  perlu menyediakan endpoint favorit untuk tamu. Aplikasi tidak akan
+  memanggil /favorites saat mode tamu.
+- Riwayat mode tamu memang tidak disimpan sama sekali. Aplikasi tidak
+  akan memanggil /history saat mode tamu.
+
+Yang WAJIB dipastikan di server:
+  a) Endpoint /translate/* dan /dictionary/* JANGAN mewajibkan JWT.
+     Request tanpa header Authorization harus tetap diproses normal,
+     bukan dibalas 401.
+  b) Aplikasi mobile SUDAH mengirim "Authorization: Bearer <token>"
+     pada upload ke /translate/sign-to-text bila pengguna login.
+     Adanya token TIDAK BOLEH membuat request ditolak. Idealnya
+     token divalidasi (untuk pencatatan/kuota), minimal diabaikan.
+  c) Karena /translate/* terbuka untuk tamu, WAJIB ada rate limit
+     per IP / per perangkat supaya endpoint AI tidak bebas dipakai
+     pihak luar. Besaran limit: lihat poin 7 (sudah diperbarui
+     mengikuti mode multi-isyarat).
+  d) Untuk endpoint yang memang butuh token (/history, /favorites,
+     /auth/me, /users/me): bila token tidak ada atau tidak valid,
+     balas HTTP 401 dengan error.code "UNAUTHORIZED" dan body JSON.
+     (Mobile otomatis refresh token lalu mengulang request 1x.)
+
+
+================================================================
+3. VALIDASI & BATASAN UPLOAD
+================================================================
+- Batasi MIME type: video/mp4, image/jpeg, image/png.
+- Batasi ukuran file maksimum (usul 25-50 MB).
+- Batasi durasi video maksimum (usul <= 15 detik — sama dengan
+  batas rekaman di aplikasi).
+- Batasi waktu pemrosesan AI (timeout), jangan menggantung.
+- Saat menolak, balas dengan error code yang stabil (lihat bagian 4).
+
+
+================================================================
+4. DAFTAR ERROR CODE YANG WAJIB DIPAKAI
+================================================================
+Mobile memetakan code berikut menjadi kalimat Bahasa Indonesia yang
+ramah pengguna. Mohon pakai PERSIS code ini (huruf besar + garis bawah):
+
+  UNAUTHORIZED          -> sesi berakhir, minta login ulang
+  FORBIDDEN             -> tidak punya akses
+  FILE_TOO_LARGE        -> berkas terlalu besar
+  UNSUPPORTED_MEDIA     -> format media tidak didukung
+  PROCESSING_TIMEOUT    -> analisis AI kelamaan
+  AI_PROCESSING_FAILED  -> isyarat gagal dianalisis
+  UPLOAD_ERROR          -> unggah gagal (umum)
+  RATE_LIMITED          -> terlalu banyak permintaan (lihat poin 19)
+  TEXT_TOO_LONG         -> teks > 200 karakter (lihat poin 18)
+  TEXT_EMPTY            -> teks kosong (lihat poin 18)
+
+Aturan tambahan:
+- Kalau code tidak dikenali, mobile menampilkan error.message apa
+  adanya. Karena itu error.message harus selalu Bahasa Indonesia dan
+  layak dibaca pengguna awam (jangan stack trace / pesan teknis).
+- HTTP 401 / 403 / 413 / 5xx tetap ditangani meski code tidak dikenal,
+  tapi lebih baik code-nya tetap dikirim.
+
+
+================================================================
+5. SEMUA ERROR HARUS BERBENTUK JSON — TERMASUK ERROR GATEWAY
+================================================================
+Mobile selalu membaca body respons sebagai JSON:
+  { "success": false, "error": { "code": "...", "message": "..." } }
+
+Yang sering lolos jadi HTML dan membuat pesan error jadi jelek:
+  - 413 Request Entity Too Large dari nginx (bukan dari aplikasi)
+  - 502 / 504 dari gateway saat backend AI lambat
+  - 429 dari rate limiter di gateway
+  - halaman error default framework
+
+Mohon konfigurasikan agar kasus di atas tetap membalas JSON.
+
+
+================================================================
+6. TIMEOUT & BATAS UKURAN DI NGINX / REVERSE PROXY
+================================================================
+Batas waktu yang dipakai mobile:
+  - Request JSON biasa (login, kamus, riwayat) : 15 detik
+  - Upload GAMBAR ke /translate/sign-to-text   : 60 detik
+  - Upload VIDEO  ke /translate/sign-to-text   : 120 detik
+
+Supaya gateway tidak memutus lebih dulu:
+  proxy_read_timeout      >= 180s
+  proxy_send_timeout      >= 180s
+  client_body_timeout     >= 180s
+  client_max_body_size    >= ukuran video maksimum (usul 50m)
+
+Kalau gateway memutus duluan, pengguna melihat error jaringan padahal
+AI masih memproses.
+
+
+================================================================
+7. POLA REQUEST AI DARI MOBILE — SUDAH BERUBAH, MOHON DIBACA ULANG
+================================================================
+SEBELUMNYA: 1 rekaman = 2 request paralel (stage=abjad + stage=kata).
+
+SEKARANG (mulai versi aplikasi berikutnya): untuk mendukung deteksi
+RANGKAIAN isyarat (lihat poin 14), 1 rekaman menjadi:
+  - 1 request  stage=kata   (video penuh, MP4)
+  - s.d. 12 request stage=abjad (frame JPEG diambil dari video,
+    dikirim bertahap maksimal 3 request bersamaan)
+  Total: s.d. 13 request per satu kali terjemahan, selesai dalam
+  beberapa detik (burst singkat).
+
+Yang perlu dipastikan:
+- Rate limit JANGAN memblokir burst ini:
+    login : minimal 30 request / menit / user
+    tamu  : minimal 30 request / menit / IP
+  (Burst 13 request + jeda antar percobaan; 30/menit aman.)
+- POLA BOROS INI SEMENTARA. Begitu poin 14 (stage=auto multi) siap,
+  mobile kembali ke 1 REQUEST per terjemahan dan limit bisa
+  diturunkan lagi. Ini alasan kuat memprioritaskan poin 14.
+- Server sanggup memproses beberapa request abjad secara paralel
+  (frame JPEG kecil, model gambar — seharusnya ringan).
+- Nama field multipart dari mobile: "file" (berkas) dan "stage".
+  Mohon konfirmasi ini sesuai dengan yang server harapkan.
+- Mobile sengaja tidak menyetel Content-Type manual supaya boundary
+  multipart dibuat otomatis. Parser server membaca boundary dari
+  header request seperti biasa.
+
+
+================================================================
+8. RIWAYAT TERJEMAHAN — /history
+================================================================
+a) DELETE /history harus IDEMPOTEN.
+   Mobile punya fitur hapus dengan tombol "Urungkan": riwayat langsung
+   hilang di layar, tapi DELETE baru dikirim setelah 5 detik bila
+   pengguna tidak mengurungkan.
+   - DELETE saat riwayat sudah kosong harus balas 200, JANGAN 404.
+   - Aman bila DELETE terkirim lebih dari sekali.
+   - Catatan: bila pengguna logout saat masih dalam jeda 5 detik,
+     aplikasi mengirim DELETE tersebut SEBELUM POST /auth/logout —
+     urutan request ini normal, bukan anomali.
+
+b) GET /history harus mendukung parameter "kind".
+   Saat aplikasi dibuka, mobile memanggil 2 request paralel:
+     GET /history?limit=10&kind=isyarat-ke-teks
+     GET /history?limit=10&kind=teks-ke-isyarat
+   Nilai "kind" persis seperti di atas (huruf kecil, pakai tanda hubung).
+   Response tetap: { "success": true, "data": { "items": [...] } }
+   (Mobile kini tahan gagal parsial: satu request gagal, satunya
+   tetap ditampilkan.)
+
+c) POST /history membalas:
+     { "item": { id, kind, text, signLanguageType, createdAt } }
+   Mobile menampilkan item sementara lebih dulu, lalu menggantinya
+   dengan item resmi dari server ini.
+
+
+================================================================
+9. KAMUS — /dictionary
+================================================================
+a) Paginasi cursor. Mobile memanggil:
+     GET /dictionary?limit=100
+     GET /dictionary?limit=100&cursor=<nextCursor>   (berulang)
+   sampai nextCursor bernilai null.
+   - Urutan hasil harus STABIL antar halaman (mis. urut id / createdAt)
+     supaya tidak ada entri dobel atau terlewat.
+   - nextCursor harus null (bukan string kosong) di halaman terakhir.
+
+b) Pencarian:
+     GET /dictionary?search=<kata>&limit=10
+   Harus tidak case-sensitive dan cocok pada sebagian kata (substring),
+   karena dipakai untuk saran pencarian saat pengguna mengetik.
+
+c) imageUrl / videoUrl boleh berupa path relatif (mis. "/media/abc.mp4")
+   karena mobile otomatis menggabungkan dengan base URL. Yang penting
+   KONSISTEN, jangan campur relatif dan absolut.
+
+d) Mobile menyimpan kamus di cache selama 30 MENIT (dan kini ada
+   pull-to-refresh yang memaksa ambil ulang). Kalau data kamus
+   diubah di server, perangkat bisa masih menampilkan data lama
+   sampai 30 menit. Mohon kabari kami bila ada perubahan data kamus.
+   (Opsional: kirim header ETag / Last-Modified, atau tambahkan field
+   "version" pada response kamus, supaya mobile bisa invalidate cache
+   lebih pintar.)
+
+e) Pastikan data kamus lengkap dan seluruh imageUrl / videoUrl valid
+   serta bisa diakses dari perangkat (bukan hanya dari jaringan lokal).
+
+
+================================================================
+10. UPLOAD AVATAR (PROFIL)
+================================================================
+- Sekarang mobile mengirim avatar sebagai string base64 di dalam JSON
+  PATCH /users/me. Payload jadi besar dan rawan timeout.
+- Usulan: sediakan PATCH /users/me/avatar dengan multipart/form-data,
+  field "avatar".
+  - Validasi tipe dan ukuran berkas.
+  - Simpan ke storage/disk.
+  - Balas { user } dengan avatarUrl berupa URL atau path relatif.
+
+
+================================================================
+11. HAPUS AKUN
+================================================================
+- DELETE /users/me (butuh auth).
+  - Untuk akun lokal (non-Google), minta konfirmasi password.
+  - Hapus / anonimkan data terkait: riwayat terjemahan, favorit, dan
+    media yang tersimpan.
+- Sediakan juga halaman web permintaan hapus akun (diwajibkan Google
+  Play bila aplikasi dirilis ke Play Store).
+
+
+================================================================
+12. LOGGING & PRIVASI
+================================================================
+- Jangan pernah menulis ke log: header Authorization, password, OTP,
+  reset token, dan isi media yang diunggah.
+- Terapkan retention policy untuk media terjemahan yang diunggah
+  (usul: hapus otomatis setelah N hari).
+
+
+================================================================
+13. KESTABILAN LAYANAN
+================================================================
+- Pastikan https://amertasign.lab-if.tech stabil (monitoring +
+  auto-restart bila proses jatuh).
+- Siapkan 1 akun uji dengan data terisi (beberapa riwayat terjemahan
+  dan favorit kamus) supaya pengujian tidak bergantung pada
+  registrasi baru setiap kali.
+
+
+================================================================
+14. MODE MULTI-ISYARAT: stage=auto + SEGMENTASI  << INTI PRODUK >>
+================================================================
+INI PERMINTAAN TERPENTING DI SELURUH DOKUMEN.
+
+Tujuan produk: pengguna memperagakan BEBERAPA isyarat berurutan
+dalam SATU rekaman (mis. "S-A-Y-A" lalu isyarat "MAKAN"), dan
+aplikasi menghasilkan teks lengkap "SAYA MAKAN" — bukan cuma satu
+huruf/angka/kata seperti sekarang.
+
+Kondisi sekarang di server:
+  - stage=abjad : 1 gambar  -> 1 label huruf
+  - stage=kata  : 1 video   -> 1 label kata/angka (SELURUH video
+                  dianggap SATU isyarat, tidak ada segmentasi)
+
+Solusi sementara di mobile (SUDAH kami terapkan, lihat poin 7):
+  mobile mengambil banyak frame dari video lalu menembak stage=abjad
+  berkali-kali untuk merangkai EJAAN huruf/angka. Tapi cara ini:
+  - boros (s.d. 13 request per terjemahan),
+  - TIDAK BISA mendeteksi beberapa KATA dinamis dalam satu video
+    (memotong video jadi segmen tidak mungkin dilakukan di aplikasi).
+  Jadi rangkaian multi-KATA hanya bisa diwujudkan DI SERVER.
+
+YANG DIMINTA — tahap demi tahap:
+
+  TAHAP A (dasar): stage = "auto"
+    POST /api/v1/translate/sign-to-text, field stage = "auto",
+    file = video MP4.
+    Server menjalankan kedua model terhadap video dan membalas
+    kandidat terbaik — bentuk response SAMA seperti sekarang:
+      { text, confidence, candidates[], mode, stage, model_loaded,
+        note }
+    ("stage" pada response diisi stage pemenang: "abjad"/"kata".)
+    Spesifikasi rinci + pseudocode sudah ada di berkas
+    docs/BACKEND-AUTO-DETECT.txt di repo mobile — masih berlaku.
+
+  TAHAP B (inti produk): segmentasi temporal
+    Masih endpoint & field yang sama (stage="auto"), server:
+    1) Deteksi landmark tangan per frame (MediaPipe — sudah dipakai
+       server saat ini).
+    2) Segmentasi waktu: pisahkan "momen menahan isyarat" dari
+       "gerak transisi antar isyarat" (mis. energi gerak landmark
+       rendah = sedang menahan; tinggi = transisi).
+    3) Klasifikasikan TIAP segmen (model abjad untuk pose statis,
+       model kata untuk segmen dinamis).
+    4) Rangkai hasil: huruf berurutan digabung jadi ejaan kata
+       ("S","A","Y","A" -> "SAYA"), token kata berdiri sendiri,
+       pisahkan antar token dengan spasi.
+
+    Response yang diharapkan mobile (perluasan KOMPATIBEL — field
+    lama tetap ada, field baru "segments" ditambahkan):
+      {
+        "text": "SAYA MAKAN",
+        "confidence": 0.87,          // rata-rata / minimum segmen
+        "candidates": [...],         // kandidat teks utuh (opsional)
+        "mode": "BISINDO",
+        "stage": "auto",
+        "model_loaded": true,
+        "note": null,
+        "segments": [
+          { "startMs": 300,  "endMs": 1100, "label": "S",
+            "kind": "huruf", "confidence": 0.93, "candidates": [...] },
+          { "startMs": 1400, "endMs": 2100, "label": "A",
+            "kind": "huruf", "confidence": 0.91, "candidates": [...] },
+          ...
+          { "startMs": 5200, "endMs": 7400, "label": "MAKAN",
+            "kind": "kata",  "confidence": 0.82, "candidates": [...] }
+        ]
+      }
+    - "kind" per segmen: "huruf" | "angka" | "kata".
+    - Segmen yang tidak dikenali boleh dilewati (jangan dikirim
+      dengan label kosong) atau diberi note.
+    - Kalau hanya 1 isyarat terdeteksi, "segments" berisi 1 item —
+      mobile tetap menampilkan dengan benar.
+
+  KOMPATIBILITAS MUNDUR (WAJIB):
+    - stage="abjad" dan stage="kata" yang lama TIDAK BOLEH berubah
+      perilakunya — versi aplikasi yang sudah beredar memakainya.
+    - stage="auto" adalah nilai BARU; kalau belum siap, balas error
+      JSON code "UNSUPPORTED_STAGE" (mobile akan fallback otomatis
+      ke pola lama).
+
+  SETELAH TAHAP B SIAP:
+    - Mobile beralih ke 1 request stage=auto per terjemahan.
+    - Beban server turun drastis dibanding pola poin 7.
+    - Mohon kabari tim mobile begitu bisa diuji di produksi.
+
+
+================================================================
+15. HAPUS RIWAYAT PER ITEM — DELETE /history/{id}
+================================================================
+Sekarang server hanya punya DELETE /history (hapus SEMUA).
+Pengguna tidak bisa menghapus satu entri riwayat saja.
+
+Permintaan:
+  DELETE /api/v1/history/{id}   (butuh Bearer token)
+  - Hanya boleh menghapus item milik user pemilik token
+    (cek kepemilikan, bukan hanya keberadaan id).
+  - Balas { "success": true, "data": { "deleted": true } }.
+  - IDEMPOTEN: id yang sudah tidak ada balas 200 dengan
+    deleted: false (JANGAN 404), karena mobile memakai pola
+    "hapus dulu di layar + tombol Urungkan" seperti DELETE massal.
+
+Catatan: UI hapus per item di mobile SENGAJA belum kami aktifkan
+supaya tidak ada tombol yang gagal. Begitu endpoint ini siap dan
+dikonfirmasi, kami aktifkan.
+
+OPSIONAL (nice to have, bukan syarat):
+  GET /history tanpa parameter "kind" yang membalas gabungan
+  { "items": [...] } berisi kedua arah sekaligus (tetap maksimal
+  10 per arah), supaya pembukaan aplikasi cukup 1 request, bukan 2.
+  Pola 2 request dengan "kind" (poin 8b) tetap harus jalan untuk
+  kompatibilitas versi aplikasi yang sudah beredar.
+
+
+================================================================
+16. SINKRONISASI PREFERENSI PENGGUNA ANTAR PERANGKAT
+================================================================
+Preferensi berikut saat ini HANYA tersimpan di perangkat
+(SecureStore lokal): gender avatar peraga, kecepatan isyarat,
+gender suara TTS, kecepatan bicara TTS, mode tema, simpan riwayat
+on/off. Kalau pengguna ganti HP atau reinstall, semua hilang.
+
+Permintaan (prioritas menengah, bukan pemblokir rilis):
+  GET  /api/v1/users/me/settings   (butuh token)
+    -> { "settings": { ...objek JSON bebas... } }
+  PUT  /api/v1/users/me/settings   (butuh token)
+    body: { "settings": { ...objek JSON penuh (replace)... } }
+    -> { "settings": { ... } }
+
+  - Cukup simpan sebagai satu kolom JSON per user; server TIDAK
+    perlu memvalidasi isi tiap field (skema dikelola mobile, akan
+    bertambah seiring fitur). Batasi ukuran payload (usul <= 8 KB).
+  - Mode tamu tidak memanggil endpoint ini.
+
+
+================================================================
+17. KONFIRMASI KONTRAK /auth/refresh  (penting, cek saja)
+================================================================
+Mobile memakai kontrak ini (mohon KONFIRMASI, bukan ubah):
+  POST /api/v1/auth/refresh
+  body    : { "refreshToken": "..." }
+  sukses  : { "success": true, "data": { "accessToken": "..." } }
+  gagal   : HTTP 401 + { success: false, error: {...} }
+
+Dua hal yang harus dipastikan:
+  a) Mobile HANYA membaca data.accessToken dari response refresh.
+     Kalau server melakukan ROTASI refresh token (refresh token lama
+     hangus setiap dipakai), mobile akan ter-logout diam-diam saat
+     refresh berikutnya. Jadi: refresh token JANGAN dirotasi diam-
+     diam. Kalau tim server ingin rotasi, kabari kami dulu — kami
+     tambahkan dukungan membaca data.refreshToken baru, baru rotasi
+     boleh diaktifkan.
+  b) Refresh token yang sudah kedaluwarsa/di-revoke harus balas 401
+     JSON (bukan 500 / HTML), supaya mobile bisa mengarahkan
+     pengguna login ulang dengan pesan yang benar.
+
+
+================================================================
+18. BATAS PANJANG TEKS /translate/text-to-sign
+================================================================
+Mobile kini MEMBATASI input maksimal 200 KARAKTER (huruf yang
+diketik, transkrip suara, dan teks kiriman dari riwayat semuanya
+dipotong di 200).
+
+Permintaan:
+  - Validasi juga di server: teks > 200 karakter ditolak dengan
+    HTTP 422 dan error code "TEXT_TOO_LONG",
+    message contoh: "Teks maksimal 200 karakter."
+  - Teks kosong / hanya spasi: HTTP 422, code "TEXT_EMPTY".
+  - Jangan memproses AI/kamus untuk input yang gagal validasi.
+
+(Kedua code sudah masuk daftar poin 4.)
+
+
+================================================================
+19. FORMAT RESPONSE RATE LIMIT — HTTP 429
+================================================================
+Poin 2c dan 7 meminta rate limit. Yang belum disepakati adalah
+BENTUK responsnya saat limit tercapai.
+
+Permintaan:
+  HTTP 429 + body JSON:
+  { "success": false,
+    "error": { "code": "RATE_LIMITED",
+               "message": "Terlalu banyak permintaan. Coba lagi
+                           dalam beberapa saat." } }
+  - Sertakan juga header Retry-After (detik) bila memungkinkan.
+  - PENTING: 429 dari nginx/gateway juga harus JSON seperti ini,
+    jangan HTML (sejalan dengan poin 5).
+  - Message harus Bahasa Indonesia — mobile menampilkannya
+    apa adanya bila code belum dikenali.
+
+
+================================================================
+20. KONFIRMASI KONTRAK LOGIN GOOGLE + FIELD hasPassword
+================================================================
+Dua kontrak yang SUDAH dipakai mobile — mohon dicek masih sesuai
+dan JANGAN diubah tanpa kabar:
+
+a) Alur web Google OAuth:
+   GET /api/v1/auth/google/start?returnUrl=<url>
+   - Sukses: server redirect ke returnUrl dengan query
+       ?accessToken=<jwt>&refreshToken=<jwt>
+   - Gagal / dibatalkan: redirect ke returnUrl dengan query
+       ?error=<KODE>&message=<pesan>
+     Khusus pembatalan oleh pengguna, kirim error=CANCELLED —
+     mobile sengaja TIDAK menampilkan pesan apa pun untuk kode ini.
+     Kode selain CANCELLED akan ditampilkan ke pengguna lewat
+     message (Bahasa Indonesia).
+   - Nama parameter harus persis: accessToken, refreshToken,
+     error, message (camelCase).
+
+b) Field "hasPassword" pada objek user:
+   Response GET /auth/me dan PATCH /users/me harus menyertakan
+   user.hasPassword (boolean):
+     - false untuk akun yang dibuat via Google (tidak punya password)
+     - true untuk akun username+password
+   Mobile memakainya untuk MENYEMBUNYIKAN menu "Ganti Password"
+   pada akun Google. Kalau field ini tidak ada, semua akun dianggap
+   punya password dan pengguna Google melihat form yang pasti gagal.
+
+
+================================================================
+PERUBAHAN DI SISI MOBILE YANG PERLU TIM SERVER TAHU
+================================================================
+(SUDAH kami kerjakan, tidak perlu tindakan — sekadar informasi)
+- Deteksi rangkaian isyarat interim: 1 rekaman = 1 request kata +
+  s.d. 12 request abjad (burst, maks 3 bersamaan) — lihat poin 7.
+- Input teks-ke-isyarat dibatasi 200 karakter di aplikasi (poin 18).
+- Saat logout, aplikasi mengeksekusi DELETE /history yang tertunda
+  (fitur "Urungkan") SEBELUM memanggil POST /auth/logout (poin 8a).
+- Aplikasi memuat riwayat dengan 2 request "kind" paralel dan tahan
+  gagal parsial (satu gagal, satunya tetap tampil).
+- Kamus: pull-to-refresh memanggil ulang GET /dictionary dengan
+  cache di-invalidate — lonjakan kecil request kamus adalah wajar.
+
+
+================================================================
+PERTANYAAN YANG KAMI TUNGGU JAWABANNYA
+================================================================
+1. Poin 14: kapan TAHAP A (stage=auto) dan TAHAP B (segmentasi)
+   kira-kira bisa tersedia? Ini menentukan kapan kami bisa memangkas
+   beban AI server dan mewujudkan fitur inti produk.
+2. Apakah /translate/* dan /dictionary/* saat ini sudah bisa diakses
+   TANPA token? (poin 2 — syarat mutlak untuk mode tamu)
+3. Error code apa saja yang saat ini sudah dikembalikan server?
+   (untuk dicocokkan dengan daftar di poin 4)
+4. Nama field multipart yang server harapkan: "file" dan "stage"
+   sudah benar? (poin 7)
+5. GET /history sudah mendukung parameter "kind"? (poin 8b)
+6. Berapa batas ukuran upload dan timeout yang berlaku sekarang, baik
+   di aplikasi server maupun di nginx? (poin 6)
+7. Apakah sudah ada rate limit? Kalau ya, berapa besarnya — mohon
+   selaraskan dengan burst multi-isyarat di poin 7 (>= 30/menit).
+8. Apakah refresh token saat ini dirotasi setiap kali dipakai?
+   (poin 17a — kalau ya, ini sumber bug ter-logout diam-diam)
+9. Apakah response /auth/me sekarang sudah menyertakan hasPassword?
+   (poin 20b)
+10. Kapan akun uji bisa disiapkan dan apa kredensialnya? (poin 13)
+
+
+================================================================
+CHECKLIST UNTUK DIBALAS KE TIM MOBILE
+================================================================
+Mohon salin daftar ini dan isi statusnya setelah pengecekan.
+Status: [sudah sesuai] / [sudah diubah] / [belum] / [perlu diskusi]
+
+  [   ] 1.  Reset password 3 tahap (OTP)
+  [   ] 2.  Akses mode tamu tanpa token (/translate/*, /dictionary/*)
+  [   ] 3.  Validasi & batasan upload
+  [   ] 4.  Error code standar (termasuk RATE_LIMITED, TEXT_TOO_LONG,
+            TEXT_EMPTY)
+  [   ] 5.  Semua error berbentuk JSON
+  [   ] 6.  Timeout & batas ukuran nginx
+  [   ] 7.  Rate limit kompatibel burst multi-isyarat (>= 30/menit)
+  [   ] 8.  /history: DELETE idempoten + parameter "kind"
+  [   ] 9.  /dictionary: cursor, search, URL konsisten
+  [   ] 10. Upload avatar multipart
+  [   ] 11. Hapus akun (DELETE /users/me)
+  [   ] 12. Logging & privasi
+  [   ] 13. Kestabilan layanan + akun uji
+  [   ] 14. MULTI-ISYARAT: stage=auto (Tahap A) + segmentasi (Tahap B)
+  [   ] 15. DELETE /history/{id} per item (idempoten)
+  [   ] 16. GET/PUT /users/me/settings (sinkron preferensi)
+  [   ] 17. Konfirmasi kontrak /auth/refresh (tanpa rotasi diam-diam)
+  [   ] 18. Validasi 200 karakter + TEXT_TOO_LONG / TEXT_EMPTY
+  [   ] 19. Rate limit 429 JSON + code RATE_LIMITED
+  [   ] 20. Konfirmasi deep link Google + field hasPassword
+
+
+================================================================
+CATATAN PENUTUP
+================================================================
+Prioritas menurut kami:
+  1) Poin 14 (multi-isyarat — inti produk; Tahap A dulu, lalu B)
+  2) Poin 17 & 20 (cek cepat, risiko bug produksi)
+  3) Poin 1 (keamanan reset password) & 7 (rate limit selaras)
+  4) Poin 18 & 19, lalu 15 & 16
+  5) Sisanya konfirmasi / konfigurasi.
+
+Selain poin 1, 10, 11, 14, 15, 16 yang butuh endpoint/kemampuan
+baru, sisanya hanya konfirmasi dan penyesuaian konfigurasi. Tidak
+ada perubahan struktur database yang dipaksakan dari sisi mobile.
+
+Sekali lagi: CEK DULU kondisi yang ada sekarang. Kalau sudah sesuai,
+tidak perlu diubah. Kalau aman, silakan lanjutkan.
+
+Terima kasih! — Tim Mobile

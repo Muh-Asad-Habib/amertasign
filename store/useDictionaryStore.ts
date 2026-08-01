@@ -14,6 +14,8 @@ interface DictionaryStoreState {
   /** Muat favorit dari backend (dipanggil setelah login / app start). */
   loadFavorites: () => Promise<void>;
   isFavorite: (id: string) => boolean;
+  /** Bersihkan data milik user (dipanggil saat logout) agar tidak bocor ke akun berikutnya. */
+  reset: () => void;
 }
 
 const getActiveUserId = () => useAuthStore.getState().user?.id ?? 'guest-user';
@@ -67,4 +69,8 @@ export const useDictionaryStore = create<DictionaryStoreState>((set, get) => ({
     }
   },
   isFavorite: (id) => get().favorites.includes(id),
+  reset: () => {
+    // signLanguageFilter dipertahankan — preferensi perangkat, bukan data akun.
+    set({ favorites: [], searchHistory: [] });
+  },
 }));

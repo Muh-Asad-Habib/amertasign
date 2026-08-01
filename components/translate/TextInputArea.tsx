@@ -9,6 +9,12 @@ import Text from '../ui/Text';
 
 import { createSheet } from '../../theme';
 
+/**
+ * Batas panjang teks yang diterjemahkan ke isyarat — sinkron dengan batas
+ * yang direkomendasikan ke backend untuk endpoint /translate/text-to-sign.
+ */
+export const TEXT_TO_SIGN_MAX_LENGTH = 200;
+
 export interface TextInputAreaProps {
   value: string;
   onChangeText: (text: string) => void;
@@ -30,10 +36,13 @@ export default function TextInputArea({
 }: TextInputAreaProps) {
   const characterCount = value.length;
   const isDisabled = value.trim().length === 0;
+  const isNearLimit = characterCount >= TEXT_TO_SIGN_MAX_LENGTH * 0.9;
 
   return (
     <View style={styles.container}>
       <TextInput
+        accessibilityLabel="Teks untuk diterjemahkan"
+        maxLength={TEXT_TO_SIGN_MAX_LENGTH}
         multiline
         onChangeText={onChangeText}
         onFocus={onFocus}
@@ -44,8 +53,8 @@ export default function TextInputArea({
         value={value}
       />
       <View style={styles.footer}>
-        <Text variant="caption" color="secondary">
-          {characterCount} karakter
+        <Text variant="caption" color={isNearLimit ? 'error' : 'secondary'}>
+          {characterCount}/{TEXT_TO_SIGN_MAX_LENGTH}
         </Text>
         <View style={styles.actions}>
           {onMicPress ? (

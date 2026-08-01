@@ -1,14 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { forwardRef, useEffect, useState } from 'react';
 import {
+  AccessibilityInfo,
   Pressable,
-  StyleSheet,
   TextInput,
   TextInputProps,
   View,
 } from 'react-native';
 
-import { colors, fontFamily, layoutSpacing, radius, touchTargetMin } from '../../theme';
+import { colors, fontFamily, layoutSpacing, radius, spacing, touchTargetMin } from '../../theme';
 import Text from './Text';
 
 import { createSheet } from '../../theme';
@@ -22,23 +22,37 @@ export interface InputProps extends TextInputProps {
   onToggleVisibility?: () => void;
 }
 
-/** Field input dengan label, ikon, state focus/error, dan helper text. */
-export default function Input({
-  label,
-  icon,
-  error,
-  helperText,
-  isPasswordVisible = false,
-  onToggleVisibility,
-  placeholderTextColor = colors.textTertiary,
-  secureTextEntry,
-  style,
-  onFocus,
-  onBlur,
-  ...props
-}: InputProps) {
+/**
+ * Field input dengan label, ikon, state focus/error, dan helper text.
+ * Mendukung ref ke TextInput untuk rantai fokus antar field (returnKeyType="next").
+ */
+const Input = forwardRef<TextInput, InputProps>(function Input(
+  {
+    label,
+    icon,
+    error,
+    helperText,
+    isPasswordVisible = false,
+    onToggleVisibility,
+    placeholderTextColor = colors.textTertiary,
+    secureTextEntry,
+    style,
+    onFocus,
+    onBlur,
+    accessibilityLabel,
+    ...props
+  },
+  ref
+) {
   const [focused, setFocused] = useState(false);
   const showToggle = typeof onToggleVisibility === 'function';
+
+  // Umumkan error ke pembaca layar saat muncul — teks merah saja tidak cukup.
+  useEffect(() => {
+    if (error) {
+      AccessibilityInfo.announceForAccessibility(`Kesalahan: ${error}`);
+    }
+  }, [error]);
 
   const borderColor = error ? colors.error : focused ? colors.primary : colors.border;
 
@@ -53,6 +67,8 @@ export default function Input({
       <View style={[styles.field, { borderColor }, focused && !error && styles.fieldFocused]}>
         {icon ? <Ionicons color={focused ? colors.primary : colors.textTertiary} name={icon} size={20} /> : null}
         <TextInput
+          ref={ref}
+          accessibilityLabel={accessibilityLabel ?? label}
           placeholderTextColor={placeholderTextColor}
           secureTextEntry={secureTextEntry}
           style={[styles.input, !!icon && styles.inputWithIcon, style]}
@@ -68,6 +84,7 @@ export default function Input({
         />
         {showToggle ? (
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel={isPasswordVisible ? 'Sembunyikan password' : 'Tampilkan password'}
             hitSlop={8}
             onPress={onToggleVisibility}
@@ -89,7 +106,9 @@ export default function Input({
       ) : null}
     </View>
   );
-}
+});
+
+export default Input;
 
 const styles = createSheet((colors) => ({
   wrapper: {
@@ -122,10 +141,11 @@ const styles = createSheet((colors) => ({
     marginLeft: 0,
   },
   trailingButton: {
-    minWidth: 32,
+    minWidth: touchTargetMin,
     minHeight: touchTargetMin,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: -spacing.sm,
   },
   helper: {
     marginLeft: 2,

@@ -23,6 +23,7 @@ export {
   shadow,
   motion,
   touchTargetMin,
+  borderWidth,
 } from './layout';
 export type { SpacingToken } from './layout';
 export {
@@ -44,6 +45,7 @@ import {
   shadow,
   motion,
   touchTargetMin,
+  borderWidth,
 } from './layout';
 import { fontFamily, headingStyles, textStyles } from './typography';
 
@@ -61,6 +63,7 @@ export const theme = {
   shadow,
   motion,
   touchTargetMin,
+  borderWidth,
   fontFamily,
   headingStyles,
   textStyles,

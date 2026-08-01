@@ -6,14 +6,30 @@
  * (2) navigasi expo-router ke route app/google-auth.tsx. Keduanya memanggil
  * claimGoogleAuthResult dengan kunci yang sama — hanya pemanggil pertama yang
  * boleh memproses token/error, sisanya diam.
+ *
+ * Klaim kedaluwarsa setelah TTL singkat: dua jalur pengiriman hasil yang sama
+ * tiba dalam hitungan milidetik, sedangkan percobaan login BERIKUTNYA (mis.
+ * pengguna membatalkan lalu mencoba lagi — kuncinya sama: "CANCELLED|...")
+ * harus tetap bisa diproses, bukan diam tanpa umpan balik.
  */
-const claimedKeys = new Set<string>();
+const CLAIM_TTL_MS = 5_000;
+
+const claimedAt = new Map<string, number>();
 
 export function claimGoogleAuthResult(key: string): boolean {
-  if (claimedKeys.has(key)) {
+  const now = Date.now();
+
+  // Buang klaim lama agar Map tidak tumbuh sepanjang sesi.
+  claimedAt.forEach((timestamp, existingKey) => {
+    if (now - timestamp >= CLAIM_TTL_MS) {
+      claimedAt.delete(existingKey);
+    }
+  });
+
+  if (claimedAt.has(key)) {
     return false;
   }
-  claimedKeys.add(key);
+  claimedAt.set(key, now);
   return true;
 }
 

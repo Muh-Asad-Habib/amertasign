@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, ScrollView, Text } from 'react-native';
+import { ScrollView, Text } from 'react-native';
 
-import { fontFamily, radius, shadow } from '../../theme';
+import { fontFamily, radius, shadow, touchTargetMin } from '../../theme';
+import PressableScale from './PressableScale';
 
 import { createSheet } from '../../theme';
 
@@ -34,22 +35,18 @@ export default function CategoryTabs({
         const isActive = category.id === activeCategory;
 
         return (
-          <Pressable
+          <PressableScale
             accessibilityRole="tab"
             accessibilityLabel={`Kategori ${category.label}`}
             accessibilityState={{ selected: isActive }}
             key={category.id}
             onPress={() => onSelect(category.id)}
-            style={({ pressed }) => [
-              styles.tab,
-              isActive ? styles.activeTab : styles.inactiveTab,
-              pressed && styles.pressed,
-            ]}
+            style={[styles.tab, isActive ? styles.activeTab : styles.inactiveTab]}
           >
             <Text style={[styles.label, isActive ? styles.activeLabel : styles.inactiveLabel]}>
               {category.label}
             </Text>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </ScrollView>
@@ -67,7 +64,7 @@ const styles = createSheet((colors) => ({
     borderRadius: radius.full,
     borderWidth: 1,
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: touchTargetMin,
     minWidth: 76,
     paddingHorizontal: 18,
     paddingVertical: 10,
@@ -91,8 +88,5 @@ const styles = createSheet((colors) => ({
   },
   inactiveLabel: {
     color: colors.text,
-  },
-  pressed: {
-    opacity: 0.85,
   },
 }));

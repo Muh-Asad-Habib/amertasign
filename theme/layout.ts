@@ -36,6 +36,16 @@ export const radius = {
 export const touchTargetMin = 48;
 
 /**
+ * Ketebalan garis tepi standar — dua tingkat yang disengaja:
+ * thin (1) untuk kartu daftar/chip/outline; field (1.5) untuk field input
+ * dan kartu menonjol yang butuh penekanan visual lebih kuat.
+ */
+export const borderWidth = {
+  thin: 1,
+  field: 1.5,
+} as const;
+
+/**
  * Token gerak — ritme animasi global "Have Fun": kenyal & memantul.
  * Press squishy + sedikit pantul; spring bouncy untuk entrance/pop yang ceria.
  */

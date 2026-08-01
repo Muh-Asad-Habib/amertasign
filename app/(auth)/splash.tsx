@@ -10,7 +10,7 @@ import Heading from '../../components/ui/Heading';
 import Sparkles from '../../components/ui/Sparkles';
 import Squiggle from '../../components/ui/Squiggle';
 import Text from '../../components/ui/Text';
-import { colors, gradients, overlay, spacing } from '../../theme';
+import { colors, gradients, overlay, palette, spacing } from '../../theme';
 import { hasSeenOnboarding } from '../../services/preferences';
 import { useThemeMode } from '../../hooks/useThemeMode';
 
@@ -63,10 +63,10 @@ export default function SplashScreen() {
       <View pointerEvents="none" style={[styles.ring, styles.ringBottom]} />
       <Sparkles
         items={[
-          { top: 90, right: 50, size: 22, color: '#FBC23C', delay: 0 },
-          { top: 160, left: 44, size: 15, color: '#FFFDF8', delay: 300 },
-          { bottom: 180, right: 70, size: 18, color: '#FFFDF8', delay: 600 },
-          { bottom: 120, left: 70, size: 13, color: '#FBC23C', delay: 900 },
+          { top: 90, right: 50, size: 22, color: palette.accent400, delay: 0 },
+          { top: 160, left: 44, size: 15, color: palette.white, delay: 300 },
+          { bottom: 180, right: 70, size: 18, color: palette.white, delay: 600 },
+          { bottom: 120, left: 70, size: 13, color: palette.accent400, delay: 900 },
         ]}
       />
 

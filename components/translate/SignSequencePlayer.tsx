@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 
 import type { TextToSignUnit } from '../../services/translation';
-import { colors, radius, spacing } from '../../theme';
+import { colors, radius, spacing, touchTargetMin } from '../../theme';
 import { useSettingsStore, type SignSpeedMultiplier } from '../../store/useSettingsStore';
 import Badge from '../ui/Badge';
 import Heading from '../ui/Heading';
@@ -468,7 +468,7 @@ const styles = createSheet((themeColors) => ({
     flex: 1,
     gap: 4,
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: touchTargetMin,
     paddingHorizontal: spacing.sm,
   },
   avatarNote: {

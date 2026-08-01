@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { CameraView as ExpoCamera, useCameraPermissions, type CameraType } from 'expo-camera';
 import type { MediaUpload } from '../../services/translation';
 
-import { colors, fontFamily, gradients, overlay, radius, spacing } from '../../theme';
+import { colors, fontFamily, gradients, overlay, palette, radius, spacing, touchTargetMin } from '../../theme';
 import Decor from '../ui/Decor';
 import Heading from '../ui/Heading';
 import PressableScale from '../ui/PressableScale';
@@ -22,6 +22,8 @@ export interface CameraViewProps {
   elapsedMs?: number;
   /** Kamera depan/belakang — dikontrol tombol flip di layar. */
   facing?: CameraType;
+  /** Nyalakan senter (hanya efektif pada kamera belakang). */
+  torchEnabled?: boolean;
 }
 
 export interface CameraViewHandle {
@@ -39,7 +41,7 @@ const formatElapsed = (ms: number): string => {
 };
 
 const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function CameraView(
-  { isRecording, isProcessing = false, elapsedMs = 0, facing = 'front' },
+  { isRecording, isProcessing = false, elapsedMs = 0, facing = 'front', torchEnabled = false },
   ref
 ) {
   const [permission, requestPermission] = useCameraPermissions();
@@ -122,6 +124,7 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
     <View style={styles.container}>
       {hasCamera ? (
         <ExpoCamera
+          enableTorch={torchEnabled && facing === 'back'}
           facing={facing}
           mode="video"
           mute
@@ -179,7 +182,7 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
             />
             <Text style={styles.hintText}>
               {isRecording
-                ? 'Peragakan isyarat — ketuk tombol merah untuk berhenti'
+                ? 'Tahan tiap isyarat ±2 detik — ketuk tombol merah untuk berhenti'
                 : 'Posisikan tangan di dalam bingkai'}
             </Text>
           </View>
@@ -268,7 +271,7 @@ const styles = createSheet((colors) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(10, 14, 22, 0.55)',
+    backgroundColor: overlay.inkScrim,
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: overlay.onInkBorder,
@@ -277,12 +280,12 @@ const styles = createSheet((colors) => ({
     zIndex: 2,
   },
   statusPillActive: {
-    backgroundColor: 'rgba(251, 182, 4, 0.28)',
+    backgroundColor: overlay.accentTint,
   },
   statusPillRecording: {
     // Tint tipis saja, bukan blok merah pekat, agar tidak mendominasi tampilan.
-    backgroundColor: 'rgba(186, 26, 26, 0.32)',
-    borderColor: 'rgba(255, 122, 117, 0.55)',
+    backgroundColor: overlay.errorTint,
+    borderColor: overlay.errorBorder,
   },
   statusDot: {
     width: 8,
@@ -294,17 +297,17 @@ const styles = createSheet((colors) => ({
     backgroundColor: colors.accent,
   },
   statusDotRecording: {
-    backgroundColor: '#FF5A55',
+    backgroundColor: palette.errorBright,
     width: 10,
     height: 10,
   },
   statusText: {
-    color: 'rgba(255, 253, 248, 0.9)',
+    color: overlay.onInkText,
     fontFamily: fontFamily.bodySemiBold,
     fontSize: 13,
   },
   statusTextRecording: {
-    color: '#FFFFFF',
+    color: palette.white,
     letterSpacing: 0.8,
   },
   hintWrap: {
@@ -318,7 +321,7 @@ const styles = createSheet((colors) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: 'rgba(10, 14, 22, 0.6)',
+    backgroundColor: overlay.inkScrim,
     borderRadius: radius.full,
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.sm,
@@ -348,7 +351,7 @@ const styles = createSheet((colors) => ({
     width: 96,
   },
   subtitle: {
-    color: 'rgba(255, 253, 248, 0.7)',
+    color: overlay.onInkTextSoft,
     fontFamily: fontFamily.bodyRegular,
     fontSize: 15,
     lineHeight: 22,
@@ -356,7 +359,7 @@ const styles = createSheet((colors) => ({
     maxWidth: 280,
   },
   permissionBtn: {
-    minHeight: 48,
+    minHeight: touchTargetMin,
     borderRadius: radius.full,
     backgroundColor: colors.accent,
     paddingHorizontal: spacing.xl,
@@ -371,12 +374,12 @@ const styles = createSheet((colors) => ({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(10, 14, 22, 0.55)',
+    backgroundColor: overlay.inkScrim,
     zIndex: 3,
   },
   processingCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(10, 14, 22, 0.85)',
+    backgroundColor: overlay.inkScrimStrong,
     borderColor: overlay.onInkBorder,
     borderRadius: radius.xxl,
     borderWidth: 1,
@@ -391,7 +394,7 @@ const styles = createSheet((colors) => ({
     marginTop: spacing.xs,
   },
   processingHint: {
-    color: 'rgba(255, 253, 248, 0.7)',
+    color: overlay.onInkTextSoft,
     fontFamily: fontFamily.bodyRegular,
     fontSize: 13,
   },

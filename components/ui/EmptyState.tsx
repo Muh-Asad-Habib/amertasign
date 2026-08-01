@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, radius } from '../../theme';
+import { colors, radius, spacing } from '../../theme';
 import Button from './Button';
 import Heading from './Heading';
 import Text from './Text';
@@ -44,8 +44,8 @@ const styles = createSheet((colors) => ({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
   },
   iconContainer: {
     alignItems: 'center',
@@ -53,11 +53,11 @@ const styles = createSheet((colors) => ({
     borderRadius: radius.full,
     height: 80,
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.base,
     width: 80,
   },
   title: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   description: {
     maxWidth: 320,

@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../../components/ui/Button';
@@ -20,9 +20,17 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import {
   EMAIL_REGEX,
   PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
   USERNAME_REGEX,
   VALIDATION_MESSAGES,
 } from '../../utils/validation';
+
+interface FieldErrors {
+  username?: string;
+  email?: string;
+  newPassword?: string;
+  confirmPassword?: string;
+}
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -35,43 +43,58 @@ export default function ForgotPasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const emailRef = useRef<TextInput>(null);
+  const newPasswordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
 
-  const handleReset = async () => {
+  const clearError = (field: keyof FieldErrors) => {
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+  };
+
+  /** Validasi lokal — error tampil inline di bawah field terkait. */
+  const validate = (): boolean => {
     const normalizedUsername = username.trim().toLowerCase();
     const normalizedEmail = email.trim().toLowerCase();
+    const nextErrors: FieldErrors = {};
 
-    if (!normalizedUsername || !normalizedEmail || !newPassword || !confirmPassword) {
-      Alert.alert('Data belum lengkap', 'Lengkapi semua field untuk mereset password Anda.');
-      return;
+    if (!normalizedUsername) {
+      nextErrors.username = 'Masukkan username Anda.';
+    } else if (!USERNAME_REGEX.test(normalizedUsername)) {
+      nextErrors.username = VALIDATION_MESSAGES.username;
     }
 
-    if (!USERNAME_REGEX.test(normalizedUsername)) {
-      Alert.alert('Username tidak valid', VALIDATION_MESSAGES.username);
-      return;
+    if (!normalizedEmail) {
+      nextErrors.email = 'Masukkan email terdaftar Anda.';
+    } else if (!EMAIL_REGEX.test(normalizedEmail)) {
+      nextErrors.email = VALIDATION_MESSAGES.email;
     }
 
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      Alert.alert('Email tidak valid', VALIDATION_MESSAGES.email);
-      return;
+    if (!newPassword) {
+      nextErrors.newPassword = 'Masukkan password baru Anda.';
+    } else if (newPassword.length < PASSWORD_MIN_LENGTH) {
+      nextErrors.newPassword = VALIDATION_MESSAGES.passwordMin;
+    } else if (newPassword.length > PASSWORD_MAX_LENGTH) {
+      nextErrors.newPassword = VALIDATION_MESSAGES.passwordMax;
     }
 
-    if (newPassword.length < 6) {
-      Alert.alert('Password terlalu pendek', 'Password baru harus terdiri dari minimal 6 karakter.');
-      return;
+    if (!confirmPassword) {
+      nextErrors.confirmPassword = 'Ulangi password baru Anda.';
+    } else if (newPassword !== confirmPassword) {
+      nextErrors.confirmPassword = 'Konfirmasi password tidak sama dengan password baru.';
     }
 
-    if (newPassword.length > PASSWORD_MAX_LENGTH) {
-      Alert.alert('Password terlalu panjang', VALIDATION_MESSAGES.passwordMax);
-      return;
-    }
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Password tidak sama', 'Pastikan konfirmasi password sesuai dengan password baru Anda.');
+  const handleReset = async () => {
+    if (!validate()) {
       return;
     }
 
     try {
-      await resetPassword(normalizedUsername, normalizedEmail, newPassword);
+      await resetPassword(username.trim().toLowerCase(), email.trim().toLowerCase(), newPassword);
       Alert.alert(
         'Password berhasil direset',
         'Silakan masuk kembali menggunakan password baru Anda.',
@@ -89,95 +112,135 @@ export default function ForgotPasswordScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
       <Decor preset="corner" />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <BrandMark size={84} />
-          <Heading variant="title" align="center" style={styles.brandName}>
-            Lupa Password
-          </Heading>
-          <Squiggle width={84} />
-          <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
-            Verifikasi username dan email terdaftar untuk membuat password baru
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          <Input
-            autoCapitalize="none"
-            autoCorrect={false}
-            icon="person-outline"
-            label="Username"
-            placeholder="username_anda"
-            textContentType="username"
-            value={username}
-            onChangeText={setUsername}
-          />
-          <Input
-            autoCapitalize="none"
-            autoCorrect={false}
-            icon="mail-outline"
-            keyboardType="email-address"
-            label="Email terdaftar"
-            placeholder="nama@email.com"
-            textContentType="emailAddress"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <Input
-            autoCapitalize="none"
-            autoCorrect={false}
-            icon="lock-closed-outline"
-            isPasswordVisible={showPassword}
-            label="Password baru"
-            maxLength={PASSWORD_MAX_LENGTH}
-            onToggleVisibility={() => setShowPassword((value) => !value)}
-            placeholder="Minimal 6 karakter"
-            secureTextEntry={!showPassword}
-            textContentType="newPassword"
-            value={newPassword}
-            onChangeText={setNewPassword}
-          />
-          <Input
-            autoCapitalize="none"
-            autoCorrect={false}
-            icon="shield-checkmark-outline"
-            isPasswordVisible={showConfirmPassword}
-            label="Konfirmasi password baru"
-            maxLength={PASSWORD_MAX_LENGTH}
-            onToggleVisibility={() => setShowConfirmPassword((value) => !value)}
-            placeholder="Ulangi password baru"
-            secureTextEntry={!showConfirmPassword}
-            textContentType="password"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-          />
-
-          <Button
-            disabled={isLoading || !username.trim() || !email.trim() || !newPassword || !confirmPassword}
-            fullWidth
-            loading={isLoading}
-            title="Reset Password"
-            onPress={handleReset}
-          />
-        </View>
-
-        <View style={styles.footer}>
-          <Text variant="body" color="secondary">
-            Ingat password Anda?{' '}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Masuk ke akun"
-            disabled={isLoading}
-            hitSlop={12}
-            onPress={() => router.replace('/(auth)/login')}
-          >
-            <Text variant="bodyStrong" color="primary">
-              Masuk
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex}
+      >
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <BrandMark size={84} />
+            <Heading variant="title" align="center" style={styles.brandName}>
+              Lupa Password
+            </Heading>
+            <Squiggle width={84} />
+            <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
+              Verifikasi username dan email terdaftar untuk membuat password baru
             </Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+          </View>
+
+          <View style={styles.form}>
+            <Input
+              autoCapitalize="none"
+              autoComplete="username"
+              autoCorrect={false}
+              editable={!isLoading}
+              error={errors.username}
+              icon="person-outline"
+              label="Username"
+              placeholder="username_anda"
+              returnKeyType="next"
+              textContentType="username"
+              value={username}
+              onChangeText={(value) => {
+                setUsername(value);
+                clearError('username');
+              }}
+              onSubmitEditing={() => emailRef.current?.focus()}
+            />
+            <Input
+              ref={emailRef}
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
+              editable={!isLoading}
+              error={errors.email}
+              icon="mail-outline"
+              keyboardType="email-address"
+              label="Email terdaftar"
+              placeholder="nama@email.com"
+              returnKeyType="next"
+              textContentType="emailAddress"
+              value={email}
+              onChangeText={(value) => {
+                setEmail(value);
+                clearError('email');
+              }}
+              onSubmitEditing={() => newPasswordRef.current?.focus()}
+            />
+            <Input
+              ref={newPasswordRef}
+              autoCapitalize="none"
+              autoComplete="password-new"
+              autoCorrect={false}
+              editable={!isLoading}
+              error={errors.newPassword}
+              icon="lock-closed-outline"
+              isPasswordVisible={showPassword}
+              label="Password baru"
+              maxLength={PASSWORD_MAX_LENGTH}
+              onToggleVisibility={() => setShowPassword((value) => !value)}
+              placeholder="Minimal 6 karakter"
+              returnKeyType="next"
+              secureTextEntry={!showPassword}
+              textContentType="newPassword"
+              value={newPassword}
+              onChangeText={(value) => {
+                setNewPassword(value);
+                clearError('newPassword');
+              }}
+              onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+            />
+            <Input
+              ref={confirmPasswordRef}
+              autoCapitalize="none"
+              autoComplete="password-new"
+              autoCorrect={false}
+              editable={!isLoading}
+              error={errors.confirmPassword}
+              icon="shield-checkmark-outline"
+              isPasswordVisible={showConfirmPassword}
+              label="Konfirmasi password baru"
+              maxLength={PASSWORD_MAX_LENGTH}
+              onToggleVisibility={() => setShowConfirmPassword((value) => !value)}
+              placeholder="Ulangi password baru"
+              returnKeyType="done"
+              secureTextEntry={!showConfirmPassword}
+              textContentType="newPassword"
+              value={confirmPassword}
+              onChangeText={(value) => {
+                setConfirmPassword(value);
+                clearError('confirmPassword');
+              }}
+              onSubmitEditing={handleReset}
+            />
+
+            <Button
+              disabled={isLoading || !username.trim() || !email.trim() || !newPassword || !confirmPassword}
+              fullWidth
+              loading={isLoading}
+              title="Reset Password"
+              onPress={handleReset}
+            />
+          </View>
+
+          <View style={styles.footer}>
+            <Text variant="body" color="secondary">
+              Ingat password Anda?{' '}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Masuk ke akun"
+              disabled={isLoading}
+              hitSlop={12}
+              onPress={() => router.replace('/(auth)/login')}
+            >
+              <Text variant="bodyStrong" color="primary">
+                Masuk
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -186,6 +249,9 @@ const styles = createSheet((colors) => ({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
+  },
+  flex: {
+    flex: 1,
   },
   content: {
     flexGrow: 1,

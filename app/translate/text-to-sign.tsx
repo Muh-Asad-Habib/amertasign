@@ -12,7 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
-import TextInputArea from '../../components/translate/TextInputArea';
+import TextInputArea, { TEXT_TO_SIGN_MAX_LENGTH } from '../../components/translate/TextInputArea';
 import SignSequencePlayer from '../../components/translate/SignSequencePlayer';
 import Badge from '../../components/ui/Badge';
 import BackHeader from '../../components/ui/BackHeader';
@@ -37,7 +37,9 @@ export default function TextToSignScreen() {
   const { text: initialText } = useLocalSearchParams<{ text?: string }>();
   const themeMode = useSettingsStore((state) => state.themeMode);
   const { signLanguageType, isDetecting, translateText } = useTranslation();
-  const [inputValue, setInputValue] = useState(typeof initialText === 'string' ? initialText : '');
+  const [inputValue, setInputValue] = useState(
+    typeof initialText === 'string' ? initialText.slice(0, TEXT_TO_SIGN_MAX_LENGTH) : ''
+  );
   const [result, setResult] = useState<TextToSignResult | null>(null);
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
   const user = useAuthStore((state) => state.user);
@@ -74,7 +76,8 @@ export default function TextToSignScreen() {
   const { isAvailable: sttAvailable, isListening, start: startListening, stop: stopListening } = useSpeechToText({
     onResult: (transcript) => {
       const base = baseTextRef.current;
-      setInputValue(base ? `${base} ${transcript}` : transcript);
+      // Transkrip suara juga tunduk batas karakter (maxLength hanya membatasi ketikan).
+      setInputValue((base ? `${base} ${transcript}` : transcript).slice(0, TEXT_TO_SIGN_MAX_LENGTH));
     },
   });
 

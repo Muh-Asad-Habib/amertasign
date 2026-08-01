@@ -8,7 +8,11 @@ import Text from './Text';
 
 import { createSheet } from '../../theme';
 
-/** Logo "G" resmi Google (4 warna) dalam SVG. */
+/**
+ * Logo "G" resmi Google (4 warna) dalam SVG.
+ * Warna hex di bawah adalah warna brand resmi Google (pedoman identitas
+ * Google Sign-In) — pengecualian design token yang disengaja.
+ */
 function GoogleGlyph({ size = 20 }: { size?: number }) {
   return (
     <Svg height={size} viewBox="0 0 48 48" width={size}>

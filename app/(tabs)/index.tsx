@@ -1,5 +1,5 @@
-import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Image, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,9 +9,10 @@ import Heading from '../../components/ui/Heading';
 import BrandMark from '../../components/ui/BrandMark';
 import PressableScale from '../../components/ui/PressableScale';
 import Screen from '../../components/ui/Screen';
+import Skeleton from '../../components/ui/Skeleton';
 import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
-import { colors, gradients, layoutSpacing, radius, shadow, spacing } from '../../theme';
+import { colors, gradients, layoutSpacing, overlay, radius, shadow, spacing, touchTargetMin } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore, type TranslationHistoryItem } from '../../store/useHistoryStore';
 import { useThemeMode } from '../../hooks/useThemeMode';
@@ -69,10 +70,34 @@ export default function HomeScreen() {
   const history = useHistoryStore((state) =>
     user && !isGuest ? (state.itemsByUser[user.id] ?? EMPTY_HISTORY) : EMPTY_HISTORY
   );
+  const isHistoryLoading = useHistoryStore((state) => state.isLoading);
+  const loadHistory = useHistoryStore((state) => state.loadHistory);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const recentHistory = history.slice(0, 5);
+  // Skeleton hanya pada muat pertama (belum ada data), bukan setiap sinkron ulang.
+  const showHistorySkeleton = !isGuest && isHistoryLoading && history.length === 0;
+
+  const handleRefresh = useCallback(async () => {
+    if (isGuest || !user) {
+      return;
+    }
+    setIsRefreshing(true);
+    try {
+      await loadHistory(user.id);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [isGuest, loadHistory, user]);
   const displayName = isGuest ? 'Tamu' : user?.name?.split(' ')[0] || 'Pengguna';
   const avatarUrl = !isGuest ? user?.avatarUrl : null;
   const initial = (isGuest ? 'T' : user?.name?.trim().charAt(0).toUpperCase()) || 'A';
+  // Foto profil gagal dimuat (URL rusak/offline) → tampilkan inisial.
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const showAvatarImage = Boolean(avatarUrl) && !avatarFailed;
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
 
   const handleProfilePress = () => {
     // Tamu diarahkan ke layar masuk; user login langsung ke edit profil.
@@ -84,7 +109,20 @@ export default function HomeScreen() {
   };
 
   return (
-    <Screen scroll contentStyle={{ paddingBottom: layoutSpacing.tabBarClearance }}>
+    <Screen
+      scroll
+      contentStyle={{ paddingBottom: layoutSpacing.tabBarClearance }}
+      refreshControl={
+        isGuest ? undefined : (
+          <RefreshControl
+            colors={[colors.primary]}
+            refreshing={isRefreshing}
+            tintColor={colors.primary}
+            onRefresh={() => void handleRefresh()}
+          />
+        )
+      }
+    >
       <Stack gap={spacing.lg}>
         {/* Top App Bar */}
         <Animated.View entering={FadeInDown.springify().damping(24).stiffness(160)}>
@@ -100,8 +138,13 @@ export default function HomeScreen() {
               onPress={handleProfilePress}
               style={styles.avatarBtn}
             >
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              {showAvatarImage ? (
+                <Image
+                  accessibilityLabel={`Foto profil ${displayName}`}
+                  source={{ uri: avatarUrl as string }}
+                  style={styles.avatarImage}
+                  onError={() => setAvatarFailed(true)}
+                />
               ) : isGuest ? (
                 <Ionicons color={colors.textSecondary} name="person" size={20} />
               ) : (
@@ -228,6 +271,18 @@ export default function HomeScreen() {
                 </Text>
               </PressableScale>
             </View>
+          ) : showHistorySkeleton ? (
+            <View style={styles.historyList}>
+              {[0, 1, 2].map((index) => (
+                <View key={index} style={styles.historyItem}>
+                  <Skeleton borderRadius={radius.full} height={36} width={36} />
+                  <View style={styles.historyCopy}>
+                    <Skeleton height={16} width="70%" />
+                    <Skeleton height={12} width="45%" />
+                  </View>
+                </View>
+              ))}
+            </View>
           ) : recentHistory.length === 0 ? (
             <View style={styles.historyEmpty}>
               <View style={styles.historyEmptyIcon}>
@@ -337,7 +392,7 @@ const styles = createSheet((colors) => ({
     width: 200,
     height: 200,
     borderRadius: radius.full,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: overlay.onBrandFaint,
   },
   heroCircleSm: {
     position: 'absolute',
@@ -346,14 +401,14 @@ const styles = createSheet((colors) => ({
     width: 120,
     height: 120,
     borderRadius: radius.full,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: overlay.onBrandFaint,
   },
   heroBadge: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: overlay.onBrandMuted,
     borderRadius: radius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
@@ -462,7 +517,7 @@ const styles = createSheet((colors) => ({
     marginBottom: spacing.xs,
   },
   historyLoginBtn: {
-    minHeight: 44,
+    minHeight: touchTargetMin,
     borderRadius: radius.full,
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.lg,

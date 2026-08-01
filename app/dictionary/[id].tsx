@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -32,7 +32,7 @@ export default function DictionaryDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const entryId = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { allEntries, addToHistory, isFavorite, toggleFavorite } = useDictionary();
+  const { allEntries, isLoadingEntries, addToHistory, isFavorite, toggleFavorite } = useDictionary();
   const { speak } = useTTS();
 
   const entry = useMemo(() => allEntries.find((item) => item.id === entryId), [allEntries, entryId]);
@@ -51,6 +51,17 @@ export default function DictionaryDetailScreen() {
   }, [addToHistory, entry, entryId]);
 
   if (!entry) {
+    // Data kamus masih dimuat — jangan buru-buru menyatakan kata tidak ada.
+    if (isLoadingEntries) {
+      return (
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.errorContainer}>
+            <ActivityIndicator color={colors.primary} size="large" />
+          </View>
+        </SafeAreaView>
+      );
+    }
+
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.errorContainer}>

@@ -14,6 +14,10 @@ import {
   type UpdateProfilePayload,
 } from '../services/auth';
 import type { User } from '../types';
+// Impor melingkar (store ini ↔ useDictionaryStore) aman: keduanya hanya
+// mengakses store lain di dalam aksi saat runtime, bukan saat evaluasi modul.
+import { useDictionaryStore } from './useDictionaryStore';
+import { useHistoryStore } from './useHistoryStore';
 
 interface AuthState {
   user: User | null;
@@ -152,7 +156,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
 
     try {
+      // Eksekusi penghapusan riwayat tertunda selagi token masih valid —
+      // di-await agar DELETE tidak balapan dengan pencabutan sesi di server.
+      await useHistoryStore.getState().flushPendingClears();
       await signOut();
+      // Bersihkan data user di store lain agar tidak bocor ke akun berikutnya.
+      useHistoryStore.getState().reset();
+      useDictionaryStore.getState().reset();
       set({ isAuthenticated: false, isGuest: false, isLoading: false, user: null });
     } catch (error) {
       set({ isLoading: false });

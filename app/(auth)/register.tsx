@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../../components/ui/Button';
@@ -22,9 +22,17 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import {
   EMAIL_REGEX,
   PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
   USERNAME_REGEX,
   VALIDATION_MESSAGES,
 } from '../../utils/validation';
+
+interface FieldErrors {
+  username?: string;
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+}
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -37,48 +45,63 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
 
   const { isGoogleLoading, promptGoogleSignIn } = useGoogleAuth({
     onSuccess: () => router.replace('/(tabs)/'),
     onError: (message) => Alert.alert('Daftar dengan Google gagal', message),
   });
 
-  const handleRegister = async () => {
+  const clearError = (field: keyof FieldErrors) => {
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+  };
+
+  /** Validasi lokal — error tampil inline di bawah field terkait. */
+  const validate = (): boolean => {
     const normalizedUsername = username.trim().toLowerCase();
     const normalizedEmail = email.trim().toLowerCase();
+    const nextErrors: FieldErrors = {};
 
-    if (!normalizedUsername || !normalizedEmail || !password || !confirmPassword) {
-      Alert.alert('Data belum lengkap', 'Lengkapi semua field untuk membuat akun baru.');
-      return;
+    if (!normalizedUsername) {
+      nextErrors.username = 'Masukkan username pilihan Anda.';
+    } else if (!USERNAME_REGEX.test(normalizedUsername)) {
+      nextErrors.username = VALIDATION_MESSAGES.username;
     }
 
-    if (!USERNAME_REGEX.test(normalizedUsername)) {
-      Alert.alert('Username tidak valid', VALIDATION_MESSAGES.username);
-      return;
+    if (!normalizedEmail) {
+      nextErrors.email = 'Masukkan alamat email Anda.';
+    } else if (!EMAIL_REGEX.test(normalizedEmail)) {
+      nextErrors.email = VALIDATION_MESSAGES.email;
     }
 
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      Alert.alert('Email tidak valid', VALIDATION_MESSAGES.email);
-      return;
+    if (!password) {
+      nextErrors.password = 'Masukkan password pilihan Anda.';
+    } else if (password.length < PASSWORD_MIN_LENGTH) {
+      nextErrors.password = VALIDATION_MESSAGES.passwordMin;
+    } else if (password.length > PASSWORD_MAX_LENGTH) {
+      nextErrors.password = VALIDATION_MESSAGES.passwordMax;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Password terlalu pendek', 'Password harus terdiri dari minimal 6 karakter.');
-      return;
+    if (!confirmPassword) {
+      nextErrors.confirmPassword = 'Ulangi password Anda.';
+    } else if (password !== confirmPassword) {
+      nextErrors.confirmPassword = 'Konfirmasi password tidak sama dengan password.';
     }
 
-    if (password.length > PASSWORD_MAX_LENGTH) {
-      Alert.alert('Password terlalu panjang', VALIDATION_MESSAGES.passwordMax);
-      return;
-    }
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
-    if (password !== confirmPassword) {
-      Alert.alert('Password tidak sama', 'Pastikan konfirmasi password sesuai dengan password Anda.');
+  const handleRegister = async () => {
+    if (!validate()) {
       return;
     }
 
     try {
-      await signUp(normalizedUsername, password, normalizedEmail);
+      await signUp(username.trim().toLowerCase(), password, email.trim().toLowerCase());
       router.replace('/(tabs)/');
     } catch (error) {
       Alert.alert(
@@ -92,110 +115,150 @@ export default function RegisterScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
       <Decor preset="corner" />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <BrandMark size={84} />
-          <Heading variant="title" align="center" style={styles.brandName}>
-            Buat Akun Baru
-          </Heading>
-          <Squiggle width={84} />
-          <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
-            Mulai perjalanan komunikasi tanpa batas bersama Amerta Sign
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          <Input
-            autoCapitalize="none"
-            autoCorrect={false}
-            icon="person-outline"
-            label="Username"
-            placeholder="username_anda"
-            textContentType="username"
-            value={username}
-            onChangeText={setUsername}
-          />
-          <Input
-            autoCapitalize="none"
-            autoCorrect={false}
-            icon="mail-outline"
-            keyboardType="email-address"
-            label="Email"
-            placeholder="nama@email.com"
-            textContentType="emailAddress"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <Input
-            autoCapitalize="none"
-            autoCorrect={false}
-            icon="lock-closed-outline"
-            isPasswordVisible={showPassword}
-            label="Password"
-            maxLength={PASSWORD_MAX_LENGTH}
-            onToggleVisibility={() => setShowPassword((value) => !value)}
-            placeholder="Minimal 6 karakter"
-            secureTextEntry={!showPassword}
-            textContentType="newPassword"
-            value={password}
-            onChangeText={setPassword}
-          />
-          <Input
-            autoCapitalize="none"
-            autoCorrect={false}
-            icon="shield-checkmark-outline"
-            isPasswordVisible={showConfirmPassword}
-            label="Konfirmasi password"
-            maxLength={PASSWORD_MAX_LENGTH}
-            onToggleVisibility={() => setShowConfirmPassword((value) => !value)}
-            placeholder="Ulangi password"
-            secureTextEntry={!showConfirmPassword}
-            textContentType="password"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-          />
-
-          <Button
-            disabled={isLoading || !username.trim() || !email.trim() || !password || !confirmPassword}
-            fullWidth
-            loading={isLoading}
-            title="Daftar"
-            onPress={handleRegister}
-          />
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text variant="caption" color="secondary" style={styles.dividerText}>
-              atau
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex}
+      >
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <BrandMark size={84} />
+            <Heading variant="title" align="center" style={styles.brandName}>
+              Buat Akun Baru
+            </Heading>
+            <Squiggle width={84} />
+            <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
+              Mulai perjalanan komunikasi tanpa batas bersama Amerta Sign
             </Text>
-            <View style={styles.dividerLine} />
           </View>
 
-          <GoogleButton
-            disabled={isLoading}
-            loading={isGoogleLoading}
-            title="Daftar dengan Google"
-            onPress={promptGoogleSignIn}
-          />
-        </View>
+          <View style={styles.form}>
+            <Input
+              autoCapitalize="none"
+              autoComplete="username-new"
+              autoCorrect={false}
+              editable={!isLoading}
+              error={errors.username}
+              icon="person-outline"
+              label="Username"
+              placeholder="username_anda"
+              returnKeyType="next"
+              textContentType="username"
+              value={username}
+              onChangeText={(value) => {
+                setUsername(value);
+                clearError('username');
+              }}
+              onSubmitEditing={() => emailRef.current?.focus()}
+            />
+            <Input
+              ref={emailRef}
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
+              editable={!isLoading}
+              error={errors.email}
+              icon="mail-outline"
+              keyboardType="email-address"
+              label="Email"
+              placeholder="nama@email.com"
+              returnKeyType="next"
+              textContentType="emailAddress"
+              value={email}
+              onChangeText={(value) => {
+                setEmail(value);
+                clearError('email');
+              }}
+              onSubmitEditing={() => passwordRef.current?.focus()}
+            />
+            <Input
+              ref={passwordRef}
+              autoCapitalize="none"
+              autoComplete="password-new"
+              autoCorrect={false}
+              editable={!isLoading}
+              error={errors.password}
+              icon="lock-closed-outline"
+              isPasswordVisible={showPassword}
+              label="Password"
+              maxLength={PASSWORD_MAX_LENGTH}
+              onToggleVisibility={() => setShowPassword((value) => !value)}
+              placeholder="Minimal 6 karakter"
+              returnKeyType="next"
+              secureTextEntry={!showPassword}
+              textContentType="newPassword"
+              value={password}
+              onChangeText={(value) => {
+                setPassword(value);
+                clearError('password');
+              }}
+              onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+            />
+            <Input
+              ref={confirmPasswordRef}
+              autoCapitalize="none"
+              autoComplete="password-new"
+              autoCorrect={false}
+              editable={!isLoading}
+              error={errors.confirmPassword}
+              icon="shield-checkmark-outline"
+              isPasswordVisible={showConfirmPassword}
+              label="Konfirmasi password"
+              maxLength={PASSWORD_MAX_LENGTH}
+              onToggleVisibility={() => setShowConfirmPassword((value) => !value)}
+              placeholder="Ulangi password"
+              returnKeyType="done"
+              secureTextEntry={!showConfirmPassword}
+              textContentType="newPassword"
+              value={confirmPassword}
+              onChangeText={(value) => {
+                setConfirmPassword(value);
+                clearError('confirmPassword');
+              }}
+              onSubmitEditing={handleRegister}
+            />
 
-        <View style={styles.footer}>
-          <Text variant="body" color="secondary">
-            Sudah punya akun?{' '}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Masuk ke akun"
-            disabled={isLoading}
-            hitSlop={12}
-            onPress={() => router.replace('/(auth)/login')}
-          >
-            <Text variant="bodyStrong" color="primary">
-              Masuk
+            <Button
+              disabled={isLoading || !username.trim() || !email.trim() || !password || !confirmPassword}
+              fullWidth
+              loading={isLoading}
+              title="Daftar"
+              onPress={handleRegister}
+            />
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text variant="caption" color="secondary" style={styles.dividerText}>
+                atau
+              </Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <GoogleButton
+              disabled={isLoading}
+              loading={isGoogleLoading}
+              title="Daftar dengan Google"
+              onPress={promptGoogleSignIn}
+            />
+          </View>
+
+          <View style={styles.footer}>
+            <Text variant="body" color="secondary">
+              Sudah punya akun?{' '}
             </Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Masuk ke akun"
+              disabled={isLoading}
+              hitSlop={12}
+              onPress={() => router.replace('/(auth)/login')}
+            >
+              <Text variant="bodyStrong" color="primary">
+                Masuk
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -204,6 +267,9 @@ const styles = createSheet((colors) => ({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
+  },
+  flex: {
+    flex: 1,
   },
   content: {
     flexGrow: 1,

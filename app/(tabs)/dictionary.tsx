@@ -1,6 +1,7 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
+  RefreshControl,
   StyleSheet,
   View,
   type LayoutChangeEvent,
@@ -24,8 +25,9 @@ import SearchBar from '../../components/ui/SearchBar';
 import Squiggle from '../../components/ui/Squiggle';
 import Text from '../../components/ui/Text';
 import { WordCardSkeleton } from '../../components/ui/Skeleton';
-import { colors, createSheet, layoutSpacing, radius, shadow, spacing } from '../../theme';
+import { colors, createSheet, layoutSpacing, radius, shadow, spacing, touchTargetMin } from '../../theme';
 import { useDictionary } from '../../hooks/useDictionary';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useThemeMode } from '../../hooks/useThemeMode';
 import type { DictionaryCategory, DictionaryEntry } from '../../types';
 import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '../../constants/Dictionary';
@@ -91,8 +93,11 @@ export default function DictionaryScreen() {
   useThemeMode();
   const router = useRouter();
   const [searchText, setSearchText] = useState('');
+  // Filter dihitung setelah pengguna berhenti mengetik — hemat render list besar.
+  const debouncedSearch = useDebouncedValue(searchText, 300);
   const [activeCategory, setActiveCategory] = useState<DictionaryCategory | 'semua'>('semua');
   const [activeLibraryTab, setActiveLibraryTab] = useState<LibraryTab>('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   // Status "menempel" baris pencarian — memberi bayangan pemisah saat digulung.
   const [searchPinned, setSearchPinned] = useState(false);
   const heroHeightRef = useRef(0);
@@ -101,9 +106,17 @@ export default function DictionaryScreen() {
   const { filteredEntries, favoriteEntries, historyEntries, isLoadingEntries, isOffline, refresh } =
     useDictionary({
       category: activeCategory,
-      search: searchText,
+      search: debouncedSearch,
     });
 
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refresh]);
 
   const displayedEntries =
     activeLibraryTab === 'favorites'
@@ -344,6 +357,14 @@ export default function DictionaryScreen() {
           </View>
         }
         onScroll={handleScroll}
+        refreshControl={
+          <RefreshControl
+            colors={[colors.primary]}
+            refreshing={isRefreshing}
+            tintColor={colors.primary}
+            onRefresh={() => void handleRefresh()}
+          />
+        }
         renderItem={renderRow}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
@@ -453,7 +474,7 @@ const styles = createSheet((colors) => ({
     flexDirection: 'row',
     gap: 6,
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: touchTargetMin,
   },
   segmentActive: {
     backgroundColor: colors.surface,

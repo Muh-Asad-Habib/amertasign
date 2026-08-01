@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, View } from 'react-native';
 
-import { radius, shadow, spacing } from '../../theme';
+import { radius, shadow, spacing, touchTargetMin } from '../../theme';
 import PressableScale from './PressableScale';
 import Text from './Text';
 
@@ -107,7 +107,7 @@ const styles = createSheet((colors) => ({
     flex: 1,
   },
   action: {
-    minHeight: 44,
+    minHeight: touchTargetMin,
     justifyContent: 'center',
     paddingHorizontal: spacing.sm,
   },

@@ -21,6 +21,8 @@ export interface GradientSurfaceProps {
   onPress?: () => void;
   accessibilityLabel?: string;
   disabled?: boolean;
+  /** Getaran halus saat ditekan — konsisten dengan Card/Button. Default false. */
+  haptic?: boolean;
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
 }
@@ -40,6 +42,7 @@ export default function GradientSurface({
   onPress,
   accessibilityLabel,
   disabled,
+  haptic = false,
   style,
   contentStyle,
 }: GradientSurfaceProps) {
@@ -66,6 +69,7 @@ export default function GradientSurface({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         disabled={disabled}
+        haptic={haptic}
         onPress={onPress}
         style={[frameStyle, style]}
       >

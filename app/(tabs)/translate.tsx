@@ -11,7 +11,7 @@ import PressableScale from '../../components/ui/PressableScale';
 import Screen from '../../components/ui/Screen';
 import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
-import { colors, gradients, layoutSpacing, radius, shadow, spacing } from '../../theme';
+import { colors, gradients, layoutSpacing, overlay, radius, shadow, spacing } from '../../theme';
 import { useThemeMode } from '../../hooks/useThemeMode';
 
 import { createSheet } from '../../theme';
@@ -137,13 +137,13 @@ const styles = createSheet((colors) => ({
     width: 170,
     height: 170,
     borderRadius: radius.full,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: overlay.onBrandMuted,
   },
   modeIcon: {
     width: 56,
     height: 56,
     borderRadius: radius.lg,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: overlay.onBrandSoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xs,
