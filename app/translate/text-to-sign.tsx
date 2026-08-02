@@ -1,12 +1,6 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Animated,
-  LayoutChangeEvent,
-  ScrollView,
-  View,
-} from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Animated, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,12 +11,12 @@ import SignSequencePlayer from '../../components/translate/SignSequencePlayer';
 import Badge from '../../components/ui/Badge';
 import BackHeader from '../../components/ui/BackHeader';
 import Heading from '../../components/ui/Heading';
+import KeyboardAwareScrollView from '../../components/ui/KeyboardAwareScrollView';
 import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
 import { colors, radius, spacing } from '../../theme';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useSpeechToText } from '../../hooks/useSpeechToText';
-import { useKeyboardOverlap } from '../../hooks/useKeyboardOverlap';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -45,31 +39,6 @@ export default function TextToSignScreen() {
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const addHistoryEntry = useHistoryStore((state) => state.addEntry);
-
-  // Keyboard di Android edge-to-edge menimpa konten, jadi ruang bawah dan
-  // posisi gulir diatur manual berdasarkan tinggi tumpang tindih sebenarnya.
-  const keyboardOverlap = useKeyboardOverlap();
-  const scrollRef = useRef<ScrollView | null>(null);
-  const inputOffsetRef = useRef(0);
-
-  const handleInputLayout = useCallback((event: LayoutChangeEvent) => {
-    inputOffsetRef.current = event.nativeEvent.layout.y;
-  }, []);
-
-  const scrollToInput = useCallback(() => {
-    scrollRef.current?.scrollTo({
-      y: Math.max(inputOffsetRef.current - spacing.md, 0),
-      animated: true,
-    });
-  }, []);
-
-  useEffect(() => {
-    if (keyboardOverlap <= 0) {
-      return;
-    }
-    const timer = setTimeout(scrollToInput, 60);
-    return () => clearTimeout(timer);
-  }, [keyboardOverlap, scrollToInput]);
 
   // Input suara: transkrip ditambahkan setelah teks yang sudah diketik.
   const baseTextRef = useRef('');
@@ -143,12 +112,9 @@ export default function TextToSignScreen() {
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={[styles.content, { paddingBottom: spacing.xxl + keyboardOverlap }]}
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-        style={styles.flex}
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.content}
+        extraBottomSpace={spacing.xxl}
       >
         <BackHeader
           onBack={() => router.back()}
@@ -188,7 +154,7 @@ export default function TextToSignScreen() {
           ) : null}
         </Stack>
 
-        <View onLayout={handleInputLayout}>
+        <View>
           <Stack gap={spacing.sm}>
             <Heading variant="title">Masukkan pesan</Heading>
             <Text variant="body" color="secondary" style={styles.sectionSubtitle}>
@@ -197,14 +163,13 @@ export default function TextToSignScreen() {
             <TextInputArea
               isListening={isListening}
               onChangeText={setInputValue}
-              onFocus={scrollToInput}
               onMicPress={handleMicPress}
               onSubmit={handleSubmit}
               value={inputValue}
             />
           </Stack>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
@@ -214,11 +179,9 @@ const styles = createSheet((colors) => ({
     backgroundColor: colors.background,
     flex: 1,
   },
-  flex: {
-    flex: 1,
-  },
   content: {
     padding: spacing.lg,
+    paddingBottom: spacing.xxl,
     gap: spacing.xl,
   },
   visualSection: {

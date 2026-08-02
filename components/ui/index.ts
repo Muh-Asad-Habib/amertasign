@@ -1,5 +1,10 @@
 export { default as Screen } from './Screen';
 export type { ScreenProps } from './Screen';
+export { default as KeyboardAwareScrollView, useEnsureVisibleOnFocus } from './KeyboardAwareScrollView';
+export type {
+  KeyboardAwareScrollViewProps,
+  KeyboardAwareScrollContextValue,
+} from './KeyboardAwareScrollView';
 export { default as Stack } from './Stack';
 export type { StackProps } from './Stack';
 export { default as Row } from './Row';

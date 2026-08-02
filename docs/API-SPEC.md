@@ -395,8 +395,8 @@ Tabel di bawah adalah status terkini, bukan lagi rencana penggantian mock.
 
 1. ~~**Fase 1 (MVP):** Auth (register/login/me/refresh) + Riwayat Terjemahan (CRUD).~~ Selesai.
 2. ~~**Fase 2:** Kamus (list/detail/daily) + Favorit.~~ Selesai.
-3. **Fase 3 (berjalan):** Proteksi & batasan endpoint terjemahan AI, reset password aman
-   (OTP/reset token), upload avatar multipart, hapus akun. Detail: `CATATAN-UNTUK-TIM-SERVER.txt`.
+3. **Fase 3 (berjalan):** Proteksi & batasan endpoint terjemahan AI, hardening reset password
+   tanpa OTP (rate limit + revoke sesi lama), upload avatar multipart, hapus akun. Detail: `PERUBAHAN-SERVER.txt`.
 
 ---
 

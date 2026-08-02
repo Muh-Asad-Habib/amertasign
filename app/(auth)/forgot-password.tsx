@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Alert, Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../../components/ui/Button';
@@ -9,6 +9,7 @@ import BrandMark from '../../components/ui/BrandMark';
 import Decor from '../../components/ui/Decor';
 import Heading from '../../components/ui/Heading';
 import Input from '../../components/ui/Input';
+import KeyboardAwareScrollView from '../../components/ui/KeyboardAwareScrollView';
 import Squiggle from '../../components/ui/Squiggle';
 import Text from '../../components/ui/Text';
 import { spacing } from '../../theme';
@@ -112,135 +113,130 @@ export default function ForgotPasswordScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
       <Decor preset="corner" />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}
-      >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <BrandMark size={84} />
-            <Heading variant="title" align="center" style={styles.brandName}>
-              Lupa Password
-            </Heading>
-            <Squiggle width={84} />
-            <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
-              Verifikasi username dan email terdaftar untuk membuat password baru
+      <KeyboardAwareScrollView contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <BrandMark size={84} />
+          <Heading variant="title" align="center" style={styles.brandName}>
+            Lupa Password
+          </Heading>
+          <Squiggle width={84} />
+          <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
+            Verifikasi username dan email terdaftar untuk membuat password baru
+          </Text>
+        </View>
+
+        <View style={styles.form}>
+          <Input
+            autoCapitalize="none"
+            autoComplete="username"
+            autoCorrect={false}
+            editable={!isLoading}
+            error={errors.username}
+            icon="person-outline"
+            label="Username"
+            placeholder="username_anda"
+            returnKeyType="next"
+            textContentType="username"
+            value={username}
+            onChangeText={(value) => {
+              setUsername(value);
+              clearError('username');
+            }}
+            onSubmitEditing={() => emailRef.current?.focus()}
+          />
+          <Input
+            ref={emailRef}
+            autoCapitalize="none"
+            autoComplete="email"
+            autoCorrect={false}
+            editable={!isLoading}
+            error={errors.email}
+            icon="mail-outline"
+            keyboardType="email-address"
+            label="Email terdaftar"
+            placeholder="nama@email.com"
+            returnKeyType="next"
+            textContentType="emailAddress"
+            value={email}
+            onChangeText={(value) => {
+              setEmail(value);
+              clearError('email');
+            }}
+            onSubmitEditing={() => newPasswordRef.current?.focus()}
+          />
+          <Input
+            ref={newPasswordRef}
+            autoCapitalize="none"
+            autoComplete="password-new"
+            autoCorrect={false}
+            editable={!isLoading}
+            error={errors.newPassword}
+            icon="lock-closed-outline"
+            isPasswordVisible={showPassword}
+            label="Password baru"
+            maxLength={PASSWORD_MAX_LENGTH}
+            onToggleVisibility={() => setShowPassword((value) => !value)}
+            placeholder="Minimal 6 karakter"
+            returnKeyType="next"
+            secureTextEntry={!showPassword}
+            textContentType="newPassword"
+            value={newPassword}
+            onChangeText={(value) => {
+              setNewPassword(value);
+              clearError('newPassword');
+            }}
+            onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+          />
+          <Input
+            ref={confirmPasswordRef}
+            autoCapitalize="none"
+            autoComplete="password-new"
+            autoCorrect={false}
+            editable={!isLoading}
+            error={errors.confirmPassword}
+            icon="shield-checkmark-outline"
+            isPasswordVisible={showConfirmPassword}
+            label="Konfirmasi password baru"
+            maxLength={PASSWORD_MAX_LENGTH}
+            onToggleVisibility={() => setShowConfirmPassword((value) => !value)}
+            placeholder="Ulangi password baru"
+            returnKeyType="done"
+            secureTextEntry={!showConfirmPassword}
+            textContentType="newPassword"
+            value={confirmPassword}
+            onChangeText={(value) => {
+              setConfirmPassword(value);
+              clearError('confirmPassword');
+            }}
+            onSubmitEditing={handleReset}
+          />
+
+          <Button
+            disabled={isLoading || !username.trim() || !email.trim() || !newPassword || !confirmPassword}
+            fullWidth
+            loading={isLoading}
+            title="Reset Password"
+            onPress={handleReset}
+          />
+        </View>
+
+        <View style={styles.footer}>
+          <Text variant="body" color="secondary">
+            Ingat password Anda?{' '}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Masuk ke akun"
+            disabled={isLoading}
+            hitSlop={12}
+            onPress={() => router.replace('/(auth)/login')}
+          >
+            <Text variant="bodyStrong" color="primary">
+              Masuk
             </Text>
-          </View>
-
-          <View style={styles.form}>
-            <Input
-              autoCapitalize="none"
-              autoComplete="username"
-              autoCorrect={false}
-              editable={!isLoading}
-              error={errors.username}
-              icon="person-outline"
-              label="Username"
-              placeholder="username_anda"
-              returnKeyType="next"
-              textContentType="username"
-              value={username}
-              onChangeText={(value) => {
-                setUsername(value);
-                clearError('username');
-              }}
-              onSubmitEditing={() => emailRef.current?.focus()}
-            />
-            <Input
-              ref={emailRef}
-              autoCapitalize="none"
-              autoComplete="email"
-              autoCorrect={false}
-              editable={!isLoading}
-              error={errors.email}
-              icon="mail-outline"
-              keyboardType="email-address"
-              label="Email terdaftar"
-              placeholder="nama@email.com"
-              returnKeyType="next"
-              textContentType="emailAddress"
-              value={email}
-              onChangeText={(value) => {
-                setEmail(value);
-                clearError('email');
-              }}
-              onSubmitEditing={() => newPasswordRef.current?.focus()}
-            />
-            <Input
-              ref={newPasswordRef}
-              autoCapitalize="none"
-              autoComplete="password-new"
-              autoCorrect={false}
-              editable={!isLoading}
-              error={errors.newPassword}
-              icon="lock-closed-outline"
-              isPasswordVisible={showPassword}
-              label="Password baru"
-              maxLength={PASSWORD_MAX_LENGTH}
-              onToggleVisibility={() => setShowPassword((value) => !value)}
-              placeholder="Minimal 6 karakter"
-              returnKeyType="next"
-              secureTextEntry={!showPassword}
-              textContentType="newPassword"
-              value={newPassword}
-              onChangeText={(value) => {
-                setNewPassword(value);
-                clearError('newPassword');
-              }}
-              onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-            />
-            <Input
-              ref={confirmPasswordRef}
-              autoCapitalize="none"
-              autoComplete="password-new"
-              autoCorrect={false}
-              editable={!isLoading}
-              error={errors.confirmPassword}
-              icon="shield-checkmark-outline"
-              isPasswordVisible={showConfirmPassword}
-              label="Konfirmasi password baru"
-              maxLength={PASSWORD_MAX_LENGTH}
-              onToggleVisibility={() => setShowConfirmPassword((value) => !value)}
-              placeholder="Ulangi password baru"
-              returnKeyType="done"
-              secureTextEntry={!showConfirmPassword}
-              textContentType="newPassword"
-              value={confirmPassword}
-              onChangeText={(value) => {
-                setConfirmPassword(value);
-                clearError('confirmPassword');
-              }}
-              onSubmitEditing={handleReset}
-            />
-
-            <Button
-              disabled={isLoading || !username.trim() || !email.trim() || !newPassword || !confirmPassword}
-              fullWidth
-              loading={isLoading}
-              title="Reset Password"
-              onPress={handleReset}
-            />
-          </View>
-
-          <View style={styles.footer}>
-            <Text variant="body" color="secondary">
-              Ingat password Anda?{' '}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Masuk ke akun"
-              disabled={isLoading}
-              hitSlop={12}
-              onPress={() => router.replace('/(auth)/login')}
-            >
-              <Text variant="bodyStrong" color="primary">
-                Masuk
-              </Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </Pressable>
+        </View>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
@@ -249,9 +245,6 @@ const styles = createSheet((colors) => ({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
-  },
-  flex: {
-    flex: 1,
   },
   content: {
     flexGrow: 1,

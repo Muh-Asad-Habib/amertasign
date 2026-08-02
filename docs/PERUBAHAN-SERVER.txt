@@ -11,7 +11,7 @@ sebelumnya, tidak masalah: cek ulang poinnya di sini, tandai
 
 PALING PENTING DI DOKUMEN INI:
   - Poin 14 : MODE MULTI-ISYARAT (inti produk — mohon dibaca dulu)
-  - Poin 1  : Keamanan reset password
+  - Poin 1  : Keamanan reset password (tanpa OTP — hardening ringan)
   - Poin 17 & 20 : Konfirmasi kontrak (cek cepat, risiko bug produksi)
 
 
@@ -73,34 +73,35 @@ ATURAN DASAR (SUDAH DIPAKAI MOBILE — MOHON JANGAN DIUBAH)
 
 
 ================================================================
-1. KEAMANAN RESET PASSWORD  (paling penting setelah poin 14)
+1. KEAMANAN RESET PASSWORD  (TANPA OTP / EMAIL — keputusan terbaru)
 ================================================================
-Masalah:
-  POST /auth/forgot-password sekarang menerima
-  { username, email, newPassword } dan langsung mengganti password
-  hanya dengan mencocokkan username + email.
-  Siapa pun yang tahu username + email seseorang bisa membajak akun.
+KEPUTUSAN TIM MOBILE: reset password TIDAK memakai OTP dan TIDAK
+mengirim email apa pun. Layanan kirim email berbayar dan menambah
+kerumitan, sementara aplikasi masih tahap prototipe.
+- JANGAN membuat endpoint /auth/password-reset/request|verify|confirm.
+- Kalau alur OTP terlanjur dikerjakan sebagian, nonaktifkan saja —
+  mobile tidak akan memakainya.
 
-Ganti menjadi 3 tahap:
-  1) POST /auth/password-reset/request
-     body: { "identifier": "<username atau email>" }
-     - Kirim OTP 6 digit / link sekali pakai ke email terdaftar.
-     - SELALU balas sukses generik (jangan bocorkan akun ada/tidak).
-     - Rate limit: 1 permintaan / 60 detik, maks 5 / jam
-       (per identifier dan per IP).
-  2) POST /auth/password-reset/verify
-     body: { "identifier": "...", "otp": "123456" }
-     - Balas resetToken sementara (sekali pakai, umur pendek).
-     - Maks 5 percobaan salah, lalu blokir sementara.
-  3) POST /auth/password-reset/confirm
-     body: { "resetToken": "...", "newPassword": "..." }
-     - Token disimpan sebagai hash, expire <= 15 menit, sekali pakai.
-     - Setelah password diganti, revoke SEMUA refresh token / sesi
-       lama milik user tersebut.
+Alur yang dipakai mobile (SUDAH ADA — pertahankan, jangan diubah):
+  POST /auth/forgot-password
+  body: { "username": "...", "email": "...", "newPassword": "..." }
+  - Password diganti bila kombinasi username + email cocok dengan
+    akun terdaftar.
 
-Catatan: OTP dan reset token disimpan dalam bentuk hash.
-Jangan pernah menulis OTP / password ke log.
-Selama alur baru belum siap, endpoint lama tetap dipakai mobile.
+Yang diminta hanya pengaman ringan (gratis, tanpa layanan luar):
+  a) Rate limit: maks 5 percobaan / jam (per IP dan per username).
+     Lebih dari itu balas 429 + code RATE_LIMITED (selaras poin 19).
+  b) Bila kombinasi tidak cocok, balas SATU pesan error generik
+     (mis. "Username atau email tidak cocok") — jangan sebut bagian
+     mana yang salah, jangan bocorkan akun ada/tidak.
+  c) Setelah password berhasil diganti, revoke SEMUA refresh token /
+     sesi lama milik user tersebut.
+  d) Validasi newPassword memakai aturan yang sama dengan register.
+  e) Jangan pernah menulis password ke log (lihat poin 12).
+
+Catatan: kami paham alur ini lebih lemah daripada OTP/email — ini
+keputusan sadar untuk fase prototipe. Bila nanti dirilis publik,
+alur OTP bisa dipertimbangkan ulang.
 
 
 ================================================================
@@ -328,13 +329,17 @@ e) Pastikan data kamus lengkap dan seluruh imageUrl / videoUrl valid
     media yang tersimpan.
 - Sediakan juga halaman web permintaan hapus akun (diwajibkan Google
   Play bila aplikasi dirilis ke Play Store).
+  CATATAN: halaman web ini OPSIONAL untuk sekarang — baru wajib bila
+  aplikasi benar-benar dirilis ke Play Store. Selama masih prototipe,
+  cukup endpoint DELETE /users/me saja. Tidak ada layanan berbayar
+  yang dibutuhkan (host di server sendiri).
 
 
 ================================================================
 12. LOGGING & PRIVASI
 ================================================================
-- Jangan pernah menulis ke log: header Authorization, password, OTP,
-  reset token, dan isi media yang diunggah.
+- Jangan pernah menulis ke log: header Authorization, password, dan
+  isi media yang diunggah.
 - Terapkan retention policy untuk media terjemahan yang diunggah
   (usul: hapus otomatis setelah N hari).
 
@@ -344,6 +349,9 @@ e) Pastikan data kamus lengkap dan seluruh imageUrl / videoUrl valid
 ================================================================
 - Pastikan https://amertasign.lab-if.tech stabil (monitoring +
   auto-restart bila proses jatuh).
+  CATATAN: cukup pakai tools GRATIS — systemd (Restart=always), PM2,
+  atau Docker restart policy; monitoring bisa Uptime Kuma / cron
+  sederhana. JANGAN memakai layanan monitoring berbayar.
 - Siapkan 1 akun uji dengan data terisi (beberapa riwayat terjemahan
   dan favorit kamus) supaya pengujian tidak bergantung pada
   registrasi baru setiap kali.
@@ -617,7 +625,8 @@ CHECKLIST UNTUK DIBALAS KE TIM MOBILE
 Mohon salin daftar ini dan isi statusnya setelah pengecekan.
 Status: [sudah sesuai] / [sudah diubah] / [belum] / [perlu diskusi]
 
-  [   ] 1.  Reset password 3 tahap (OTP)
+  [   ] 1.  Reset password tanpa OTP: rate limit + error generik +
+            revoke sesi lama
   [   ] 2.  Akses mode tamu tanpa token (/translate/*, /dictionary/*)
   [   ] 3.  Validasi & batasan upload
   [   ] 4.  Error code standar (termasuk RATE_LIMITED, TEXT_TOO_LONG,
@@ -650,7 +659,7 @@ Prioritas menurut kami:
   4) Poin 18 & 19, lalu 15 & 16
   5) Sisanya konfirmasi / konfigurasi.
 
-Selain poin 1, 10, 11, 14, 15, 16 yang butuh endpoint/kemampuan
+Selain poin 10, 11, 14, 15, 16 yang butuh endpoint/kemampuan
 baru, sisanya hanya konfirmasi dan penyesuaian konfigurasi. Tidak
 ada perubahan struktur database yang dipaksakan dari sisi mobile.
 

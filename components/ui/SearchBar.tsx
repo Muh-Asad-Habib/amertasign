@@ -3,6 +3,7 @@ import { Pressable, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors, fontFamily, radius, shadow, spacing } from '../../theme';
+import { useEnsureVisibleOnFocus } from './KeyboardAwareScrollView';
 
 import { createSheet } from '../../theme';
 
@@ -15,6 +16,8 @@ export interface SearchBarProps {
 
 export default function SearchBar({ value, onChangeText, placeholder = 'Cari...', onClear }: SearchBarProps) {
   const [focused, setFocused] = useState(false);
+  // Jaga kolom pencarian tetap terlihat saat keyboard naik.
+  const { wrapperRef, handleFocus, handleBlur } = useEnsureVisibleOnFocus();
 
   const handleClear = () => {
     if (onClear) {
@@ -26,15 +29,23 @@ export default function SearchBar({ value, onChangeText, placeholder = 'Cari...'
 
   return (
     <View
+      ref={wrapperRef}
       accessibilityRole="search"
+      collapsable={false}
       style={[styles.container, focused && styles.containerFocused]}
     >
       <Ionicons color={focused ? colors.primary : colors.textSecondary} name="search" size={20} />
       <TextInput
         accessibilityLabel={placeholder}
         onChangeText={onChangeText}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
+        onFocus={() => {
+          setFocused(true);
+          handleFocus();
+        }}
+        onBlur={() => {
+          setFocused(false);
+          handleBlur();
+        }}
         placeholder={placeholder}
         placeholderTextColor={colors.textTertiary}
         style={styles.input}

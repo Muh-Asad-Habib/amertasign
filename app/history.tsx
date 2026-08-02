@@ -12,6 +12,7 @@ import SearchBar from '../components/ui/SearchBar';
 import Snackbar from '../components/ui/Snackbar';
 import Text from '../components/ui/Text';
 import { colors, radius, shadow, spacing } from '../theme';
+import { useKeyboardWindowOverlap } from '../hooks/useKeyboardOverlap';
 import { useTTS } from '../hooks/useTTS';
 import { useThemeMode } from '../hooks/useThemeMode';
 import { useAuthStore } from '../store/useAuthStore';
@@ -68,6 +69,9 @@ export default function HistoryScreen() {
   useThemeMode();
   const router = useRouter();
   const [searchText, setSearchText] = useState('');
+  // Sisakan ruang bawah agar hasil terakhir tidak tertutup keyboard. Konten
+  // membentang sampai tepi window (Screen memakai edge 'top' saja).
+  const keyboardOverlap = useKeyboardWindowOverlap();
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const scheduleClearHistory = useHistoryStore((state) => state.scheduleClearHistory);
@@ -165,7 +169,13 @@ export default function HistoryScreen() {
           </View>
 
           <SectionList
-            contentContainerStyle={[styles.listContent, sections.length === 0 && styles.emptyListContent]}
+            contentContainerStyle={[
+              styles.listContent,
+              sections.length === 0 && styles.emptyListContent,
+              keyboardOverlap > 0 && { paddingBottom: spacing.xl + keyboardOverlap },
+            ]}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
             keyExtractor={(item) => item.id}
             ListEmptyComponent={
               <EmptyState

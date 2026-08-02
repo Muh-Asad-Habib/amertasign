@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import { colors, fontFamily, layoutSpacing, radius, spacing, touchTargetMin } from '../../theme';
+import { useEnsureVisibleOnFocus } from './KeyboardAwareScrollView';
 import Text from './Text';
 
 import { createSheet } from '../../theme';
@@ -46,6 +47,8 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
 ) {
   const [focused, setFocused] = useState(false);
   const showToggle = typeof onToggleVisibility === 'function';
+  // Jaga field tetap terlihat saat keyboard naik (di dalam KeyboardAwareScrollView).
+  const { wrapperRef, handleFocus, handleBlur } = useEnsureVisibleOnFocus();
 
   // Umumkan error ke pembaca layar saat muncul — teks merah saja tidak cukup.
   useEffect(() => {
@@ -57,7 +60,7 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
   const borderColor = error ? colors.error : focused ? colors.primary : colors.border;
 
   return (
-    <View style={styles.wrapper}>
+    <View ref={wrapperRef} collapsable={false} style={styles.wrapper}>
       {label ? (
         <Text variant="label" color="secondary" style={styles.label}>
           {label}
@@ -74,10 +77,12 @@ const Input = forwardRef<TextInput, InputProps>(function Input(
           style={[styles.input, !!icon && styles.inputWithIcon, style]}
           onFocus={(e) => {
             setFocused(true);
+            handleFocus();
             onFocus?.(e);
           }}
           onBlur={(e) => {
             setFocused(false);
+            handleBlur();
             onBlur?.(e);
           }}
           {...props}

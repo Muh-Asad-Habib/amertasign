@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Alert, Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../../components/ui/Button';
@@ -10,6 +10,7 @@ import Decor from '../../components/ui/Decor';
 import GoogleButton from '../../components/ui/GoogleButton';
 import Heading from '../../components/ui/Heading';
 import Input from '../../components/ui/Input';
+import KeyboardAwareScrollView from '../../components/ui/KeyboardAwareScrollView';
 import Squiggle from '../../components/ui/Squiggle';
 import Text from '../../components/ui/Text';
 import { spacing } from '../../theme';
@@ -96,136 +97,131 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
       <Decor preset="corner" />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}
-      >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <BrandMark size={92} />
-            <Heading variant="title" align="center" style={styles.brandName}>
-              Amerta Sign
-            </Heading>
-            <Squiggle width={84} />
-            <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
-              Masuk ke akun Anda
+      <KeyboardAwareScrollView contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <BrandMark size={92} />
+          <Heading variant="title" align="center" style={styles.brandName}>
+            Amerta Sign
+          </Heading>
+          <Squiggle width={84} />
+          <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
+            Masuk ke akun Anda
+          </Text>
+        </View>
+
+        <View style={styles.form}>
+          <Input
+            autoCapitalize="none"
+            autoComplete="username"
+            autoCorrect={false}
+            editable={!isLoading}
+            error={errors.username}
+            icon="person-outline"
+            label="Username"
+            placeholder="username_anda"
+            returnKeyType="next"
+            textContentType="username"
+            value={username}
+            onChangeText={(value) => {
+              setUsername(value);
+              if (errors.username) {
+                setErrors((prev) => ({ ...prev, username: undefined }));
+              }
+            }}
+            onSubmitEditing={() => passwordRef.current?.focus()}
+          />
+          <Input
+            ref={passwordRef}
+            autoCapitalize="none"
+            autoComplete="current-password"
+            autoCorrect={false}
+            editable={!isLoading}
+            error={errors.password}
+            icon="lock-closed-outline"
+            isPasswordVisible={showPassword}
+            label="Password"
+            onToggleVisibility={() => setShowPassword((value) => !value)}
+            placeholder="Minimal 6 karakter"
+            returnKeyType="done"
+            secureTextEntry={!showPassword}
+            textContentType="password"
+            value={password}
+            onChangeText={(value) => {
+              setPassword(value);
+              if (errors.password) {
+                setErrors((prev) => ({ ...prev, password: undefined }));
+              }
+            }}
+            onSubmitEditing={handleLogin}
+          />
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Lupa password"
+            accessibilityHint="Buka halaman reset password"
+            disabled={isLoading}
+            hitSlop={12}
+            onPress={() => router.push('/(auth)/forgot-password')}
+            style={styles.forgotLink}
+          >
+            <Text variant="bodyStrong" color="primary">
+              Lupa password?
             </Text>
+          </Pressable>
+
+          <Button
+            disabled={isLoading || !username.trim() || !password}
+            fullWidth
+            loading={isLoading}
+            title="Masuk"
+            onPress={handleLogin}
+          />
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text variant="caption" color="secondary" style={styles.dividerText}>
+              atau
+            </Text>
+            <View style={styles.dividerLine} />
           </View>
 
-          <View style={styles.form}>
-            <Input
-              autoCapitalize="none"
-              autoComplete="username"
-              autoCorrect={false}
-              editable={!isLoading}
-              error={errors.username}
-              icon="person-outline"
-              label="Username"
-              placeholder="username_anda"
-              returnKeyType="next"
-              textContentType="username"
-              value={username}
-              onChangeText={(value) => {
-                setUsername(value);
-                if (errors.username) {
-                  setErrors((prev) => ({ ...prev, username: undefined }));
-                }
-              }}
-              onSubmitEditing={() => passwordRef.current?.focus()}
-            />
-            <Input
-              ref={passwordRef}
-              autoCapitalize="none"
-              autoComplete="current-password"
-              autoCorrect={false}
-              editable={!isLoading}
-              error={errors.password}
-              icon="lock-closed-outline"
-              isPasswordVisible={showPassword}
-              label="Password"
-              onToggleVisibility={() => setShowPassword((value) => !value)}
-              placeholder="Minimal 6 karakter"
-              returnKeyType="done"
-              secureTextEntry={!showPassword}
-              textContentType="password"
-              value={password}
-              onChangeText={(value) => {
-                setPassword(value);
-                if (errors.password) {
-                  setErrors((prev) => ({ ...prev, password: undefined }));
-                }
-              }}
-              onSubmitEditing={handleLogin}
-            />
+          <GoogleButton
+            disabled={isLoading}
+            loading={isGoogleLoading}
+            title="Masuk dengan Google"
+            onPress={promptGoogleSignIn}
+          />
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Lupa password"
-              accessibilityHint="Buka halaman reset password"
-              disabled={isLoading}
-              hitSlop={12}
-              onPress={() => router.push('/(auth)/forgot-password')}
-              style={styles.forgotLink}
-            >
-              <Text variant="bodyStrong" color="primary">
-                Lupa password?
-              </Text>
-            </Pressable>
+          <Button
+            disabled={isLoading}
+            fullWidth
+            title="Lanjut sebagai Tamu"
+            variant="ghost"
+            onPress={handleGuestLogin}
+          />
 
-            <Button
-              disabled={isLoading || !username.trim() || !password}
-              fullWidth
-              loading={isLoading}
-              title="Masuk"
-              onPress={handleLogin}
-            />
+          <Text variant="caption" color="secondary" align="center">
+            Mode tamu tidak menyimpan riwayat terjemahan.
+          </Text>
+        </View>
 
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text variant="caption" color="secondary" style={styles.dividerText}>
-                atau
-              </Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <GoogleButton
-              disabled={isLoading}
-              loading={isGoogleLoading}
-              title="Masuk dengan Google"
-              onPress={promptGoogleSignIn}
-            />
-
-            <Button
-              disabled={isLoading}
-              fullWidth
-              title="Lanjut sebagai Tamu"
-              variant="ghost"
-              onPress={handleGuestLogin}
-            />
-
-            <Text variant="caption" color="secondary" align="center">
-              Mode tamu tidak menyimpan riwayat terjemahan.
+        <View style={styles.footer}>
+          <Text variant="body" color="secondary">
+            Belum punya akun?{' '}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Daftar akun baru"
+            disabled={isLoading}
+            hitSlop={12}
+            onPress={() => router.replace('/(auth)/register')}
+          >
+            <Text variant="bodyStrong" color="primary">
+              Daftar
             </Text>
-          </View>
-
-          <View style={styles.footer}>
-            <Text variant="body" color="secondary">
-              Belum punya akun?{' '}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Daftar akun baru"
-              disabled={isLoading}
-              hitSlop={12}
-              onPress={() => router.replace('/(auth)/register')}
-            >
-              <Text variant="bodyStrong" color="primary">
-                Daftar
-              </Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </Pressable>
+        </View>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
@@ -234,9 +230,6 @@ const styles = createSheet((colors) => ({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
-  },
-  flex: {
-    flex: 1,
   },
   content: {
     flexGrow: 1,

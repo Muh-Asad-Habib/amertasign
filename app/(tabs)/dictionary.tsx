@@ -28,6 +28,7 @@ import { WordCardSkeleton } from '../../components/ui/Skeleton';
 import { colors, createSheet, layoutSpacing, radius, shadow, spacing, touchTargetMin } from '../../theme';
 import { useDictionary } from '../../hooks/useDictionary';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { useKeyboardWindowOverlap } from '../../hooks/useKeyboardOverlap';
 import { useThemeMode } from '../../hooks/useThemeMode';
 import type { DictionaryCategory, DictionaryEntry } from '../../types';
 import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '../../constants/Dictionary';
@@ -98,6 +99,9 @@ export default function DictionaryScreen() {
   const [activeCategory, setActiveCategory] = useState<DictionaryCategory | 'semua'>('semua');
   const [activeLibraryTab, setActiveLibraryTab] = useState<LibraryTab>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // Sisakan ruang bawah agar hasil terakhir tidak tertutup keyboard. Konten
+  // membentang sampai tepi window (Screen memakai edge 'top' saja).
+  const keyboardOverlap = useKeyboardWindowOverlap();
   // Status "menempel" baris pencarian — memberi bayangan pemisah saat digulung.
   const [searchPinned, setSearchPinned] = useState(false);
   const heroHeightRef = useRef(0);
@@ -334,9 +338,13 @@ export default function DictionaryScreen() {
       <Decor preset="header" />
 
       <FlatList
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          keyboardOverlap > 0 && { paddingBottom: layoutSpacing.tabBarClearance + keyboardOverlap },
+        ]}
         data={rows}
         extraData={[searchText, activeCategory, activeLibraryTab, searchPinned]}
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => item.key}
         ListHeaderComponent={

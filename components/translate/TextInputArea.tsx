@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors, fontFamily, radius, spacing } from '../../theme';
 import Button from '../ui/Button';
+import { useEnsureVisibleOnFocus } from '../ui/KeyboardAwareScrollView';
 import PressableScale from '../ui/PressableScale';
 import Text from '../ui/Text';
 
@@ -37,15 +38,21 @@ export default function TextInputArea({
   const characterCount = value.length;
   const isDisabled = value.trim().length === 0;
   const isNearLimit = characterCount >= TEXT_TO_SIGN_MAX_LENGTH * 0.9;
+  // Jaga kotak teks (beserta tombol aksinya) tetap terlihat saat keyboard naik.
+  const { wrapperRef, handleFocus, handleBlur } = useEnsureVisibleOnFocus();
 
   return (
-    <View style={styles.container}>
+    <View ref={wrapperRef} collapsable={false} style={styles.container}>
       <TextInput
         accessibilityLabel="Teks untuk diterjemahkan"
         maxLength={TEXT_TO_SIGN_MAX_LENGTH}
         multiline
+        onBlur={handleBlur}
         onChangeText={onChangeText}
-        onFocus={onFocus}
+        onFocus={() => {
+          handleFocus();
+          onFocus?.();
+        }}
         placeholder={isListening ? 'Mendengarkan... silakan bicara' : 'Ketik pesan untuk diterjemahkan...'}
         placeholderTextColor={colors.textTertiary}
         style={styles.input}

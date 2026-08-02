@@ -10,6 +10,7 @@ import Text from '../../components/ui/Text';
 import { colors, radius, shadow, spacing } from '../../theme';
 
 import { createSheet } from '../../theme';
+import { useKeyboardVisible } from '../../hooks/useKeyboardOverlap';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 const TAB_CONFIG: Record<
@@ -31,6 +32,12 @@ function StitchTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   // Subscribe tema agar bar ikut berubah saat mode gelap/terang diganti.
   useSettingsStore((s) => s.themeMode);
+  // Bar mengambang disembunyikan saat mengetik supaya tidak menutupi input.
+  const keyboardVisible = useKeyboardVisible();
+
+  if (keyboardVisible) {
+    return null;
+  }
 
   return (
     <View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
