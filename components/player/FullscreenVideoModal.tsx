@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import useFullscreenMode from '../../hooks/useFullscreenMode';
 import useFullscreenHandoff, { type FullscreenPhase } from '../../hooks/useFullscreenHandoff';
+import VideoTapArea from './VideoTapArea';
 
 export interface FullscreenVideoModalProps {
   visible: boolean;
@@ -31,16 +32,35 @@ function FullscreenBody({
 }: Pick<FullscreenVideoModalProps, 'children' | 'onSurfacePress' | 'renderControls'>) {
   const insets = useSafeAreaInsets();
 
+  /*
+   * Urutan lapisan (bawah → atas) penting dan tidak boleh ditukar:
+   *   1. panggung video (pasif, tidak menerima sentuhan)
+   *   2. lapisan ketuk — memunculkan / menyembunyikan kontrol
+   *   3. lapisan kontrol — tombolnya menangani sentuhannya sendiri
+   *
+   * Lapisan ketuk sengaja BUKAN pembungkus panggung: `VideoView` milik
+   * `expo-video` menelan sentuhan di Android lalu mengirimkannya kembali dengan
+   * koordinat yang salah, sehingga `Pressable` pembungkus tidak pernah memicu
+   * `onPress` (lihat catatan lengkap di `VideoTapArea`). Dulu inilah sebabnya
+   * hanya ketukan pada bidang hitam yang bereaksi.
+   */
   return (
     <View style={styles.root}>
-      <Pressable
-        accessibilityLabel="Tampilkan atau sembunyikan kontrol"
-        accessibilityRole="button"
-        onPress={onSurfacePress}
+      {/* Panggung dibuat pasif dan disembunyikan dari pembaca layar: lapisan
+          ketuk di bawah ini yang menjadi satu-satunya sasaran fokus. */}
+      <View
+        importantForAccessibility="no-hide-descendants"
+        pointerEvents="none"
         style={styles.surface}
       >
         {children}
-      </Pressable>
+      </View>
+      {onSurfacePress ? (
+        <VideoTapArea
+          accessibilityLabel="Tampilkan atau sembunyikan kontrol"
+          onPress={onSurfacePress}
+        />
+      ) : null}
       {renderControls?.(insets)}
     </View>
   );

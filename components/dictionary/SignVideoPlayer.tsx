@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventListener } from 'expo';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
@@ -14,6 +14,7 @@ import useFullscreenVideoLayout from '../../hooks/useFullscreenVideoLayout';
 import useMediaAspect from '../../hooks/useMediaAspect';
 import FullscreenVideoModal from '../player/FullscreenVideoModal';
 import PlayerControlsOverlay, { type SpeedOption } from '../player/PlayerControlsOverlay';
+import VideoTapArea from '../player/VideoTapArea';
 import Text from '../ui/Text';
 
 import { createSheet } from '../../theme';
@@ -34,6 +35,9 @@ function VideoSurface({ videoUrl, word }: { videoUrl: string; word: string }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   /** Panggung inline hanya dipasang saat modal benar-benar tertutup. */
   const [fullscreenPhase, setFullscreenPhase] = useState<FullscreenPhase>('closed');
+  /** Pemutar langsung diputar saat dibuat, jadi status awalnya "berjalan". */
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isBuffering, setIsBuffering] = useState(false);
   const speed = useSettingsStore((state) => state.signSpeed);
   const setSignSpeed = useSettingsStore((state) => state.setSignSpeed);
 
@@ -42,6 +46,9 @@ function VideoSurface({ videoUrl, word }: { videoUrl: string; word: string }) {
     instance.muted = true;
     instance.play();
   });
+
+  useEventListener(player, 'playingChange', ({ isPlaying: playing }) => setIsPlaying(playing));
+  useEventListener(player, 'statusChange', ({ status }) => setIsBuffering(status === 'loading'));
 
   // Kecepatan peraga dipakai bersama seluruh aplikasi (lihat Pengaturan), jadi
   // pilihan di layar penuh tetap berlaku setelah kembali ke tampilan inline.
@@ -56,35 +63,63 @@ function VideoSurface({ videoUrl, word }: { videoUrl: string; word: string }) {
 
   const isInline = fullscreenPhase === 'closed';
 
+  const toggleInlinePlay = useCallback(() => {
+    if (player.playing) {
+      player.pause();
+    } else {
+      player.play();
+    }
+  }, [player]);
+
   return (
     <>
-      {/* Inline tetap memakai kontrol bawaan; tombol layar penuh native
-          dimatikan agar tidak bentrok dengan kontrol kustom di bawah ini. */}
+      {/* Kontrol bawaan dimatikan: di Android kontrol itu ikut menelan sentuhan
+          sehingga ketukan pada video tidak pernah sampai ke sisi JS. Ketuk-untuk
+          jeda diurus `VideoTapArea` yang ditumpuk di atas video. */}
       <View style={styles.frame}>
         {isInline ? (
-          <VideoView
-            accessibilityLabel="Video peraga isyarat"
-            allowsFullscreen={false}
-            contentFit="contain"
-            nativeControls
-            player={player}
-            style={styles.video}
-            surfaceType="textureView"
-          />
+          <>
+            <VideoView
+              accessibilityLabel="Video peraga isyarat"
+              allowsFullscreen={false}
+              contentFit="contain"
+              importantForAccessibility="no-hide-descendants"
+              nativeControls={false}
+              player={player}
+              pointerEvents="none"
+              style={styles.video}
+              surfaceType="textureView"
+            />
+            <VideoTapArea
+              accessibilityLabel={
+                isPlaying ? `Jeda peragaan ${word}` : `Putar peragaan ${word}`
+              }
+              onPress={toggleInlinePlay}
+            />
+            {isBuffering ? (
+              <View pointerEvents="none" style={styles.overlay}>
+                <ActivityIndicator color="#FFFFFF" size="large" />
+              </View>
+            ) : !isPlaying ? (
+              <View pointerEvents="none" style={styles.overlay}>
+                <View style={styles.overlayBubble}>
+                  <Ionicons color="#FFFFFF" name="play" size={24} style={styles.overlayIcon} />
+                </View>
+              </View>
+            ) : null}
+            <Pressable
+              accessibilityLabel="Putar video di layar penuh"
+              accessibilityRole="button"
+              hitSlop={12}
+              onPress={() => setIsFullscreen(true)}
+              style={styles.fullscreenButton}
+            >
+              <Ionicons color="#FFFFFF" name="expand-outline" size={18} />
+            </Pressable>
+          </>
         ) : (
           <View style={styles.videoPlaceholderWhileFullscreen} />
         )}
-        {isInline ? (
-          <Pressable
-            accessibilityLabel="Putar video di layar penuh"
-            accessibilityRole="button"
-            hitSlop={12}
-            onPress={() => setIsFullscreen(true)}
-            style={styles.fullscreenButton}
-          >
-            <Ionicons color="#FFFFFF" name="expand-outline" size={18} />
-          </Pressable>
-        ) : null}
       </View>
 
       <FullscreenSignVideo
@@ -259,6 +294,26 @@ const styles = createSheet((colors) => ({
   videoPlaceholderWhileFullscreen: {
     width: '100%',
     aspectRatio: 4 / 3,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Bulatan jeda sengaja kecil dan gelap-transparan agar tidak menutupi wajah
+  // dan tangan peraga — bagian yang justru perlu dilihat.
+  overlayBubble: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.42)',
+    borderColor: 'rgba(255,255,255,0.55)',
+    borderRadius: radius.full,
+    borderWidth: 1,
+    height: 52,
+    justifyContent: 'center',
+    width: 52,
+  },
+  overlayIcon: {
+    marginLeft: 4,
   },
   fullscreenButton: {
     alignItems: 'center',

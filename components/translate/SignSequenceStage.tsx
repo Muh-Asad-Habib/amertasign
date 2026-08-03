@@ -6,6 +6,7 @@ import { VideoView, type VideoPlayer } from 'expo-video';
 import type { TextToSignUnit } from '../../services/translation';
 import { colors, radius, spacing } from '../../theme';
 import useFullscreenVideoLayout from '../../hooks/useFullscreenVideoLayout';
+import VideoTapArea from '../player/VideoTapArea';
 import PressableScale from '../ui/PressableScale';
 import Text from '../ui/Text';
 
@@ -95,31 +96,37 @@ export default function SignSequenceStage({
 
   return (
     <View style={styles.stage}>
-      <PressableScale
-        accessibilityRole="button"
-        accessibilityLabel={isPlaying ? 'Jeda peragaan' : 'Putar peragaan'}
-        accessibilityState={{ selected: isPlaying }}
-        onPress={onPress}
-        scaleTo={0.995}
+      <View
+        importantForAccessibility="no-hide-descendants"
+        pointerEvents="none"
         style={styles.stageSurface}
       >
         {media}
+      </View>
 
-        {isBuffering ? (
-          <View pointerEvents="none" style={styles.overlay}>
-            <ActivityIndicator color={colors.textOnPrimary} size="large" />
-          </View>
-        ) : !isPlaying ? (
-          <View pointerEvents="none" style={styles.overlay}>
-            <View style={styles.overlayBubble}>
-              <Ionicons color="#FFFFFF" name="play" size={24} style={styles.overlayIcon} />
-            </View>
-          </View>
-        ) : null}
-      </PressableScale>
+      {/* Lapisan ketuk berada DI ATAS media, bukan membungkusnya: `VideoView`
+          menelan sentuhan di Android lalu mengirimnya kembali dengan koordinat
+          yang salah, sehingga `Pressable` pembungkus tidak pernah memicu
+          `onPress` (lihat catatan di `VideoTapArea`). */}
+      <VideoTapArea
+        accessibilityLabel={isPlaying ? 'Jeda peragaan' : 'Putar peragaan'}
+        onPress={onPress}
+      />
 
-      {/* Sengaja saudara, bukan anak, dari permukaan tap di atas: Pressable
-          bersarang membuat tap tombol ini kadang tertangkap panggung. */}
+      {isBuffering ? (
+        <View pointerEvents="none" style={styles.overlay}>
+          <ActivityIndicator color={colors.textOnPrimary} size="large" />
+        </View>
+      ) : !isPlaying ? (
+        <View pointerEvents="none" style={styles.overlay}>
+          <View style={styles.overlayBubble}>
+            <Ionicons color="#FFFFFF" name="play" size={24} style={styles.overlayIcon} />
+          </View>
+        </View>
+      ) : null}
+
+      {/* Tombol layar penuh dipasang paling akhir agar berada di atas lapisan
+          ketuk dan tetap menerima sentuhannya sendiri. */}
       {onRequestFullscreen ? (
         <PressableScale
           accessibilityLabel="Tampilkan peragaan di layar penuh"
