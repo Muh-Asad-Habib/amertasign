@@ -1,8 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useEventListener } from 'expo';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { VideoView, type VideoPlayer } from 'expo-video';
 
 import type { TextToSignUnit } from '../../services/translation';
 import { colors, radius, spacing } from '../../theme';
@@ -13,167 +12,60 @@ import { createSheet } from '../../theme';
 
 export interface SignSequenceStageProps {
   unit?: TextToSignUnit;
-  /**
-   * Penanda gerakan yang sedang tampil. Dipakai agar gerakan berulang dengan
-   * video yang sama (mis. huruf "A A") tetap diputar ulang dari awal.
-   */
-  unitKey: number;
+  /** Pemutar milik `useSignSequenceVideo`; panggung hanya menampilkannya. */
+  player: VideoPlayer;
+  /** URL video gerakan aktif; null → tampilkan gambar / status kosong. */
+  videoUri: string | null;
+  isBuffering: boolean;
   /** Rangkaian sedang berjalan (auto-play). */
   isPlaying: boolean;
-  /** Pengganda kecepatan peragaan (0,5 · 1 · 1,5). */
-  speed: number;
-  /** Durasi video gerakan aktif dalam milidetik (null bila belum/tidak diketahui). */
-  onDurationLoaded: (durationMs: number | null, unitKey: number) => void;
-  /** Dipanggil saat video gerakan selesai diputar. */
-  onEnded: (unitKey: number) => void;
-  /** Tap pada panggung → jeda / lanjut. */
-  onTogglePlay: () => void;
-}
-
-/** URL video hanya dipakai bila unit memang bertipe video dan URL-nya ada. */
-function videoUriOf(unit?: TextToSignUnit): string | null {
-  if (unit?.mediaType === 'video' && unit.videoUrl) {
-    return unit.videoUrl;
-  }
-  return null;
+  /** Tap pada panggung → jeda / lanjut (inline) atau tampilkan kontrol (layar penuh). */
+  onPress: () => void;
+  /** Tombol masuk layar penuh; disembunyikan bila tidak diberikan. */
+  onRequestFullscreen?: () => void;
+  /**
+   * `inline` = kartu 4:3 di dalam layar terjemahan.
+   * `fullscreen` = memenuhi layar tanpa overlay bawaan (kontrol diurus terpisah).
+   */
+  variant?: 'inline' | 'fullscreen';
 }
 
 /**
- * Panggung peraga isyarat: SATU instance pemutar dipakai ulang untuk seluruh
- * rangkaian (sumber diganti lewat `replaceAsync`) sehingga perpindahan antar
- * gerakan mulus — tidak ada remount/kedip seperti saat tiap gerakan memakai
- * pemutar sendiri.
+ * Panggung peraga isyarat: menampilkan video / gambar gerakan yang sedang
+ * aktif. Komponen ini murni tampilan supaya bisa dipindah ke modal layar penuh
+ * tanpa membuat ulang instance pemutar.
  */
 export default function SignSequenceStage({
   unit,
-  unitKey,
+  player,
+  videoUri,
+  isBuffering,
   isPlaying,
-  speed,
-  onDurationLoaded,
-  onEnded,
-  onTogglePlay,
+  onPress,
+  onRequestFullscreen,
+  variant = 'inline',
 }: SignSequenceStageProps) {
-  const videoUri = videoUriOf(unit);
-  const [isBuffering, setIsBuffering] = useState(false);
-
-  // Dibaca di dalam callback async supaya tidak memakai nilai usang.
-  const isPlayingRef = useRef(isPlaying);
-  const speedRef = useRef(speed);
-  isPlayingRef.current = isPlaying;
-  speedRef.current = speed;
-
-  /** `unitKey` dari sumber yang benar-benar sudah dimuat ke pemutar. */
-  const loadedKeyRef = useRef<number | null>(null);
-  const durationMsRef = useRef<number | null>(null);
-  const durationReportedRef = useRef(false);
-
-  const player = useVideoPlayer(null, (instance) => {
-    instance.loop = false;
-    instance.muted = true;
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    // Sumber lama tidak boleh lanjut terputar selama sumber baru dimuat.
-    loadedKeyRef.current = null;
-    durationMsRef.current = null;
-    durationReportedRef.current = false;
-    player.pause();
-
-    if (!videoUri) {
-      setIsBuffering(false);
-      player.replaceAsync(null).catch(() => {});
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setIsBuffering(true);
-    player
-      .replaceAsync({ uri: videoUri, useCaching: true })
-      .then(() => {
-        if (cancelled) {
-          return;
-        }
-        loadedKeyRef.current = unitKey;
-        // playbackRate bisa ikut ter-reset saat sumber diganti.
-        player.playbackRate = speedRef.current;
-        if (isPlayingRef.current) {
-          player.play();
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setIsBuffering(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [player, unitKey, videoUri]);
-
-  useEffect(() => {
-    player.playbackRate = speed;
-  }, [player, speed]);
-
-  useEffect(() => {
-    if (!videoUri) {
-      return;
-    }
-    if (!isPlaying) {
-      player.pause();
-      return;
-    }
-    // Hanya putar bila sumber untuk gerakan ini memang sudah termuat.
-    if (loadedKeyRef.current === unitKey) {
-      player.play();
-    }
-  }, [isPlaying, player, unitKey, videoUri]);
-
-  useEventListener(player, 'playToEnd', () => {
-    const loadedKey = loadedKeyRef.current;
-    if (loadedKey !== null) {
-      onEnded(loadedKey);
-    }
-  });
-
-  useEventListener(player, 'sourceLoad', ({ duration }) => {
-    setIsBuffering(false);
-    durationMsRef.current = Number.isFinite(duration) && duration > 0 ? duration * 1000 : null;
-  });
-
-  /**
-   * Durasi baru dilaporkan saat pemutaran benar-benar dimulai — `sourceLoad`
-   * hanya menandakan metadata siap, sehingga memakainya sebagai titik awal
-   * membuat penjadwalan gerakan berikutnya terlalu cepat saat masih buffering.
-   */
-  useEventListener(player, 'playingChange', ({ isPlaying: playing }) => {
-    const loadedKey = loadedKeyRef.current;
-    if (!playing || durationReportedRef.current || loadedKey === null) {
-      return;
-    }
-    durationReportedRef.current = true;
-    onDurationLoaded(durationMsRef.current, loadedKey);
-  });
-
-  useEventListener(player, 'statusChange', ({ status }) => {
-    setIsBuffering(status === 'loading');
-  });
+  const isFullscreen = variant === 'fullscreen';
 
   return (
     <PressableScale
       accessibilityRole="button"
-      accessibilityLabel={isPlaying ? 'Jeda peragaan' : 'Putar peragaan'}
+      accessibilityLabel={
+        isFullscreen
+          ? 'Tampilkan atau sembunyikan kontrol'
+          : isPlaying
+            ? 'Jeda peragaan'
+            : 'Putar peragaan'
+      }
       accessibilityState={{ selected: isPlaying }}
-      onPress={onTogglePlay}
-      scaleTo={0.995}
-      style={styles.stage}
+      onPress={onPress}
+      scaleTo={isFullscreen ? 1 : 0.995}
+      style={isFullscreen ? styles.stageFullscreen : styles.stage}
     >
       {videoUri ? (
         <VideoView
           accessibilityLabel={`Peragaan isyarat ${unit?.word ?? ''}`}
+          allowsFullscreen={false}
           contentFit="contain"
           nativeControls={false}
           player={player}
@@ -196,7 +88,8 @@ export default function SignSequenceStage({
         </View>
       )}
 
-      {isBuffering ? (
+      {/* Di layar penuh, indikator & tombol putar ditangani lapisan kontrol. */}
+      {isFullscreen ? null : isBuffering ? (
         <View pointerEvents="none" style={styles.overlay}>
           <ActivityIndicator color={colors.textOnPrimary} size="large" />
         </View>
@@ -206,6 +99,18 @@ export default function SignSequenceStage({
             <Ionicons color={colors.primary} name="play" size={30} style={styles.overlayIcon} />
           </View>
         </View>
+      ) : null}
+
+      {!isFullscreen && onRequestFullscreen ? (
+        <PressableScale
+          accessibilityLabel="Tampilkan peragaan di layar penuh"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={onRequestFullscreen}
+          style={styles.fullscreenButton}
+        >
+          <Ionicons color="#FFFFFF" name="expand-outline" size={18} />
+        </PressableScale>
       ) : null}
     </PressableScale>
   );
@@ -217,6 +122,11 @@ const styles = createSheet((themeColors) => ({
     backgroundColor: themeColors.inkNavy,
     borderRadius: radius.xl,
     overflow: 'hidden',
+    width: '100%',
+  },
+  stageFullscreen: {
+    backgroundColor: '#000000',
+    flex: 1,
     width: '100%',
   },
   media: {
@@ -246,5 +156,16 @@ const styles = createSheet((themeColors) => ({
   },
   overlayIcon: {
     marginLeft: 4,
+  },
+  fullscreenButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: radius.full,
+    height: 34,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: spacing.sm,
+    top: spacing.sm,
+    width: 34,
   },
 }));

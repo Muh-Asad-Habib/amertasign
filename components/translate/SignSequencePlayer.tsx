@@ -1,16 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 
 import type { TextToSignUnit } from '../../services/translation';
-import { colors, radius, spacing, touchTargetMin } from '../../theme';
+import { colors, fontFamily, radius, spacing, touchTargetMin } from '../../theme';
 import { useSettingsStore, type SignSpeedMultiplier } from '../../store/useSettingsStore';
+import useAutoHideControls from '../../hooks/useAutoHideControls';
+import useVideoProgress from '../../hooks/useVideoProgress';
+import FullscreenVideoModal from '../player/FullscreenVideoModal';
+import PlayerControlsOverlay, { type SpeedOption } from '../player/PlayerControlsOverlay';
 import Badge from '../ui/Badge';
 import Heading from '../ui/Heading';
 import PressableScale from '../ui/PressableScale';
 import Text from '../ui/Text';
 import SignSequenceStage from './SignSequenceStage';
+import useSignSequenceVideo from './useSignSequenceVideo';
 
 import { createSheet } from '../../theme';
 
@@ -28,7 +33,7 @@ const VIDEO_WATCHDOG_MS = 9000;
 /** Toleransi agar event `playToEnd` tetap diberi kesempatan lebih dulu. */
 const END_EVENT_GRACE_MS = 450;
 
-const SPEED_OPTIONS: Array<{ value: SignSpeedMultiplier; label: string }> = [
+const SPEED_OPTIONS: Array<SpeedOption<SignSpeedMultiplier>> = [
   { value: 0.5, label: '0,5x' },
   { value: 1, label: '1x' },
   { value: 1.5, label: '1,5x' },
@@ -45,7 +50,9 @@ const isVideoUnit = (unit?: TextToSignUnit) =>
 /**
  * Pemutar rangkaian peraga isyarat: gerakan berjalan otomatis satu per satu
  * dan mengulang dari awal setelah gerakan terakhir (looping), sehingga kalimat
- * tampil menyambung tanpa perlu digeser manual.
+ * tampil menyambung tanpa perlu digeser manual. Tersedia juga mode layar penuh
+ * dengan kontrol lengkap (putar/jeda, ulang, lompat gerakan, geser posisi,
+ * dan kecepatan).
  */
 export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
   const [index, setIndex] = useState(0);
@@ -54,6 +61,11 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
   const [unitDurationMs, setUnitDurationMs] = useState<number | null>(null);
   /** Bertambah setiap kali gerakan dipilih ulang agar video diputar dari awal. */
   const [playToken, setPlayToken] = useState(0);
+  /** Posisi awal pemutaran gerakan aktif (berubah saat pengguna menggeser). */
+  const [resumeFromMs, setResumeFromMs] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  /** Kontrol tidak boleh hilang sendiri selama seek bar sedang digeser. */
+  const [isScrubbing, setIsScrubbing] = useState(false);
 
   const speed = useSettingsStore((state) => state.signSpeed);
   const setSignSpeed = useSettingsStore((state) => state.setSignSpeed);
@@ -84,6 +96,7 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
       }
       const normalized = ((next % total) + total) % total;
       setUnitDurationMs(null);
+      setResumeFromMs(0);
       setPlayToken((token) => token + 1);
       setIndex(normalized);
     },
@@ -94,15 +107,54 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
     goTo(index + 1);
   }, [goTo, index]);
 
-  // Hasil terjemahan baru → mulai lagi dari gerakan pertama.
+  // Hasil terjemahan baru → mulai lagi dari gerakan pertama. Dilewati pada
+  // render pertama: state awal sudah benar, dan menaikkan `playToken` di sini
+  // akan memicu `replaceAsync` kedua yang balapan dengan pemuatan awal.
+  const didMountRef = useRef(false);
   useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
     chipOffsetsRef.current = {};
     resumeOnFocusRef.current = true;
     setUnitDurationMs(null);
+    setResumeFromMs(0);
     setPlayToken((token) => token + 1);
     setIndex(0);
     setIsPlaying(true);
   }, [units]);
+
+  // Event pemutar dibawa bersama `unitKey`-nya: hasil dari sumber lama yang
+  // datang terlambat diabaikan agar tidak melompati satu gerakan.
+  const handleEnded = useCallback(
+    (token: number) => {
+      if (token !== playToken || !isPlaying) {
+        return;
+      }
+      advance();
+    },
+    [advance, isPlaying, playToken]
+  );
+
+  const handleDurationLoaded = useCallback(
+    (durationMs: number | null, token: number) => {
+      if (token !== playToken) {
+        return;
+      }
+      setUnitDurationMs(durationMs);
+    },
+    [playToken]
+  );
+
+  const { player, videoUri, isBuffering } = useSignSequenceVideo({
+    isPlaying,
+    onDurationLoaded: handleDurationLoaded,
+    onEnded: handleEnded,
+    speed,
+    unit,
+    unitKey: playToken,
+  });
 
   /**
    * Penjadwalan perpindahan gerakan. Video idealnya berpindah lewat event
@@ -119,14 +171,27 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
     if (!isVideoUnit(unit)) {
       duration = BASE_DWELL_MS / speed;
     } else if (unitDurationMs) {
-      duration = unitDurationMs / speed + END_EVENT_GRACE_MS;
+      // Sisa durasi dihitung dari posisi terakhir agar penggeseran manual
+      // tidak membuat jaring pengaman ini melompat terlalu cepat/lambat.
+      const remaining = Math.max(0, unitDurationMs - resumeFromMs);
+      duration = remaining / speed + END_EVENT_GRACE_MS;
     } else {
       duration = VIDEO_WATCHDOG_MS / speed;
     }
 
     timerRef.current = setTimeout(advance, duration);
     return clearTimer;
-  }, [advance, clearTimer, isPlaying, playToken, speed, total, unit, unitDurationMs]);
+  }, [
+    advance,
+    clearTimer,
+    isPlaying,
+    playToken,
+    resumeFromMs,
+    speed,
+    total,
+    unit,
+    unitDurationMs,
+  ]);
 
   useEffect(() => clearTimer, [clearTimer]);
 
@@ -154,28 +219,6 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
     }
   }, [index]);
 
-  // Event pemutar dibawa bersama `unitKey`-nya: hasil dari sumber lama yang
-  // datang terlambat diabaikan agar tidak melompati satu gerakan.
-  const handleEnded = useCallback(
-    (token: number) => {
-      if (token !== playToken || !isPlaying) {
-        return;
-      }
-      advance();
-    },
-    [advance, isPlaying, playToken]
-  );
-
-  const handleDurationLoaded = useCallback(
-    (durationMs: number | null, token: number) => {
-      if (token !== playToken) {
-        return;
-      }
-      setUnitDurationMs(durationMs);
-    },
-    [playToken]
-  );
-
   const handleRestart = useCallback(() => {
     goTo(0);
     resumeOnFocusRef.current = true;
@@ -188,9 +231,68 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
     setIsPlaying(next);
   }, []);
 
+  const handleSeek = useCallback(
+    (seconds: number) => {
+      if (!videoUri) {
+        return;
+      }
+      player.currentTime = seconds;
+      setResumeFromMs(seconds * 1000);
+    },
+    [player, videoUri]
+  );
+
   const speedLabel = useMemo(
     () => SPEED_OPTIONS.find((option) => option.value === speed)?.label ?? '1x',
     [speed]
+  );
+
+  const controls = useAutoHideControls({ autoHide: isFullscreen && isPlaying && !isScrubbing });
+  const { currentTime, duration } = useVideoProgress(
+    player,
+    isFullscreen && controls.visible && Boolean(videoUri)
+  );
+
+  // Kontrol selalu tampil lebih dulu saat layar penuh dibuka.
+  const showControls = controls.show;
+  useEffect(() => {
+    if (isFullscreen) {
+      showControls();
+    }
+  }, [isFullscreen, showControls]);
+
+  const handleStagePress = useCallback(() => {
+    if (isFullscreen) {
+      controls.toggle();
+      return;
+    }
+    togglePlay();
+  }, [controls, isFullscreen, togglePlay]);
+
+  const handleFullscreenToggle = useCallback(() => {
+    controls.show();
+    togglePlay();
+  }, [controls, togglePlay]);
+
+  const handleFullscreenRestart = useCallback(() => {
+    controls.show();
+    handleRestart();
+  }, [controls, handleRestart]);
+
+  const handleFullscreenSpeed = useCallback(
+    (next: SignSpeedMultiplier) => {
+      controls.show();
+      setSignSpeed(next);
+    },
+    [controls, setSignSpeed]
+  );
+
+  const handleFullscreenStep = useCallback(
+    (next: number) => {
+      controls.show();
+      goTo(next);
+    },
+    [controls, goTo]
   );
 
   if (!unit) {
@@ -198,6 +300,19 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
   }
 
   const progress = ((index + 1) / total) * 100;
+
+  const stage = (
+    <SignSequenceStage
+      isBuffering={isBuffering}
+      isPlaying={isPlaying}
+      onPress={handleStagePress}
+      onRequestFullscreen={isFullscreen ? undefined : () => setIsFullscreen(true)}
+      player={player}
+      unit={unit}
+      variant={isFullscreen ? 'fullscreen' : 'inline'}
+      videoUri={videoUri}
+    />
+  );
 
   return (
     <View style={styles.container}>
@@ -216,15 +331,9 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
         />
       </View>
 
-      <SignSequenceStage
-        isPlaying={isPlaying}
-        onDurationLoaded={handleDurationLoaded}
-        onEnded={handleEnded}
-        onTogglePlay={togglePlay}
-        speed={speed}
-        unit={unit}
-        unitKey={playToken}
-      />
+      {/* Panggung hanya boleh dirender di satu tempat: dua `VideoView` untuk
+          satu pemutar membuat gambar hilang di Android. */}
+      {isFullscreen ? <View style={styles.stagePlaceholder} /> : stage}
 
       {unit.description ? (
         <Text variant="caption" color="secondary" align="center" numberOfLines={2}>
@@ -359,9 +468,133 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
           Karakter peraga: {AVATAR_LABEL[avatarGender]}
         </Text>
       </View>
+
+      <FullscreenVideoModal
+        onRequestClose={() => setIsFullscreen(false)}
+        onSurfacePress={controls.toggle}
+        renderControls={(insets) => (
+          <PlayerControlsOverlay
+            currentTime={currentTime}
+            duration={duration}
+            extraContent={
+              total > 1 ? (
+                <FullscreenChipStrip
+                  activeIndex={index}
+                  onSelect={handleFullscreenStep}
+                  units={units}
+                />
+              ) : null
+            }
+            insets={insets}
+            isBuffering={isBuffering}
+            isPlaying={isPlaying}
+            onExitFullscreen={() => setIsFullscreen(false)}
+            onNext={total > 1 ? () => handleFullscreenStep(index + 1) : undefined}
+            onPrevious={total > 1 ? () => handleFullscreenStep(index - 1) : undefined}
+            onRestart={handleFullscreenRestart}
+            onScrubbingChange={setIsScrubbing}
+            onSeekComplete={handleSeek}
+            onSpeedChange={handleFullscreenSpeed}
+            onTogglePlay={handleFullscreenToggle}
+            speed={speed}
+            speedOptions={SPEED_OPTIONS}
+            subtitle={`Gerakan ${index + 1} dari ${total}`}
+            title={unit.word}
+            visible={controls.visible}
+          />
+        )}
+        visible={isFullscreen}
+      >
+        {isFullscreen ? stage : null}
+      </FullscreenVideoModal>
     </View>
   );
 }
+
+interface FullscreenChipStripProps {
+  units: TextToSignUnit[];
+  activeIndex: number;
+  onSelect: (index: number) => void;
+}
+
+/** Daftar gerakan versi layar penuh — kontras terang di atas latar gelap. */
+function FullscreenChipStrip({ units, activeIndex, onSelect }: FullscreenChipStripProps) {
+  const scrollRef = useRef<ScrollView | null>(null);
+  const offsetsRef = useRef<Record<number, number>>({});
+
+  useEffect(() => {
+    const offset = offsetsRef.current[activeIndex];
+    if (offset !== undefined) {
+      scrollRef.current?.scrollTo({ x: Math.max(0, offset - 72), animated: true });
+    }
+  }, [activeIndex]);
+
+  return (
+    <ScrollView
+      contentContainerStyle={fullscreenChipStyles.content}
+      horizontal
+      ref={scrollRef}
+      showsHorizontalScrollIndicator={false}
+      style={fullscreenChipStyles.strip}
+    >
+      {units.map((item, chipIndex) => {
+        const active = chipIndex === activeIndex;
+        return (
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel={`Lompat ke gerakan ${chipIndex + 1}: ${item.word}`}
+            accessibilityState={{ selected: active }}
+            key={`${item.token}-${chipIndex}`}
+            onLayout={(event) => {
+              offsetsRef.current[chipIndex] = event.nativeEvent.layout.x;
+            }}
+            onPress={() => onSelect(chipIndex)}
+            style={[fullscreenChipStyles.chip, active && fullscreenChipStyles.chipActive]}
+          >
+            <Text
+              style={[
+                fullscreenChipStyles.chipText,
+                active && fullscreenChipStyles.chipTextActive,
+              ]}
+            >
+              {item.word}
+            </Text>
+          </PressableScale>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+const fullscreenChipStyles = StyleSheet.create({
+  strip: {
+    flexGrow: 0,
+    marginBottom: spacing.xs,
+    maxHeight: 44,
+  },
+  content: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  chip: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderRadius: radius.full,
+    justifyContent: 'center',
+    minHeight: 34,
+    paddingHorizontal: spacing.md,
+  },
+  chipActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  chipText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontFamily: fontFamily.bodyMedium,
+    fontSize: 12,
+  },
+  chipTextActive: {
+    color: '#101828',
+  },
+});
 
 const styles = createSheet((themeColors) => ({
   container: {
@@ -376,6 +609,12 @@ const styles = createSheet((themeColors) => ({
   wordWrap: {
     flex: 1,
     gap: 2,
+  },
+  stagePlaceholder: {
+    aspectRatio: 4 / 3,
+    backgroundColor: themeColors.inkNavy,
+    borderRadius: radius.xl,
+    width: '100%',
   },
   progressBlock: {
     gap: spacing.xs,
