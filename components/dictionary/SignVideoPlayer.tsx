@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventListener } from 'expo';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
@@ -10,6 +10,7 @@ import useAutoHideControls from '../../hooks/useAutoHideControls';
 import useVideoProgress from '../../hooks/useVideoProgress';
 import type { FullscreenPhase } from '../../hooks/useFullscreenHandoff';
 import useVideoFrameRefresh, { useFrameRefreshOnHandoff } from '../../hooks/useVideoFrameRefresh';
+import useFullscreenVideoLayout from '../../hooks/useFullscreenVideoLayout';
 import FullscreenVideoModal from '../player/FullscreenVideoModal';
 import PlayerControlsOverlay, { type SpeedOption } from '../player/PlayerControlsOverlay';
 import Text from '../ui/Text';
@@ -128,6 +129,7 @@ function FullscreenSignVideo({
   const [isScrubbing, setIsScrubbing] = useState(false);
   const controls = useAutoHideControls({ autoHide: visible && isPlaying && !isScrubbing });
   const { currentTime, duration } = useVideoProgress(player, visible && controls.visible);
+  const layout = useFullscreenVideoLayout();
 
   // Kontrol selalu tampil lebih dulu saat layar penuh dibuka.
   const showControls = controls.show;
@@ -183,6 +185,7 @@ function FullscreenSignVideo({
           duration={duration}
           insets={insets}
           isBuffering={isBuffering}
+          mediaBand={layout.band}
           isPlaying={isPlaying}
           onExitFullscreen={onClose}
           onRestart={restart}
@@ -198,16 +201,18 @@ function FullscreenSignVideo({
       )}
       visible={visible}
     >
-      <VideoView
-        accessibilityLabel={`Video peraga isyarat ${word}`}
-        allowsFullscreen={false}
-        contentFit="contain"
-        nativeControls={false}
-        player={player}
-        pointerEvents="none"
-        style={styles.fullscreenVideo}
-        surfaceType="textureView"
-      />
+      <View style={layout.bandStyle}>
+        <VideoView
+          accessibilityLabel={`Video peraga isyarat ${word}`}
+          allowsFullscreen={false}
+          contentFit={layout.contentFit}
+          nativeControls={false}
+          player={player}
+          pointerEvents="none"
+          style={styles.fullscreenVideo}
+          surfaceType="textureView"
+        />
+      </View>
     </FullscreenVideoModal>
   );
 }
@@ -259,7 +264,8 @@ const styles = createSheet((colors) => ({
     width: 34,
   },
   fullscreenVideo: {
-    ...StyleSheet.absoluteFillObject,
+    height: '100%',
+    width: '100%',
   },
   placeholder: {
     alignItems: 'center',

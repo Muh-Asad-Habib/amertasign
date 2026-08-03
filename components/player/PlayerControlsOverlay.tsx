@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { EdgeInsets } from 'react-native-safe-area-context';
@@ -36,11 +36,22 @@ export interface PlayerControlsOverlayProps<T extends number = number> {
   onSpeedChange: (speed: T) => void;
   /** Konten tambahan di atas baris kontrol (mis. strip chip gerakan). */
   extraContent?: React.ReactNode;
+  /**
+   * Posisi & tinggi pita video di dalam layar. Dipakai agar baris tombol
+   * prev/putar/next digeser ke bidang kosong di bawah video (portrait) alih-alih
+   * menutupi wajah dan tangan peraga.
+   */
+  mediaBand?: { top: number; height: number };
   insets: EdgeInsets;
 }
 
 const SCRIM_TOP = ['rgba(0,0,0,0.65)', 'rgba(0,0,0,0)'] as const;
 const SCRIM_BOTTOM = ['rgba(0,0,0,0)', 'rgba(0,0,0,0.75)'] as const;
+
+/** Perkiraan tinggi bottom bar sebelum sempat diukur lewat onLayout. */
+const BOTTOM_BAR_ESTIMATE = 150;
+/** Ruang minimum di bawah video agar baris tombol layak dipindahkan ke sana. */
+const MIN_CENTER_ROW_SPACE = 96;
 
 /**
  * Lapisan kontrol pemutar layar penuh: sengaja minimalis (scrim gelap, ikon
@@ -65,8 +76,29 @@ export default function PlayerControlsOverlay<T extends number = number>({
   speedOptions,
   onSpeedChange,
   extraContent,
+  mediaBand,
   insets,
 }: PlayerControlsOverlayProps<T>) {
+  const { height: windowHeight } = useWindowDimensions();
+  const [bottomBarHeight, setBottomBarHeight] = React.useState(0);
+
+  const reservedBottom = bottomBarHeight > 0 ? bottomBarHeight : insets.bottom + BOTTOM_BAR_ESTIMATE;
+
+  // Di portrait video hanya mengisi pita di tengah; tombol dipindah ke bidang
+  // hitam di bawahnya supaya peraga tidak tertutup. Kalau ruangnya tidak cukup
+  // (mis. landscape / video mengisi penuh), kembali ke tata letak tengah.
+  const centerRowStyle = React.useMemo(() => {
+    if (!mediaBand || mediaBand.height <= 0) {
+      return null;
+    }
+    const bandBottom = mediaBand.top + mediaBand.height;
+    const available = windowHeight - bandBottom - reservedBottom;
+    if (available < MIN_CENTER_ROW_SPACE) {
+      return null;
+    }
+    return { bottom: reservedBottom, top: bandBottom };
+  }, [mediaBand, reservedBottom, windowHeight]);
+
   if (!visible) {
     return null;
   }
@@ -110,7 +142,7 @@ export default function PlayerControlsOverlay<T extends number = number>({
         </Pressable>
       </View>
 
-      <View pointerEvents="box-none" style={styles.centerRow}>
+      <View pointerEvents="box-none" style={[styles.centerRow, centerRowStyle]}>
         {onPrevious ? (
           <Pressable
             accessibilityRole="button"
@@ -166,6 +198,7 @@ export default function PlayerControlsOverlay<T extends number = number>({
       <LinearGradient colors={SCRIM_BOTTOM} pointerEvents="none" style={styles.scrimBottom} />
 
       <View
+        onLayout={(event) => setBottomBarHeight(event.nativeEvent.layout.height)}
         pointerEvents="box-none"
         style={[
           styles.bottomBar,

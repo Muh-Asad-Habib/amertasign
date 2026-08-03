@@ -5,6 +5,7 @@ import { VideoView, type VideoPlayer } from 'expo-video';
 
 import type { TextToSignUnit } from '../../services/translation';
 import { colors, radius, spacing } from '../../theme';
+import useFullscreenVideoLayout from '../../hooks/useFullscreenVideoLayout';
 import PressableScale from '../ui/PressableScale';
 import Text from '../ui/Text';
 
@@ -28,6 +29,8 @@ export interface SignSequenceStageProps {
    * `fullscreen` = memenuhi layar tanpa overlay bawaan (kontrol diurus terpisah).
    */
   variant?: 'inline' | 'fullscreen';
+  /** Rasio lebar/tinggi video peraga; dipakai menata pita video layar penuh. */
+  videoAspect?: number;
 }
 
 /**
@@ -44,14 +47,16 @@ export default function SignSequenceStage({
   onPress,
   onRequestFullscreen,
   variant = 'inline',
+  videoAspect,
 }: SignSequenceStageProps) {
   const isFullscreen = variant === 'fullscreen';
+  const layout = useFullscreenVideoLayout(videoAspect);
 
   const media = videoUri ? (
     <VideoView
       accessibilityLabel={`Peragaan isyarat ${unit?.word ?? ''}`}
       allowsFullscreen={false}
-      contentFit="contain"
+      contentFit={isFullscreen ? layout.contentFit : 'contain'}
       nativeControls={false}
       player={player}
       pointerEvents="none"
@@ -81,7 +86,11 @@ export default function SignSequenceStage({
   // modal, jadi panggung sengaja dibuat pasif (tanpa Pressable) supaya tidak
   // ada dua penerima tap untuk satu sentuhan.
   if (isFullscreen) {
-    return <View style={styles.stageFullscreen}>{media}</View>;
+    return (
+      <View style={styles.stageFullscreen}>
+        <View style={layout.bandStyle}>{media}</View>
+      </View>
+    );
   }
 
   return (
@@ -138,8 +147,10 @@ const styles = createSheet((themeColors) => ({
     ...StyleSheet.absoluteFillObject,
   },
   stageFullscreen: {
+    alignItems: 'center',
     backgroundColor: '#000000',
     flex: 1,
+    justifyContent: 'center',
     width: '100%',
   },
   media: {

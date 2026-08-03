@@ -10,6 +10,7 @@ import useAutoHideControls from '../../hooks/useAutoHideControls';
 import useVideoProgress from '../../hooks/useVideoProgress';
 import type { FullscreenPhase } from '../../hooks/useFullscreenHandoff';
 import { useFrameRefreshOnHandoff } from '../../hooks/useVideoFrameRefresh';
+import useFullscreenVideoLayout from '../../hooks/useFullscreenVideoLayout';
 import FullscreenVideoModal from '../player/FullscreenVideoModal';
 import PlayerControlsOverlay, { type SpeedOption } from '../player/PlayerControlsOverlay';
 import Badge from '../ui/Badge';
@@ -256,6 +257,7 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
   );
 
   const controls = useAutoHideControls({ autoHide: isFullscreen && isPlaying && !isScrubbing });
+  const fullscreenLayout = useFullscreenVideoLayout();
   const { currentTime, duration } = useVideoProgress(
     player,
     fullscreenPhase === 'open' && controls.visible && Boolean(videoUri)
@@ -498,6 +500,7 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
             insets={insets}
             isBuffering={isBuffering}
             isPlaying={isPlaying}
+            mediaBand={fullscreenLayout.band}
             onExitFullscreen={() => setIsFullscreen(false)}
             onNext={total > 1 ? () => handleFullscreenStep(index + 1) : undefined}
             onPrevious={total > 1 ? () => handleFullscreenStep(index - 1) : undefined}
