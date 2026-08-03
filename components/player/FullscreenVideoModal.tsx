@@ -1,18 +1,27 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import useFullscreenMode from '../../hooks/useFullscreenMode';
+import useFullscreenHandoff, { type FullscreenPhase } from '../../hooks/useFullscreenHandoff';
 
 export interface FullscreenVideoModalProps {
   visible: boolean;
   onRequestClose: () => void;
   /** Tap di area video (di luar tombol kontrol) → tampil/sembunyikan kontrol. */
   onSurfacePress?: () => void;
-  /** Panggung video; direntangkan memenuhi layar. */
+  /**
+   * Panggung video. Hanya dirender pada fase `open`, yaitu saat `VideoView`
+   * inline dijamin sudah dilepas (lihat `useFullscreenHandoff`).
+   */
   children: React.ReactNode;
   /** Lapisan kontrol, menerima safe-area insets orientasi saat ini. */
   renderControls?: (insets: EdgeInsets) => React.ReactNode;
+  /**
+   * Melaporkan fase serah-terima supaya induk tahu kapan boleh memasang kembali
+   * `VideoView` inline miliknya.
+   */
+  onPhaseChange?: (phase: FullscreenPhase) => void;
 }
 
 function FullscreenBody({
@@ -41,6 +50,10 @@ function FullscreenBody({
  * Wadah layar penuh untuk video peraga. Modal dipilih (bukan rute baru) supaya
  * instance pemutar milik layar induk tetap hidup — hanya `VideoView`-nya yang
  * berpindah tempat, sehingga posisi pemutaran tidak ter-reset.
+ *
+ * Perpindahan itu dijalankan bertahap lewat `useFullscreenHandoff` supaya tidak
+ * pernah ada dua `VideoView` hidup untuk satu pemutar (penyebab video hitam
+ * yang muncul acak saat masuk/keluar layar penuh).
  */
 export default function FullscreenVideoModal({
   visible,
@@ -48,22 +61,31 @@ export default function FullscreenVideoModal({
   onSurfacePress,
   children,
   renderControls,
+  onPhaseChange,
 }: FullscreenVideoModalProps) {
-  useFullscreenMode(visible, onRequestClose);
+  const handoff = useFullscreenHandoff(visible);
+  const { phase } = handoff;
+
+  useFullscreenMode(phase);
+
+  useEffect(() => {
+    onPhaseChange?.(phase);
+  }, [onPhaseChange, phase]);
 
   return (
     <Modal
       animationType="fade"
       onRequestClose={onRequestClose}
+      onShow={handoff.handleModalShown}
       statusBarTranslucent
       supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
       transparent={false}
-      visible={visible}
+      visible={handoff.modalVisible}
     >
       {/* Provider sendiri: modal berada di luar hierarki safe-area layar induk. */}
       <SafeAreaProvider>
         <FullscreenBody onSurfacePress={onSurfacePress} renderControls={renderControls}>
-          {children}
+          {handoff.fullscreenStageMounted ? children : null}
         </FullscreenBody>
       </SafeAreaProvider>
     </Modal>

@@ -1,17 +1,38 @@
-import { useEffect } from 'react';
-import { BackHandler, Platform, StatusBar } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { StatusBar } from 'react-native';
 
+import type { FullscreenPhase } from './useFullscreenHandoff';
 import { lockPortrait, unlockOrientation } from '../utils/orientation';
 
 /**
- * Menyiapkan lingkungan mode layar penuh selama `active` bernilai true:
- * orientasi dibebaskan (mengikuti perangkat), status bar disembunyikan, dan
- * tombol kembali Android dipakai untuk keluar dari layar penuh.
+ * Jeda sebelum orientasi dikunci kembali ke portrait. Penguncian memicu
+ * configuration change; bila dijalankan pada frame yang sama dengan penutupan
+ * modal, `VideoView` inline sedang dipasang ulang dan surface-nya bisa gagal
+ * tergambar. Menunggu sebentar membuat kedua proses tidak saling bertabrakan.
  */
-export function useFullscreenMode(active: boolean, onExit: () => void) {
+const RELOCK_DELAY_MS = 400;
+
+/**
+ * Menyiapkan lingkungan mode layar penuh mengikuti fase serah-terima modal:
+ * orientasi dibebaskan (mengikuti perangkat) dan status bar disembunyikan
+ * selama modal tampil, lalu dikembalikan setelah modal benar-benar tertutup.
+ *
+ * Tombol kembali Android sengaja tidak ditangani di sini — `Modal.onRequestClose`
+ * sudah menanganinya, dan memasang `BackHandler` tambahan membuat satu tekanan
+ * back diproses dua kali.
+ */
+export function useFullscreenMode(phase: FullscreenPhase) {
+  const relockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isActive = phase !== 'closed';
+
   useEffect(() => {
-    if (!active) {
+    if (!isActive) {
       return;
+    }
+
+    if (relockTimerRef.current) {
+      clearTimeout(relockTimerRef.current);
+      relockTimerRef.current = null;
     }
 
     void unlockOrientation();
@@ -19,22 +40,22 @@ export function useFullscreenMode(active: boolean, onExit: () => void) {
 
     return () => {
       StatusBar.setHidden(false, 'fade');
-      void lockPortrait();
+      relockTimerRef.current = setTimeout(() => {
+        relockTimerRef.current = null;
+        void lockPortrait();
+      }, RELOCK_DELAY_MS);
     };
-  }, [active]);
+  }, [isActive]);
 
-  useEffect(() => {
-    if (!active || Platform.OS !== 'android') {
-      return;
-    }
-
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      onExit();
-      return true;
-    });
-
-    return () => subscription.remove();
-  }, [active, onExit]);
+  useEffect(
+    () => () => {
+      if (relockTimerRef.current) {
+        clearTimeout(relockTimerRef.current);
+        relockTimerRef.current = null;
+      }
+    },
+    []
+  );
 }
 
 export default useFullscreenMode;
