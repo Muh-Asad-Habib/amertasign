@@ -4,6 +4,7 @@ import { useVideoPlayer, type VideoPlayer } from 'expo-video';
 
 import type { TextToSignUnit } from '../../services/translation';
 import useVideoFrameRefresh from '../../hooks/useVideoFrameRefresh';
+import { TIME_UPDATE_INTERVAL_S, isPlausibleDuration } from '../../hooks/useVideoProgress';
 
 /** URL video hanya dipakai bila unit memang bertipe video dan URL-nya ada. */
 export function videoUriOf(unit?: TextToSignUnit): string | null {
@@ -93,7 +94,26 @@ export function useSignSequenceVideo({
   const player = useVideoPlayer(null, (instance) => {
     instance.loop = false;
     instance.muted = true;
+    // Sumber posisi pemutaran: event, bukan polling `player.currentTime` yang
+    // memblokir thread JS lewat `runBlocking` ke thread UI.
+    instance.timeUpdateEventInterval = TIME_UPDATE_INTERVAL_S;
   });
+
+  /**
+   * Durasi klip aktif. Payload `sourceLoad` sering belum berisi nilai wajar
+   * (ExoPlayer masih `C.TIME_UNSET` saat `onTracksChanged`), jadi nilainya
+   * dicoba lagi setiap kali pemutar melapor siap atau memancarkan `timeUpdate`.
+   */
+  const captureDurationMs = useCallback(() => {
+    if (durationMsRef.current !== null) {
+      return durationMsRef.current;
+    }
+    const raw = player.duration;
+    if (isPlausibleDuration(raw)) {
+      durationMsRef.current = raw * 1000;
+    }
+    return durationMsRef.current;
+  }, [player]);
 
   /**
    * Posisi pemutaran sudah mentok di ujung klip. Durasi yang belum diketahui
@@ -210,7 +230,7 @@ export function useSignSequenceVideo({
 
   useEventListener(player, 'sourceLoad', ({ duration }) => {
     setIsBuffering(false);
-    durationMsRef.current = Number.isFinite(duration) && duration > 0 ? duration * 1000 : null;
+    durationMsRef.current = isPlausibleDuration(duration) ? duration * 1000 : null;
   });
 
   /**
@@ -224,11 +244,30 @@ export function useSignSequenceVideo({
       return;
     }
     durationReportedRef.current = true;
-    onDurationLoaded(durationMsRef.current, loadedKey);
+    onDurationLoaded(captureDurationMs(), loadedKey);
+  });
+
+  /**
+   * Jaring pengaman durasi: bila saat pemutaran dimulai durasi masih belum
+   * terbaca, laporkan begitu nilainya muncul supaya penjadwalan gerakan tidak
+   * terjebak memakai watchdog 9 detik.
+   */
+  useEventListener(player, 'timeUpdate', () => {
+    const loadedKey = loadedKeyRef.current;
+    if (loadedKey === null || !durationReportedRef.current || durationMsRef.current !== null) {
+      return;
+    }
+    const durationMs = captureDurationMs();
+    if (durationMs !== null) {
+      onDurationLoaded(durationMs, loadedKey);
+    }
   });
 
   useEventListener(player, 'statusChange', ({ status }) => {
     setIsBuffering(status === 'loading');
+    if (status === 'readyToPlay') {
+      captureDurationMs();
+    }
   });
 
   return { player, videoUri, isBuffering, refreshFrame };
