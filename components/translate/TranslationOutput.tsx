@@ -8,6 +8,9 @@ import Text from '../ui/Text';
 
 import { createSheet } from '../../theme';
 
+/** Di atas panjang ini teks dianggap kalimat, bukan hasil terjemahan singkat. */
+const LONG_TEXT_THRESHOLD = 28;
+
 export interface TranslationOutputProps {
   text: string;
   isLoading: boolean;
@@ -85,7 +88,13 @@ export default function TranslationOutput({ text, isLoading, onSpeak, kindLabel 
           showsVerticalScrollIndicator={false}
           style={styles.textScroll}
         >
-          <Heading variant="title" style={styles.text}>
+          {/* Hasil terjemahan biasanya satu kata: tampil besar. Kalimat panjang
+              (teks tunggu / catatan) memakai ukuran lebih kecil supaya tidak
+              memakan tiga baris dan mengunci sheet pada tinggi maksimum. */}
+          <Heading
+            variant={(text || '').length > LONG_TEXT_THRESHOLD ? 'h2' : 'title'}
+            style={styles.text}
+          >
             {text || 'Belum ada hasil terjemahan.'}
           </Heading>
         </ScrollView>
@@ -103,8 +112,8 @@ const styles = createSheet((colors) => ({
     borderWidth: 1,
     // Tinggi dikunci pada rentang tetap supaya hasil terjemahan yang panjang
     // tidak mendorong bottom sheet naik dan memotong preview kamera.
-    minHeight: 184,
-    maxHeight: 232,
+    minHeight: 132,
+    maxHeight: 196,
     padding: spacing.lg,
     gap: spacing.md,
     ...shadow.lg,
@@ -154,19 +163,19 @@ const styles = createSheet((colors) => ({
     paddingBottom: spacing.xs,
   },
   loadingContainer: {
-    gap: spacing.md,
-    paddingTop: spacing.sm,
+    gap: spacing.sm,
+    paddingTop: spacing.xs,
   },
   loadingLineLarge: {
     backgroundColor: colors.border,
     borderRadius: radius.full,
-    height: 24,
+    height: 20,
     width: '88%',
   },
   loadingLineMedium: {
     backgroundColor: colors.border,
     borderRadius: radius.full,
-    height: 24,
+    height: 20,
     width: '62%',
   },
   pressed: {

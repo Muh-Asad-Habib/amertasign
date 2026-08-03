@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Linking, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CameraView as ExpoCamera, useCameraPermissions, type CameraType } from 'expo-camera';
@@ -188,7 +188,11 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
           </View>
         </View>
       ) : (
-        <View style={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          style={styles.contentScroll}
+        >
           <View style={styles.cameraGlyph}>
             <Ionicons color={colors.textOnPrimary} name="videocam-off-outline" size={44} />
           </View>
@@ -216,7 +220,7 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
               {canRequestPermission ? 'Izinkan Kamera' : 'Buka Pengaturan'}
             </Text>
           </PressableScale>
-        </View>
+        </ScrollView>
       )}
 
       {/* Overlay proses AI: memberi umpan balik jelas bahwa analisis berjalan. */}
@@ -332,11 +336,18 @@ const styles = createSheet((colors) => ({
     fontSize: 13,
     flexShrink: 1,
   },
+  contentScroll: {
+    flex: 1,
+  },
   content: {
     alignItems: 'center',
-    flex: 1,
+    // `flexGrow` + `justifyContent` memusatkan isi saat ruang cukup, tapi tetap
+    // membiarkannya digulir saat ruang sempit — tombol CTA tidak pernah
+    // terpotong `overflow: 'hidden'` milik kontainer.
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: spacing.base,
+    paddingVertical: spacing.base,
     gap: spacing.sm,
   },
   cameraGlyph: {
@@ -345,10 +356,10 @@ const styles = createSheet((colors) => ({
     borderColor: overlay.onInkBorder,
     borderRadius: radius.full,
     borderWidth: 1,
-    height: 96,
+    height: 76,
     justifyContent: 'center',
-    marginBottom: spacing.md,
-    width: 96,
+    marginBottom: spacing.sm,
+    width: 76,
   },
   subtitle: {
     color: overlay.onInkTextSoft,
