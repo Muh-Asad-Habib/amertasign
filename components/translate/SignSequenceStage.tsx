@@ -112,7 +112,7 @@ export default function SignSequenceStage({
         ) : !isPlaying ? (
           <View pointerEvents="none" style={styles.overlay}>
             <View style={styles.overlayBubble}>
-              <Ionicons color={colors.primary} name="play" size={30} style={styles.overlayIcon} />
+              <Ionicons color="#FFFFFF" name="play" size={24} style={styles.overlayIcon} />
             </View>
           </View>
         ) : null}
@@ -169,14 +169,17 @@ const styles = createSheet((themeColors) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Bulatan jeda sengaja kecil dan gelap-transparan: versi putih 64 px yang
+  // lama menutupi wajah dan tangan peraga, justru bagian yang perlu dilihat.
   overlayBubble: {
     alignItems: 'center',
-    backgroundColor: themeColors.surface,
+    backgroundColor: 'rgba(0,0,0,0.42)',
+    borderColor: 'rgba(255,255,255,0.55)',
     borderRadius: radius.full,
-    height: 64,
+    borderWidth: 1,
+    height: 52,
     justifyContent: 'center',
-    opacity: 0.94,
-    width: 64,
+    width: 52,
   },
   overlayIcon: {
     marginLeft: 4,
