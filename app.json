@@ -4,7 +4,7 @@
     "slug": "amertaSign",
     "scheme": "amertasign",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -47,6 +47,12 @@
       ],
       "expo-secure-store",
       "expo-video",
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "PORTRAIT"
+        }
+      ],
       [
         "expo-speech-recognition",
         {
