@@ -95,14 +95,22 @@ export function useSignSequenceVideo({
     instance.muted = true;
   });
 
+  /**
+   * Posisi pemutaran sudah mentok di ujung klip. Durasi yang belum diketahui
+   * dianggap "belum di ujung" supaya pemutaran biasa tidak salah dilewati.
+   */
+  const isAtClipEnd = useCallback(() => {
+    const durationMs = durationMsRef.current;
+    return durationMs !== null && player.currentTime * 1000 >= durationMs - END_EPSILON_MS;
+  }, [player]);
+
   /** Mulai memutar; bila posisi mentok di ujung klip, kembalikan dulu ke awal. */
   const playFromSafePosition = useCallback(() => {
-    const durationMs = durationMsRef.current;
-    if (durationMs !== null && player.currentTime * 1000 >= durationMs - END_EPSILON_MS) {
+    if (isAtClipEnd()) {
       player.currentTime = 0;
     }
     player.play();
-  }, [player]);
+  }, [isAtClipEnd, player]);
 
   const refreshFrame = useVideoFrameRefresh(player);
 
@@ -175,15 +183,17 @@ export function useSignSequenceVideo({
       return;
     }
     // Klip sudah habis saat dijeda: lanjutkan rangkaian, jangan `play()` di
-    // posisi akhir yang tidak menghasilkan apa pun.
+    // posisi akhir yang tidak menghasilkan apa pun. Penanda ini hanya berlaku
+    // bila posisi memang masih di ujung — pengguna bisa saja menggeser mundur
+    // lebih dulu, dan gerakan ini tidak boleh dilewati begitu saja.
     const pendingEnd = pendingEndRef.current;
-    if (pendingEnd !== null) {
-      pendingEndRef.current = null;
+    pendingEndRef.current = null;
+    if (pendingEnd !== null && isAtClipEnd()) {
       onEndedRef.current(pendingEnd);
       return;
     }
     playFromSafePosition();
-  }, [isPlaying, playFromSafePosition, player, unitKey, videoUri]);
+  }, [isAtClipEnd, isPlaying, playFromSafePosition, player, unitKey, videoUri]);
 
   useEventListener(player, 'playToEnd', () => {
     const loadedKey = loadedKeyRef.current;

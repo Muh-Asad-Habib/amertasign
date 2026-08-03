@@ -23,6 +23,7 @@ const RELOCK_DELAY_MS = 400;
  */
 export function useFullscreenMode(phase: FullscreenPhase) {
   const relockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const relockPendingRef = useRef(false);
   const isActive = phase !== 'closed';
 
   useEffect(() => {
@@ -34,24 +35,34 @@ export function useFullscreenMode(phase: FullscreenPhase) {
       clearTimeout(relockTimerRef.current);
       relockTimerRef.current = null;
     }
+    relockPendingRef.current = false;
 
     void unlockOrientation();
     StatusBar.setHidden(true, 'fade');
 
     return () => {
       StatusBar.setHidden(false, 'fade');
+      relockPendingRef.current = true;
       relockTimerRef.current = setTimeout(() => {
         relockTimerRef.current = null;
+        relockPendingRef.current = false;
         void lockPortrait();
       }, RELOCK_DELAY_MS);
     };
   }, [isActive]);
 
+  // Komponen dibongkar sebelum penundaan selesai (mis. pengguna berpindah layar
+  // tepat setelah keluar dari layar penuh): penguncian dijalankan sekarang juga,
+  // kalau tidak aplikasi tertinggal dalam keadaan bebas berputar.
   useEffect(
     () => () => {
       if (relockTimerRef.current) {
         clearTimeout(relockTimerRef.current);
         relockTimerRef.current = null;
+      }
+      if (relockPendingRef.current) {
+        relockPendingRef.current = false;
+        void lockPortrait();
       }
     },
     []
