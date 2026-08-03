@@ -8,6 +8,8 @@ import { colors, radius, spacing } from '../../theme';
 import { useSettingsStore, type SignSpeedMultiplier } from '../../store/useSettingsStore';
 import useAutoHideControls from '../../hooks/useAutoHideControls';
 import useVideoProgress from '../../hooks/useVideoProgress';
+import type { FullscreenPhase } from '../../hooks/useFullscreenHandoff';
+import useVideoFrameRefresh, { useFrameRefreshOnHandoff } from '../../hooks/useVideoFrameRefresh';
 import FullscreenVideoModal from '../player/FullscreenVideoModal';
 import PlayerControlsOverlay, { type SpeedOption } from '../player/PlayerControlsOverlay';
 import Text from '../ui/Text';
@@ -28,6 +30,8 @@ const SPEED_OPTIONS: Array<SpeedOption<SignSpeedMultiplier>> = [
 
 function VideoSurface({ videoUrl, word }: { videoUrl: string; word: string }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  /** Panggung inline hanya dipasang saat modal benar-benar tertutup. */
+  const [fullscreenPhase, setFullscreenPhase] = useState<FullscreenPhase>('closed');
   const speed = useSettingsStore((state) => state.signSpeed);
   const setSignSpeed = useSettingsStore((state) => state.setSignSpeed);
 
@@ -43,12 +47,19 @@ function VideoSurface({ videoUrl, word }: { videoUrl: string; word: string }) {
     player.playbackRate = speed;
   }, [player, speed]);
 
+  // Surface baru perlu dipaksa menggambar saat pemutar sedang dijeda, kalau
+  // tidak panggung tampil hitam setelah berpindah wadah.
+  const refreshFrame = useVideoFrameRefresh(player);
+  useFrameRefreshOnHandoff(fullscreenPhase, refreshFrame);
+
+  const isInline = fullscreenPhase === 'closed';
+
   return (
     <>
       {/* Inline tetap memakai kontrol bawaan; tombol layar penuh native
           dimatikan agar tidak bentrok dengan kontrol kustom di bawah ini. */}
       <View style={styles.frame}>
-        {!isFullscreen ? (
+        {isInline ? (
           <VideoView
             accessibilityLabel="Video peraga isyarat"
             allowsFullscreen={false}
@@ -56,15 +67,16 @@ function VideoSurface({ videoUrl, word }: { videoUrl: string; word: string }) {
             nativeControls
             player={player}
             style={styles.video}
+            surfaceType="textureView"
           />
         ) : (
           <View style={styles.videoPlaceholderWhileFullscreen} />
         )}
-        {!isFullscreen ? (
+        {isInline ? (
           <Pressable
             accessibilityLabel="Putar video di layar penuh"
             accessibilityRole="button"
-            hitSlop={8}
+            hitSlop={12}
             onPress={() => setIsFullscreen(true)}
             style={styles.fullscreenButton}
           >
@@ -75,6 +87,7 @@ function VideoSurface({ videoUrl, word }: { videoUrl: string; word: string }) {
 
       <FullscreenSignVideo
         onClose={() => setIsFullscreen(false)}
+        onPhaseChange={setFullscreenPhase}
         onSpeedChange={setSignSpeed}
         player={player}
         speed={speed}
@@ -88,6 +101,7 @@ function VideoSurface({ videoUrl, word }: { videoUrl: string; word: string }) {
 interface FullscreenSignVideoProps {
   visible: boolean;
   onClose: () => void;
+  onPhaseChange: (phase: FullscreenPhase) => void;
   player: VideoPlayer;
   speed: SignSpeedMultiplier;
   onSpeedChange: (speed: SignSpeedMultiplier) => void;
@@ -102,12 +116,13 @@ interface FullscreenSignVideoProps {
 function FullscreenSignVideo({
   visible,
   onClose,
+  onPhaseChange,
   player,
   speed,
   onSpeedChange,
   word,
 }: FullscreenSignVideoProps) {
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(() => player.playing);
   const [isBuffering, setIsBuffering] = useState(false);
   /** Kontrol tidak boleh hilang sendiri selama seek bar sedang digeser. */
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -159,6 +174,7 @@ function FullscreenSignVideo({
 
   return (
     <FullscreenVideoModal
+      onPhaseChange={onPhaseChange}
       onRequestClose={onClose}
       onSurfacePress={controls.toggle}
       renderControls={(insets) => (
@@ -182,17 +198,16 @@ function FullscreenSignVideo({
       )}
       visible={visible}
     >
-      {visible ? (
-        <VideoView
-          accessibilityLabel={`Video peraga isyarat ${word}`}
-          allowsFullscreen={false}
-          contentFit="contain"
-          nativeControls={false}
-          player={player}
-          pointerEvents="none"
-          style={styles.fullscreenVideo}
-        />
-      ) : null}
+      <VideoView
+        accessibilityLabel={`Video peraga isyarat ${word}`}
+        allowsFullscreen={false}
+        contentFit="contain"
+        nativeControls={false}
+        player={player}
+        pointerEvents="none"
+        style={styles.fullscreenVideo}
+        surfaceType="textureView"
+      />
     </FullscreenVideoModal>
   );
 }
