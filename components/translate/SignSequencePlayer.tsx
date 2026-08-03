@@ -84,10 +84,21 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chipStripRef = useRef<ScrollView | null>(null);
   const chipOffsetsRef = useRef<Record<number, number>>({});
-  /** Cerminan `isPlaying` untuk dibaca di cleanup useFocusEffect. */
+  /**
+   * Cerminan `isPlaying` yang selalu mutakhir. Ref ini SENGAJA diperbarui di
+   * dalam `setPlaying`, bukan lewat useEffect: dua ketukan cepat berturut-turut
+   * (atau ketukan yang jatuh tepat saat klip berakhir) terjadi sebelum efek
+   * sempat berjalan, sehingga ref yang basi membuat ketukan kedua dibaca
+   * sebagai perintah yang sama dan seolah-olah tidak berfungsi.
+   */
   const isPlayingRef = useRef(true);
   /** Status yang dipulihkan saat layar kembali difokuskan. */
   const resumeOnFocusRef = useRef(true);
+
+  const setPlaying = useCallback((next: boolean) => {
+    isPlayingRef.current = next;
+    setIsPlaying(next);
+  }, []);
 
   const total = units.length;
   const unit = units[index];
@@ -132,19 +143,22 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
     setResumeFromMs(0);
     setPlayToken((token) => token + 1);
     setIndex(0);
-    setIsPlaying(true);
-  }, [units]);
+    setPlaying(true);
+  }, [setPlaying, units]);
 
   // Event pemutar dibawa bersama `unitKey`-nya: hasil dari sumber lama yang
   // datang terlambat diabaikan agar tidak melompati satu gerakan.
   const handleEnded = useCallback(
     (token: number) => {
-      if (token !== playToken || !isPlaying) {
+      // `isPlayingRef`, bukan state: bila pengguna menekan jeda pada frame yang
+      // sama dengan berakhirnya klip, nilai state di dalam closure ini masih
+      // `true` dan rangkaian akan tetap melompat ke gerakan berikutnya.
+      if (token !== playToken || !isPlayingRef.current) {
         return;
       }
       advance();
     },
-    [advance, isPlaying, playToken]
+    [advance, playToken]
   );
 
   const handleDurationLoaded = useCallback(
@@ -205,20 +219,16 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
 
   useEffect(() => clearTimer, [clearTimer]);
 
-  useEffect(() => {
-    isPlayingRef.current = isPlaying;
-  }, [isPlaying]);
-
   // Berhenti memutar saat layar ditinggalkan, lanjut lagi saat kembali
   // (kecuali pengguna memang sengaja menjeda sebelum berpindah layar).
   useFocusEffect(
     useCallback(() => {
-      setIsPlaying(resumeOnFocusRef.current);
+      setPlaying(resumeOnFocusRef.current);
       return () => {
         resumeOnFocusRef.current = isPlayingRef.current;
-        setIsPlaying(false);
+        setPlaying(false);
       };
-    }, [])
+    }, [setPlaying])
   );
 
   // Chip gerakan aktif selalu terlihat.
@@ -232,14 +242,14 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
   const handleRestart = useCallback(() => {
     goTo(0);
     resumeOnFocusRef.current = true;
-    setIsPlaying(true);
-  }, [goTo]);
+    setPlaying(true);
+  }, [goTo, setPlaying]);
 
   const togglePlay = useCallback(() => {
     const next = !isPlayingRef.current;
     resumeOnFocusRef.current = next;
-    setIsPlaying(next);
-  }, []);
+    setPlaying(next);
+  }, [setPlaying]);
 
   const handleSeek = useCallback(
     (seconds: number) => {

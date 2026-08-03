@@ -44,14 +44,15 @@ export interface MediaAspectOptions {
  * `player.videoTrack` sebagai cadangan saat status berubah menjadi
  * `readyToPlay` (payload event bisa datang sebelum trek terpilih). Untuk unit
  * gambar dipakai `Image.getSize`.
+ *
+ * Saat gerakan berganti, rasio lama SENGAJA dipertahankan sampai rasio media
+ * baru diketahui — bukan dikembalikan ke nilai bawaan. Mengembalikannya membuat
+ * pita video (dan tombol kontrol layar penuh yang ditata mengikuti pita itu)
+ * melompat ~40 dp selama beberapa ratus milidetik tiap ganti gerakan, sehingga
+ * ketukan pengguna meleset dan tombol terasa "kadang tidak berfungsi".
  */
 export function useMediaAspect({ player, videoUri, imageUri }: MediaAspectOptions): number {
   const [aspect, setAspect] = useState<number | null>(null);
-
-  // Media berganti → rasio lama tidak boleh ikut terbawa.
-  useEffect(() => {
-    setAspect(null);
-  }, [imageUri, videoUri]);
 
   useEffect(() => {
     if (!player || !videoUri) {

@@ -101,12 +101,22 @@ export default function PlayerControlsOverlay<T extends number = number>({
 
   const hasTimeline = Number.isFinite(duration) && duration > 0;
 
-  if (!visible) {
-    return null;
-  }
-
+  /**
+   * Lapisan kontrol TIDAK dilepas saat auto-hide, hanya dibuat tembus pandang
+   * dan tidak menerima sentuhan (gaya YouTube: tap di video → kontrol muncul
+   * lagi di tempat yang sama).
+   *
+   * Membiarkannya terpasang itu penting: dulu komponen ini me-`return null`,
+   * sehingga tinggi bottom bar terlupa dan baris tombol putar/jeda dihitung
+   * ulang saat muncul kembali. Tombol sempat berpindah beberapa puluh piksel
+   * tepat ketika pengguna menekannya — inilah yang membuat tombol terasa
+   * "kadang tidak berfungsi".
+   */
   return (
-    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+    <View
+      pointerEvents={visible ? 'box-none' : 'none'}
+      style={[StyleSheet.absoluteFill, visible ? null : styles.hidden]}
+    >
       <LinearGradient
         colors={SCRIM_TOP}
         pointerEvents="none"
@@ -322,6 +332,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     top: 0,
+  },
+  /** Kontrol sedang disembunyikan; tetap terpasang agar tata letaknya stabil. */
+  hidden: {
+    opacity: 0,
   },
   playButton: {
     alignItems: 'center',

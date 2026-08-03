@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 
-const HIDE_DELAY_MS = 3000;
+/**
+ * Jeda sebelum kontrol menghilang sendiri. 3 detik terasa terlalu cepat di
+ * perangkat nyata: kontrol sering hilang tepat ketika pengguna baru mengarahkan
+ * jarinya ke tombol jeda.
+ */
+const HIDE_DELAY_MS = 4500;
 
 export interface AutoHideControlsOptions {
   /** Kontrol tidak pernah disembunyikan selama bernilai false (mis. saat dijeda). */
