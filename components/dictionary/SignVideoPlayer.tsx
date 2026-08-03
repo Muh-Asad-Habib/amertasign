@@ -11,6 +11,7 @@ import useVideoProgress from '../../hooks/useVideoProgress';
 import type { FullscreenPhase } from '../../hooks/useFullscreenHandoff';
 import useVideoFrameRefresh, { useFrameRefreshOnHandoff } from '../../hooks/useVideoFrameRefresh';
 import useFullscreenVideoLayout from '../../hooks/useFullscreenVideoLayout';
+import useMediaAspect from '../../hooks/useMediaAspect';
 import FullscreenVideoModal from '../player/FullscreenVideoModal';
 import PlayerControlsOverlay, { type SpeedOption } from '../player/PlayerControlsOverlay';
 import Text from '../ui/Text';
@@ -92,6 +93,7 @@ function VideoSurface({ videoUrl, word }: { videoUrl: string; word: string }) {
         onSpeedChange={setSignSpeed}
         player={player}
         speed={speed}
+        videoUri={videoUrl}
         visible={isFullscreen}
         word={word}
       />
@@ -107,6 +109,8 @@ interface FullscreenSignVideoProps {
   speed: SignSpeedMultiplier;
   onSpeedChange: (speed: SignSpeedMultiplier) => void;
   word: string;
+  /** URL video aktif; dipakai membaca rasio asli media. */
+  videoUri: string;
 }
 
 /**
@@ -122,6 +126,7 @@ function FullscreenSignVideo({
   speed,
   onSpeedChange,
   word,
+  videoUri,
 }: FullscreenSignVideoProps) {
   const [isPlaying, setIsPlaying] = useState(() => player.playing);
   const [isBuffering, setIsBuffering] = useState(false);
@@ -129,7 +134,8 @@ function FullscreenSignVideo({
   const [isScrubbing, setIsScrubbing] = useState(false);
   const controls = useAutoHideControls({ autoHide: visible && isPlaying && !isScrubbing });
   const { currentTime, duration } = useVideoProgress(player, visible && controls.visible);
-  const layout = useFullscreenVideoLayout();
+  const mediaAspect = useMediaAspect({ player, videoUri });
+  const layout = useFullscreenVideoLayout(mediaAspect);
 
   // Kontrol selalu tampil lebih dulu saat layar penuh dibuka.
   const showControls = controls.show;
@@ -201,17 +207,19 @@ function FullscreenSignVideo({
       )}
       visible={visible}
     >
-      <View style={layout.bandStyle}>
-        <VideoView
-          accessibilityLabel={`Video peraga isyarat ${word}`}
-          allowsFullscreen={false}
-          contentFit={layout.contentFit}
-          nativeControls={false}
-          player={player}
-          pointerEvents="none"
-          style={styles.fullscreenVideo}
-          surfaceType="textureView"
-        />
+      <View style={styles.fullscreenStage}>
+        <View style={layout.bandStyle}>
+          <VideoView
+            accessibilityLabel={`Video peraga isyarat ${word}`}
+            allowsFullscreen={false}
+            contentFit={layout.contentFit}
+            nativeControls={false}
+            player={player}
+            pointerEvents="none"
+            style={layout.videoStyle}
+            surfaceType="textureView"
+          />
+        </View>
       </View>
     </FullscreenVideoModal>
   );
@@ -263,8 +271,11 @@ const styles = createSheet((colors) => ({
     top: spacing.sm,
     width: 34,
   },
-  fullscreenVideo: {
-    height: '100%',
+  fullscreenStage: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    overflow: 'hidden',
     width: '100%',
   },
   placeholder: {

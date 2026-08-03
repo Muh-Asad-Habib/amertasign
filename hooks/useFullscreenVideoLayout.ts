@@ -29,6 +29,8 @@ export interface FullscreenVideoLayout {
   contentFit: 'contain' | 'cover';
   /** Gaya kotak pembungkus `VideoView`. */
   bandStyle: ViewStyle;
+  /** Gaya `VideoView` itu sendiri — ukurannya eksplisit, lihat catatan di bawah. */
+  videoStyle: ViewStyle;
   /** Posisi pita video di layar — dipakai menata kontrol agar tidak menutupinya. */
   band: FullscreenVideoBand;
 }
@@ -36,9 +38,20 @@ export interface FullscreenVideoLayout {
 /**
  * Tata letak panggung video layar penuh yang mengikuti orientasi perangkat.
  *
- * - Mendatar: video dipasang utuh memenuhi layar (`contain`).
- * - Tegak: video dibesarkan sedikit lalu dipotong ringan (`cover` di dalam
- *   kotak setinggi 1,15x tinggi alaminya) supaya bidang hitam tidak mendominasi.
+ * - Mendatar: video dipasang utuh memenuhi layar.
+ * - Tegak: video dibesarkan sedikit lalu dipotong ringan supaya bidang hitam
+ *   tidak mendominasi.
+ *
+ * Pemotongan sengaja TIDAK memakai `contentFit="cover"`: pada layar 9:19,5
+ * `cover` akan membesarkan video 4:3 sampai lebih dari tiga kali lipat dan
+ * memotong hampir seluruh tubuh peraga. Pembesaran di sini dibatasi
+ * `PORTRAIT_ZOOM` dengan cara membuat pita video sedikit lebih lebar dari layar
+ * (`position: 'absolute'`, digeser ke kiri agar tetap terpusat) lalu membiarkan
+ * panggung ber-`overflow: 'hidden'` memotong sisanya.
+ *
+ * `videoAspect` WAJIB rasio asli media (lihat `useMediaAspect`): koleksi peraga
+ * memakai 4:3 untuk video kata dan 16:9 untuk gambar alfabet, jadi satu nilai
+ * tetap pasti salah untuk salah satunya.
  */
 export function useFullscreenVideoLayout(
   videoAspect: number = DEFAULT_VIDEO_ASPECT
@@ -54,17 +67,27 @@ export function useFullscreenVideoLayout(
         isPortrait,
         contentFit: 'contain' as const,
         bandStyle: { height, width },
+        videoStyle: { height, width },
         band: { top: 0, height },
       };
     }
 
     const naturalHeight = width / aspect;
-    const bandHeight = Math.min(height, naturalHeight * PORTRAIT_ZOOM);
+    const zoom = Math.min(PORTRAIT_ZOOM, height / naturalHeight);
+    const bandHeight = naturalHeight * zoom;
+    const videoWidth = bandHeight * aspect;
 
     return {
       isPortrait,
-      contentFit: 'cover' as const,
-      bandStyle: { height: bandHeight, overflow: 'hidden' as const, width },
+      contentFit: 'contain' as const,
+      bandStyle: {
+        height: bandHeight,
+        left: (width - videoWidth) / 2,
+        position: 'absolute' as const,
+        top: (height - bandHeight) / 2,
+        width: videoWidth,
+      },
+      videoStyle: { height: bandHeight, width: videoWidth },
       band: { top: (height - bandHeight) / 2, height: bandHeight },
     };
   }, [height, videoAspect, width]);

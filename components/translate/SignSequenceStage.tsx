@@ -60,7 +60,7 @@ export default function SignSequenceStage({
       nativeControls={false}
       player={player}
       pointerEvents="none"
-      style={styles.media}
+      style={isFullscreen ? layout.videoStyle : styles.media}
       // TextureView bertahan jauh lebih baik saat pemutar dipindah antara
       // panggung inline dan layar penuh; SurfaceView sering tampil hitam
       // karena frame terakhir tidak digambar ulang pada surface baru.
@@ -151,6 +151,7 @@ const styles = createSheet((themeColors) => ({
     backgroundColor: '#000000',
     flex: 1,
     justifyContent: 'center',
+    overflow: 'hidden',
     width: '100%',
   },
   media: {
