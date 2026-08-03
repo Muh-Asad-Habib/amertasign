@@ -8,6 +8,8 @@ import { colors, fontFamily, radius, spacing, touchTargetMin } from '../../theme
 import { useSettingsStore, type SignSpeedMultiplier } from '../../store/useSettingsStore';
 import useAutoHideControls from '../../hooks/useAutoHideControls';
 import useVideoProgress from '../../hooks/useVideoProgress';
+import type { FullscreenPhase } from '../../hooks/useFullscreenHandoff';
+import { useFrameRefreshOnHandoff } from '../../hooks/useVideoFrameRefresh';
 import FullscreenVideoModal from '../player/FullscreenVideoModal';
 import PlayerControlsOverlay, { type SpeedOption } from '../player/PlayerControlsOverlay';
 import Badge from '../ui/Badge';
@@ -64,6 +66,12 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
   /** Posisi awal pemutaran gerakan aktif (berubah saat pengguna menggeser). */
   const [resumeFromMs, setResumeFromMs] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  /**
+   * Fase serah-terima `VideoView` yang dilaporkan modal. Panggung inline hanya
+   * boleh dipasang saat `closed`, supaya tidak pernah ada dua `VideoView` hidup
+   * untuk satu pemutar.
+   */
+  const [fullscreenPhase, setFullscreenPhase] = useState<FullscreenPhase>('closed');
   /** Kontrol tidak boleh hilang sendiri selama seek bar sedang digeser. */
   const [isScrubbing, setIsScrubbing] = useState(false);
 
@@ -147,7 +155,7 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
     [playToken]
   );
 
-  const { player, videoUri, isBuffering } = useSignSequenceVideo({
+  const { player, videoUri, isBuffering, refreshFrame } = useSignSequenceVideo({
     isPlaying,
     onDurationLoaded: handleDurationLoaded,
     onEnded: handleEnded,
@@ -250,7 +258,7 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
   const controls = useAutoHideControls({ autoHide: isFullscreen && isPlaying && !isScrubbing });
   const { currentTime, duration } = useVideoProgress(
     player,
-    isFullscreen && controls.visible && Boolean(videoUri)
+    fullscreenPhase === 'open' && controls.visible && Boolean(videoUri)
   );
 
   // Kontrol selalu tampil lebih dulu saat layar penuh dibuka.
@@ -261,13 +269,9 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
     }
   }, [isFullscreen, showControls]);
 
-  const handleStagePress = useCallback(() => {
-    if (isFullscreen) {
-      controls.toggle();
-      return;
-    }
-    togglePlay();
-  }, [controls, isFullscreen, togglePlay]);
+  // Setelah `VideoView` berpindah wadah, surface baru perlu dipaksa menggambar
+  // bila pemutar sedang dijeda — kalau tidak, panggung tampil hitam.
+  useFrameRefreshOnHandoff(fullscreenPhase, refreshFrame);
 
   const handleFullscreenToggle = useCallback(() => {
     controls.show();
@@ -301,15 +305,15 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
 
   const progress = ((index + 1) / total) * 100;
 
-  const stage = (
+  const renderStage = (variant: 'inline' | 'fullscreen') => (
     <SignSequenceStage
       isBuffering={isBuffering}
       isPlaying={isPlaying}
-      onPress={handleStagePress}
-      onRequestFullscreen={isFullscreen ? undefined : () => setIsFullscreen(true)}
+      onPress={togglePlay}
+      onRequestFullscreen={variant === 'inline' ? () => setIsFullscreen(true) : undefined}
       player={player}
       unit={unit}
-      variant={isFullscreen ? 'fullscreen' : 'inline'}
+      variant={variant}
       videoUri={videoUri}
     />
   );
@@ -332,8 +336,13 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
       </View>
 
       {/* Panggung hanya boleh dirender di satu tempat: dua `VideoView` untuk
-          satu pemutar membuat gambar hilang di Android. */}
-      {isFullscreen ? <View style={styles.stagePlaceholder} /> : stage}
+          satu pemutar membuat gambar hilang di Android. Selama serah-terima ke
+          layar penuh, keduanya sengaja dikosongkan. */}
+      {fullscreenPhase === 'closed' ? (
+        renderStage('inline')
+      ) : (
+        <View style={styles.stagePlaceholder} />
+      )}
 
       {unit.description ? (
         <Text variant="caption" color="secondary" align="center" numberOfLines={2}>
@@ -470,6 +479,7 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
       </View>
 
       <FullscreenVideoModal
+        onPhaseChange={setFullscreenPhase}
         onRequestClose={() => setIsFullscreen(false)}
         onSurfacePress={controls.toggle}
         renderControls={(insets) => (
@@ -505,7 +515,7 @@ export default function SignSequencePlayer({ units }: SignSequencePlayerProps) {
         )}
         visible={isFullscreen}
       >
-        {isFullscreen ? stage : null}
+        {renderStage('fullscreen')}
       </FullscreenVideoModal>
     </View>
   );

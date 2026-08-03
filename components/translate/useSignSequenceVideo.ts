@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEventListener } from 'expo';
 import { useVideoPlayer, type VideoPlayer } from 'expo-video';
 
 import type { TextToSignUnit } from '../../services/translation';
+import useVideoFrameRefresh from '../../hooks/useVideoFrameRefresh';
 
 /** URL video hanya dipakai bila unit memang bertipe video dan URL-nya ada. */
 export function videoUriOf(unit?: TextToSignUnit): string | null {
@@ -33,7 +34,16 @@ export interface SignSequenceVideo {
   player: VideoPlayer;
   videoUri: string | null;
   isBuffering: boolean;
+  /**
+   * Memaksa satu frame digambar ulang pada surface saat ini. Dipakai setelah
+   * `VideoView` berpindah antara panggung inline dan layar penuh sementara
+   * pemutar sedang dijeda — tanpa ini surface baru bisa tetap kosong.
+   */
+  refreshFrame: () => void;
 }
+
+/** Ambang untuk menganggap posisi pemutaran sudah di ujung klip. */
+const END_EPSILON_MS = 250;
 
 /**
  * Mesin pemutar rangkaian peraga isyarat: SATU instance pemutar dipakai ulang
@@ -59,13 +69,21 @@ export function useSignSequenceVideo({
   // Dibaca di dalam callback async supaya tidak memakai nilai usang.
   const isPlayingRef = useRef(isPlaying);
   const speedRef = useRef(speed);
+  const onEndedRef = useRef(onEnded);
   isPlayingRef.current = isPlaying;
   speedRef.current = speed;
+  onEndedRef.current = onEnded;
 
   /** `unitKey` dari sumber yang benar-benar sudah dimuat ke pemutar. */
   const loadedKeyRef = useRef<number | null>(null);
   const durationMsRef = useRef<number | null>(null);
   const durationReportedRef = useRef(false);
+  /**
+   * Klip yang sudah habis saat rangkaian sedang dijeda. Event `playToEnd`-nya
+   * tidak boleh dibuang: pemutar berhenti di posisi akhir, sehingga `play()`
+   * berikutnya tidak menghasilkan apa pun dan tombol putar terasa rusak.
+   */
+  const pendingEndRef = useRef<number | null>(null);
   /**
    * Pemuatan sumber diantrikan: dua `replaceAsync` yang tumpang tindih (mis.
    * chip gerakan ditekan beruntun) tidak dijamin selesai sesuai urutan panggil.
@@ -77,6 +95,17 @@ export function useSignSequenceVideo({
     instance.muted = true;
   });
 
+  /** Mulai memutar; bila posisi mentok di ujung klip, kembalikan dulu ke awal. */
+  const playFromSafePosition = useCallback(() => {
+    const durationMs = durationMsRef.current;
+    if (durationMs !== null && player.currentTime * 1000 >= durationMs - END_EPSILON_MS) {
+      player.currentTime = 0;
+    }
+    player.play();
+  }, [player]);
+
+  const refreshFrame = useVideoFrameRefresh(player);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -84,6 +113,7 @@ export function useSignSequenceVideo({
     loadedKeyRef.current = null;
     durationMsRef.current = null;
     durationReportedRef.current = false;
+    pendingEndRef.current = null;
     player.pause();
 
     const enqueue = <T,>(task: () => Promise<T>): Promise<T> => {
@@ -111,6 +141,10 @@ export function useSignSequenceVideo({
         player.playbackRate = speedRef.current;
         if (isPlayingRef.current) {
           player.play();
+        } else {
+          // Sedang dijeda: pastikan frame pertama gerakan baru tetap tampil
+          // supaya tombol sebelumnya/berikutnya terlihat bereaksi.
+          refreshFrame();
         }
       })
       .catch(() => {
@@ -122,7 +156,7 @@ export function useSignSequenceVideo({
     return () => {
       cancelled = true;
     };
-  }, [player, unitKey, videoUri]);
+  }, [player, refreshFrame, unitKey, videoUri]);
 
   useEffect(() => {
     player.playbackRate = speed;
@@ -137,16 +171,31 @@ export function useSignSequenceVideo({
       return;
     }
     // Hanya putar bila sumber untuk gerakan ini memang sudah termuat.
-    if (loadedKeyRef.current === unitKey) {
-      player.play();
+    if (loadedKeyRef.current !== unitKey) {
+      return;
     }
-  }, [isPlaying, player, unitKey, videoUri]);
+    // Klip sudah habis saat dijeda: lanjutkan rangkaian, jangan `play()` di
+    // posisi akhir yang tidak menghasilkan apa pun.
+    const pendingEnd = pendingEndRef.current;
+    if (pendingEnd !== null) {
+      pendingEndRef.current = null;
+      onEndedRef.current(pendingEnd);
+      return;
+    }
+    playFromSafePosition();
+  }, [isPlaying, playFromSafePosition, player, unitKey, videoUri]);
 
   useEventListener(player, 'playToEnd', () => {
     const loadedKey = loadedKeyRef.current;
-    if (loadedKey !== null) {
-      onEnded(loadedKey);
+    if (loadedKey === null) {
+      return;
     }
+    if (!isPlayingRef.current) {
+      pendingEndRef.current = loadedKey;
+      return;
+    }
+    pendingEndRef.current = null;
+    onEndedRef.current(loadedKey);
   });
 
   useEventListener(player, 'sourceLoad', ({ duration }) => {
@@ -172,7 +221,7 @@ export function useSignSequenceVideo({
     setIsBuffering(status === 'loading');
   });
 
-  return { player, videoUri, isBuffering };
+  return { player, videoUri, isBuffering, refreshFrame };
 }
 
 export default useSignSequenceVideo;
