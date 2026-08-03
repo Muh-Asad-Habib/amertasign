@@ -102,7 +102,7 @@ export default function PlayerControlsOverlay<T extends number = number>({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Keluar dari layar penuh"
-          hitSlop={10}
+          hitSlop={16}
           onPress={onExitFullscreen}
           style={styles.iconButton}
         >
@@ -115,7 +115,7 @@ export default function PlayerControlsOverlay<T extends number = number>({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Gerakan sebelumnya"
-            hitSlop={10}
+            hitSlop={16}
             onPress={onPrevious}
             style={styles.sideButton}
           >
@@ -125,33 +125,34 @@ export default function PlayerControlsOverlay<T extends number = number>({
           <View style={styles.sideSpacer} />
         )}
 
-        {isBuffering ? (
-          <View style={styles.playButton}>
-            <ActivityIndicator color="#FFFFFF" size="large" />
-          </View>
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isPlaying ? 'Jeda peragaan' : 'Putar peragaan'}
-            accessibilityState={{ selected: isPlaying }}
-            hitSlop={10}
-            onPress={onTogglePlay}
-            style={styles.playButton}
-          >
-            <Ionicons
-              color="#FFFFFF"
-              name={isPlaying ? 'pause' : 'play'}
-              size={38}
-              style={isPlaying ? undefined : styles.playIconOffset}
-            />
-          </Pressable>
-        )}
+        {/* Tombol tidak pernah diganti spinner: buffering terjadi tiap ganti
+            gerakan dan tiap seek, justru saat pengguna ingin menekannya. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isPlaying ? 'Jeda peragaan' : 'Putar peragaan'}
+          accessibilityState={{ busy: isBuffering, selected: isPlaying }}
+          hitSlop={16}
+          onPress={onTogglePlay}
+          style={styles.playButton}
+        >
+          <Ionicons
+            color="#FFFFFF"
+            name={isPlaying ? 'pause' : 'play'}
+            size={38}
+            style={isPlaying ? undefined : styles.playIconOffset}
+          />
+          {isBuffering ? (
+            <View pointerEvents="none" style={styles.playButtonSpinner}>
+              <ActivityIndicator color="#FFFFFF" size="large" />
+            </View>
+          ) : null}
+        </Pressable>
 
         {onNext ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Gerakan berikutnya"
-            hitSlop={10}
+            hitSlop={16}
             onPress={onNext}
             style={styles.sideButton}
           >
@@ -214,7 +215,7 @@ export default function PlayerControlsOverlay<T extends number = number>({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Ulangi dari awal"
-              hitSlop={8}
+              hitSlop={16}
               onPress={onRestart}
               style={styles.iconButton}
             >
@@ -285,6 +286,11 @@ const styles = StyleSheet.create({
     height: 76,
     justifyContent: 'center',
     width: 76,
+  },
+  playButtonSpinner: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   playIconOffset: {
     marginLeft: 5,
