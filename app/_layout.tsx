@@ -22,6 +22,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useDictionaryStore } from '../store/useDictionaryStore';
 import { useHistoryStore } from '../store/useHistoryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { lockPortrait } from '../utils/orientation';
 
 import { createSheet } from '../theme';
 
@@ -66,6 +67,12 @@ export default function RootLayout() {
 
   // Fallback: jika font gagal dimuat, tetap lanjut dengan font sistem.
   const fontsReady = fontsLoaded || Boolean(fontError);
+
+  // Aplikasi dikunci portrait; hanya pemutar video layar penuh yang membuka
+  // kunci ini sementara (manifest/Info.plist sengaja dibiarkan bebas).
+  useEffect(() => {
+    void lockPortrait();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
