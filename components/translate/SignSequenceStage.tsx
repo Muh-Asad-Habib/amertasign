@@ -19,7 +19,7 @@ export interface SignSequenceStageProps {
   isBuffering: boolean;
   /** Rangkaian sedang berjalan (auto-play). */
   isPlaying: boolean;
-  /** Tap pada panggung → jeda / lanjut (inline) atau tampilkan kontrol (layar penuh). */
+  /** Tap pada panggung inline → jeda / lanjut. Tidak dipakai di layar penuh. */
   onPress: () => void;
   /** Tombol masuk layar penuh; disembunyikan bila tidak diberikan. */
   onRequestFullscreen?: () => void;
@@ -47,72 +47,82 @@ export default function SignSequenceStage({
 }: SignSequenceStageProps) {
   const isFullscreen = variant === 'fullscreen';
 
+  const media = videoUri ? (
+    <VideoView
+      accessibilityLabel={`Peragaan isyarat ${unit?.word ?? ''}`}
+      allowsFullscreen={false}
+      contentFit="contain"
+      nativeControls={false}
+      player={player}
+      pointerEvents="none"
+      style={styles.media}
+      // TextureView bertahan jauh lebih baik saat pemutar dipindah antara
+      // panggung inline dan layar penuh; SurfaceView sering tampil hitam
+      // karena frame terakhir tidak digambar ulang pada surface baru.
+      surfaceType="textureView"
+    />
+  ) : unit?.imageUrl ? (
+    <Image
+      accessibilityLabel={`Peragaan isyarat ${unit.word}`}
+      resizeMode="contain"
+      source={{ uri: unit.imageUrl }}
+      style={styles.media}
+    />
+  ) : (
+    <View style={styles.emptyMedia}>
+      <Ionicons color={colors.textOnPrimary} name="videocam-off-outline" size={30} />
+      <Text variant="caption" color="onPrimary" align="center">
+        Media peraga untuk &quot;{unit?.word ?? '-'}&quot; belum tersedia
+      </Text>
+    </View>
+  );
+
+  // Di layar penuh seluruh sentuhan & indikator ditangani lapisan kontrol milik
+  // modal, jadi panggung sengaja dibuat pasif (tanpa Pressable) supaya tidak
+  // ada dua penerima tap untuk satu sentuhan.
+  if (isFullscreen) {
+    return <View style={styles.stageFullscreen}>{media}</View>;
+  }
+
   return (
-    <PressableScale
-      accessibilityRole="button"
-      accessibilityLabel={
-        isFullscreen
-          ? 'Tampilkan atau sembunyikan kontrol'
-          : isPlaying
-            ? 'Jeda peragaan'
-            : 'Putar peragaan'
-      }
-      accessibilityState={{ selected: isPlaying }}
-      onPress={onPress}
-      scaleTo={isFullscreen ? 1 : 0.995}
-      style={isFullscreen ? styles.stageFullscreen : styles.stage}
-    >
-      {videoUri ? (
-        <VideoView
-          accessibilityLabel={`Peragaan isyarat ${unit?.word ?? ''}`}
-          allowsFullscreen={false}
-          contentFit="contain"
-          nativeControls={false}
-          player={player}
-          pointerEvents="none"
-          style={styles.media}
-        />
-      ) : unit?.imageUrl ? (
-        <Image
-          accessibilityLabel={`Peragaan isyarat ${unit.word}`}
-          resizeMode="contain"
-          source={{ uri: unit.imageUrl }}
-          style={styles.media}
-        />
-      ) : (
-        <View style={styles.emptyMedia}>
-          <Ionicons color={colors.textOnPrimary} name="videocam-off-outline" size={30} />
-          <Text variant="caption" color="onPrimary" align="center">
-            Media peraga untuk &quot;{unit?.word ?? '-'}&quot; belum tersedia
-          </Text>
-        </View>
-      )}
+    <View style={styles.stage}>
+      <PressableScale
+        accessibilityRole="button"
+        accessibilityLabel={isPlaying ? 'Jeda peragaan' : 'Putar peragaan'}
+        accessibilityState={{ selected: isPlaying }}
+        onPress={onPress}
+        scaleTo={0.995}
+        style={styles.stageSurface}
+      >
+        {media}
 
-      {/* Di layar penuh, indikator & tombol putar ditangani lapisan kontrol. */}
-      {isFullscreen ? null : isBuffering ? (
-        <View pointerEvents="none" style={styles.overlay}>
-          <ActivityIndicator color={colors.textOnPrimary} size="large" />
-        </View>
-      ) : !isPlaying ? (
-        <View pointerEvents="none" style={styles.overlay}>
-          <View style={styles.overlayBubble}>
-            <Ionicons color={colors.primary} name="play" size={30} style={styles.overlayIcon} />
+        {isBuffering ? (
+          <View pointerEvents="none" style={styles.overlay}>
+            <ActivityIndicator color={colors.textOnPrimary} size="large" />
           </View>
-        </View>
-      ) : null}
+        ) : !isPlaying ? (
+          <View pointerEvents="none" style={styles.overlay}>
+            <View style={styles.overlayBubble}>
+              <Ionicons color={colors.primary} name="play" size={30} style={styles.overlayIcon} />
+            </View>
+          </View>
+        ) : null}
+      </PressableScale>
 
-      {!isFullscreen && onRequestFullscreen ? (
+      {/* Sengaja saudara, bukan anak, dari permukaan tap di atas: Pressable
+          bersarang membuat tap tombol ini kadang tertangkap panggung. */}
+      {onRequestFullscreen ? (
         <PressableScale
           accessibilityLabel="Tampilkan peragaan di layar penuh"
           accessibilityRole="button"
-          hitSlop={8}
+          hitSlop={12}
           onPress={onRequestFullscreen}
           style={styles.fullscreenButton}
         >
           <Ionicons color="#FFFFFF" name="expand-outline" size={18} />
         </PressableScale>
       ) : null}
-    </PressableScale>
+    </View>
   );
 }
 
@@ -123,6 +133,9 @@ const styles = createSheet((themeColors) => ({
     borderRadius: radius.xl,
     overflow: 'hidden',
     width: '100%',
+  },
+  stageSurface: {
+    ...StyleSheet.absoluteFillObject,
   },
   stageFullscreen: {
     backgroundColor: '#000000',
