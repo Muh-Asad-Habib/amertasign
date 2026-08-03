@@ -99,6 +99,8 @@ export default function PlayerControlsOverlay<T extends number = number>({
     return { bottom: reservedBottom, top: bandBottom };
   }, [mediaBand, reservedBottom, windowHeight]);
 
+  const hasTimeline = Number.isFinite(duration) && duration > 0;
+
   if (!visible) {
     return null;
   }
@@ -211,18 +213,27 @@ export default function PlayerControlsOverlay<T extends number = number>({
       >
         {extraContent}
 
-        <PlayerSeekBar
-          accentColor={colors.accent}
-          currentTime={currentTime}
-          duration={duration}
-          onScrubbingChange={onScrubbingChange}
-          onSeekComplete={onSeekComplete}
-        />
+        {/* Unit alfabet berupa gambar diam: tidak punya garis waktu sama
+            sekali, jadi seek bar & penunjuk waktu disembunyikan alih-alih
+            menampilkan "0:00 / 0:00" dengan knob mati. */}
+        {hasTimeline ? (
+          <PlayerSeekBar
+            accentColor={colors.accent}
+            currentTime={currentTime}
+            duration={duration}
+            onScrubbingChange={onScrubbingChange}
+            onSeekComplete={onSeekComplete}
+          />
+        ) : null}
 
         <View style={styles.bottomRow}>
-          <Text style={styles.time}>
-            {formatPlaybackTime(currentTime)} / {formatPlaybackTime(duration)}
-          </Text>
+          {hasTimeline ? (
+            <Text style={styles.time}>
+              {formatPlaybackTime(currentTime)} / {formatPlaybackTime(duration)}
+            </Text>
+          ) : (
+            <View style={styles.timeSpacer} />
+          )}
 
           <View style={styles.bottomActions}>
             <View style={styles.speedGroup}>
@@ -363,6 +374,9 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bodyRegular,
     fontSize: 13,
     fontVariant: ['tabular-nums'],
+  },
+  timeSpacer: {
+    flex: 1,
   },
   iconButton: {
     alignItems: 'center',

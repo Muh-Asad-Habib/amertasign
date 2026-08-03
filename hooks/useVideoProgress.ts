@@ -66,15 +66,20 @@ export function useVideoProgress(player: VideoPlayer | null, active: boolean): V
       setProgress(next);
     };
 
-    /** Durasi yang sudah wajar dipertahankan; kalau belum, dicoba baca lagi. */
+    /**
+     * Nilai `player.duration` selalu didahulukan: klip berikutnya bisa punya
+     * durasi berbeda, dan menahan nilai lama membuat seek bar memakai skala
+     * klip sebelumnya (mis. 0:02 / 0:05 padahal klip ini hanya 0:04). Nilai
+     * lama hanya dipakai selama pembacaan baru belum wajar.
+     */
     const resolveDuration = (currentTime: number): number => {
-      const known = progressRef.current.duration;
-      if (isPlausibleDuration(known)) {
-        return Math.max(known, currentTime);
-      }
       const raw = player.duration;
       if (isPlausibleDuration(raw)) {
         return Math.max(raw, currentTime);
+      }
+      const known = progressRef.current.duration;
+      if (isPlausibleDuration(known)) {
+        return Math.max(known, currentTime);
       }
       return 0;
     };
