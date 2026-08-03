@@ -227,11 +227,13 @@ export default function CameraTranslateScreen() {
   };
 
   const busy = isProcessing || isDetecting;
+  // Sengaja ringkas: teks ini duduk di atas tombol rekam, dan setiap baris
+  // tambahan langsung memangkas tinggi pratinjau kamera di atasnya.
   const helperText = isRecording
-    ? `Peragakan beberapa isyarat, tahan tiap isyarat ±2 detik (maks ${MAX_RECORDING_SEC} dtk)`
+    ? `Tahan tiap isyarat ±2 detik (maks ${MAX_RECORDING_SEC} dtk)`
     : busy
-      ? 'Menganalisis rangkaian isyarat — huruf, angka, atau kata...'
-      : 'Ketuk rekam, peragakan satu atau beberapa isyarat, lalu ketuk lagi untuk berhenti';
+      ? 'Menganalisis rangkaian isyarat...'
+      : 'Ketuk rekam, peragakan isyarat, lalu ketuk lagi untuk berhenti';
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>

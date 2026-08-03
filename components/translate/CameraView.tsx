@@ -194,15 +194,15 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
           style={styles.contentScroll}
         >
           <View style={styles.cameraGlyph}>
-            <Ionicons color={colors.textOnPrimary} name="videocam-off-outline" size={44} />
+            <Ionicons color={colors.textOnPrimary} name="videocam-off-outline" size={34} />
           </View>
           <Heading variant="h2" color="onPrimary" align="center">
             Izinkan akses kamera
           </Heading>
           <Text style={styles.subtitle}>
             {canRequestPermission
-              ? 'Amerta Sign butuh kamera untuk mendeteksi gerakan isyarat BISINDO.'
-              : 'Izin kamera sedang diblokir. Buka Pengaturan perangkat, lalu aktifkan izin Kamera untuk Amerta Sign.'}
+              ? 'Amerta Sign butuh kamera untuk mendeteksi isyarat BISINDO.'
+              : 'Izin kamera diblokir. Aktifkan izin Kamera lewat Pengaturan perangkat.'}
           </Text>
           <PressableScale
             accessibilityRole="button"
@@ -341,14 +341,15 @@ const styles = createSheet((colors) => ({
   },
   content: {
     alignItems: 'center',
-    // `flexGrow` + `justifyContent` memusatkan isi saat ruang cukup, tapi tetap
-    // membiarkannya digulir saat ruang sempit — tombol CTA tidak pernah
-    // terpotong `overflow: 'hidden'` milik kontainer.
+    // Isi kartu izin sengaja dijaga cukup ringkas agar muat tanpa digulir pada
+    // ruang tersisa antara top bar dan bottom sheet (±252 dp di layar 832 dp).
+    // `flexGrow` + `justifyContent` memusatkannya saat ruang cukup, dan gulir
+    // hanya jadi jaring pengaman untuk font sistem yang sangat besar.
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: spacing.base,
-    paddingVertical: spacing.base,
-    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    gap: spacing.xs,
   },
   cameraGlyph: {
     alignItems: 'center',
@@ -356,18 +357,18 @@ const styles = createSheet((colors) => ({
     borderColor: overlay.onInkBorder,
     borderRadius: radius.full,
     borderWidth: 1,
-    height: 76,
+    height: 60,
     justifyContent: 'center',
-    marginBottom: spacing.sm,
-    width: 76,
+    marginBottom: spacing.xs,
+    width: 60,
   },
   subtitle: {
     color: overlay.onInkTextSoft,
     fontFamily: fontFamily.bodyRegular,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
     textAlign: 'center',
-    maxWidth: 280,
+    maxWidth: 320,
   },
   permissionBtn: {
     minHeight: touchTargetMin,
@@ -376,7 +377,7 @@ const styles = createSheet((colors) => ({
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   permissionText: {
     color: colors.textOnAccent,
