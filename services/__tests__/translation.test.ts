@@ -1,9 +1,14 @@
 import {
   assembleSignTimeline,
   classifySignLabel,
+  isDigitLabel,
+  isLetterLabel,
+  isWordLabel,
   joinSequenceTokens,
   mergeSequenceResult,
+  pickCandidate,
   planFrameTimes,
+  resolveSingleShotResult,
   SEQUENCE_TUNING,
   type SequenceSample,
   type SequenceToken,
@@ -186,6 +191,138 @@ describe('mergeSequenceResult', () => {
     const result = mergeSequenceResult([], wordResult('', 0.2));
     expect(result.text).toBe('');
     expect(result.kind).toBeNull();
+    expect(result.note).toBeTruthy();
+  });
+});
+
+describe('predikat label mode', () => {
+  it('isLetterLabel hanya menerima satu karakter A-Z', () => {
+    expect(isLetterLabel('A')).toBe(true);
+    expect(isLetterLabel(' z ')).toBe(true);
+    expect(isLetterLabel('AB')).toBe(false);
+    expect(isLetterLabel('1')).toBe(false);
+    expect(isLetterLabel('')).toBe(false);
+  });
+
+  it('isDigitLabel hanya menerima digit', () => {
+    expect(isDigitLabel('7')).toBe(true);
+    expect(isDigitLabel('10')).toBe(true);
+    expect(isDigitLabel('A')).toBe(false);
+    expect(isDigitLabel('kelas 1')).toBe(false);
+  });
+
+  it('isWordLabel menolak digit dan huruf tunggal', () => {
+    expect(isWordLabel('Mereka')).toBe(true);
+    expect(isWordLabel('terima kasih')).toBe(true);
+    expect(isWordLabel('10')).toBe(false);
+    expect(isWordLabel('A')).toBe(false);
+    expect(isWordLabel('  ')).toBe(false);
+  });
+});
+
+/** Helper: hasil server dengan daftar kandidat lengkap. */
+const withCandidates = (
+  text: string,
+  confidence: number,
+  candidates: Array<[string, number]>
+): SignRecognitionResult => ({
+  text,
+  confidence,
+  candidates: candidates.map(([label, value]) => ({ label, confidence: value })),
+  mode: 'BISINDO',
+  stage: 'kata',
+  model_loaded: true,
+  note: null,
+});
+
+describe('pickCandidate', () => {
+  it('memakai label teratas bila sudah cocok predikat', () => {
+    const result = withCandidates('Mereka', 0.8, [['Mereka', 0.8], ['10', 0.2]]);
+    expect(pickCandidate(result, isWordLabel)).toEqual({ label: 'Mereka', confidence: 0.8 });
+  });
+
+  // Kasus nyata dari docs/BACKEND-AUTO-DETECT.txt poin (b): kelas angka
+  // mendominasi kandidat teratas dan mengalahkan kelas kata.
+  it('melewati label digit dan mengambil kandidat kata terbaik', () => {
+    const result = withCandidates('10', 0.62, [
+      ['10', 0.62],
+      ['3', 0.18],
+      ['Mereka', 0.31],
+      ['Makan', 0.27],
+    ]);
+    expect(pickCandidate(result, isWordLabel)).toEqual({ label: 'Mereka', confidence: 0.31 });
+  });
+
+  it('mode angka tetap mengambil digit meski kata menang di puncak', () => {
+    const result = withCandidates('Mereka', 0.7, [['Mereka', 0.7], ['10', 0.29]]);
+    expect(pickCandidate(result, isDigitLabel)).toEqual({ label: '10', confidence: 0.29 });
+  });
+
+  it('mengurutkan kandidat yang datang tidak terurut', () => {
+    const result = withCandidates('10', 0.62, [
+      ['Makan', 0.27],
+      ['Mereka', 0.31],
+      ['10', 0.62],
+    ]);
+    expect(pickCandidate(result, isWordLabel)?.label).toBe('Mereka');
+  });
+
+  it('menolak kandidat di bawah ambang minFilteredConfidence', () => {
+    const result = withCandidates('10', 0.9, [['10', 0.9], ['Mereka', 0.1]]);
+    expect(result.candidates[1].confidence).toBeLessThan(SEQUENCE_TUNING.minFilteredConfidence);
+    expect(pickCandidate(result, isWordLabel)).toBeNull();
+  });
+
+  it('hasil kosong atau null aman', () => {
+    expect(pickCandidate(null, isWordLabel)).toBeNull();
+    expect(pickCandidate(withCandidates('', 0, []), isWordLabel)).toBeNull();
+  });
+});
+
+describe('resolveSingleShotResult', () => {
+  it('mode kata membuang label angka dan memakai kandidat kata', () => {
+    const result = resolveSingleShotResult(
+      withCandidates('10', 0.62, [['10', 0.62], ['Mereka', 0.31]]),
+      'kata'
+    );
+    expect(result.text).toBe('MEREKA');
+    expect(result.kind).toBe('kata');
+    expect(result.tokens).toEqual([{ label: 'MEREKA', kind: 'kata', confidence: 0.31 }]);
+    expect(result.note).toBeNull();
+  });
+
+  it('mode angka memakai kandidat digit', () => {
+    const result = resolveSingleShotResult(
+      withCandidates('Mereka', 0.7, [['Mereka', 0.7], ['10', 0.29]]),
+      'angka'
+    );
+    expect(result.text).toBe('10');
+    expect(result.kind).toBe('angka');
+  });
+
+  it('tanpa kandidat cocok: catatan, bukan label salah jenis', () => {
+    const result = resolveSingleShotResult(
+      withCandidates('10', 0.9, [['10', 0.9], ['3', 0.4]]),
+      'kata'
+    );
+    expect(result.text).toBe('');
+    expect(result.kind).toBeNull();
+    expect(result.note).toBeTruthy();
+    // Kandidat mentah tetap dikembalikan untuk keperluan diagnosa.
+    expect(result.candidates[0].label).toBe('10');
+  });
+
+  it('kandidat dikembalikan terurut menurun', () => {
+    const result = resolveSingleShotResult(
+      withCandidates('10', 0.62, [['Makan', 0.27], ['10', 0.62], ['Mereka', 0.31]]),
+      'kata'
+    );
+    expect(result.candidates.map((candidate) => candidate.label)).toEqual(['10', 'Mereka', 'Makan']);
+  });
+
+  it('hasil server null tetap menghasilkan catatan', () => {
+    const result = resolveSingleShotResult(null, 'angka');
+    expect(result.text).toBe('');
     expect(result.note).toBeTruthy();
   });
 });

@@ -12,6 +12,7 @@ import CameraView, { type CameraViewHandle } from '../../components/translate/Ca
 import TranslationOutput from '../../components/translate/TranslationOutput';
 import BackHeader from '../../components/ui/BackHeader';
 import Badge from '../../components/ui/Badge';
+import CategoryTabs from '../../components/ui/CategoryTabs';
 import PressableScale from '../../components/ui/PressableScale';
 import Text from '../../components/ui/Text';
 import { colors, overlay, palette, radius, spacing, touchTargetMin } from '../../theme';
@@ -23,8 +24,12 @@ import { useHistoryStore } from '../../store/useHistoryStore';
 import { toUserMessage } from '../../utils/errors';
 import {
   classifySignLabel,
+  isLetterLabel,
+  pickCandidate,
+  RECOGNITION_MODE_OPTIONS,
   SIGN_KIND_LABEL,
   type MediaUpload,
+  type RecognitionMode,
   type SequenceKind,
 } from '../../services/translation';
 
@@ -36,6 +41,25 @@ const MAX_RECORDING_SEC = 15;
 /** Jeda minimum sebelum perekaman boleh dihentikan (native butuh waktu siap). */
 const MIN_RECORDING_MS = 800;
 const TIMER_INTERVAL_MS = 200;
+
+/** Panduan singkat di atas tombol rekam, disesuaikan mode yang dikunci. */
+const MODE_HELPER_TEXT: Record<RecognitionMode, string> = {
+  otomatis: 'Ketuk rekam, peragakan isyarat, lalu ketuk lagi untuk berhenti',
+  huruf: 'Tahan tiap huruf ±2 detik — beberapa huruf dirangkai jadi ejaan',
+  angka: 'Peragakan satu angka, tahan sampai gerakan selesai',
+  kata: 'Peragakan satu kata, tahan sampai gerakan selesai',
+};
+
+/** Teks status selama hasil rekaman diproses. */
+const MODE_PROCESSING_TEXT: Record<RecognitionMode, string> = {
+  otomatis: 'Menganalisis rangkaian gerakan...',
+  huruf: 'Menganalisis rangkaian huruf...',
+  angka: 'Menganalisis isyarat angka...',
+  kata: 'Menganalisis isyarat kata...',
+};
+
+/** Mode yang hanya bisa dijalankan model video — gambar galeri tidak didukung. */
+const VIDEO_ONLY_MODES: RecognitionMode[] = ['angka', 'kata'];
 
 export default function CameraTranslateScreen() {
   useThemeMode();
@@ -51,6 +75,7 @@ export default function CameraTranslateScreen() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [facing, setFacing] = useState<CameraType>('front');
   const [torchEnabled, setTorchEnabled] = useState(false);
+  const [mode, setMode] = useState<RecognitionMode>('otomatis');
   const [translatedText, setTranslatedText] = useState(WAITING_TEXT);
   const [detectedKind, setDetectedKind] = useState<SequenceKind | null>(null);
   const cameraRef = useRef<CameraViewHandle>(null);
@@ -104,10 +129,10 @@ export default function CameraTranslateScreen() {
   /** Rekaman video → rangkaian isyarat (beberapa huruf/angka + kata). */
   const processRecording = async (video: MediaUpload, durationMs: number) => {
     setIsProcessing(true);
-    setTranslatedText('Menganalisis rangkaian gerakan...');
+    setTranslatedText(MODE_PROCESSING_TEXT[mode]);
     setDetectedKind(null);
     try {
-      const result = await translateSequence(video, durationMs);
+      const result = await translateSequence(video, durationMs, mode);
       if (result.text) {
         setTranslatedText(result.text);
         setDetectedKind(result.kind);
@@ -131,12 +156,19 @@ export default function CameraTranslateScreen() {
     setDetectedKind(null);
     try {
       const result = await translateMedia(media, 'abjad');
-      const text = result.text || result.note || 'Isyarat belum dikenali. Coba ulangi dengan pencahayaan lebih baik.';
-      setTranslatedText(text);
-      if (result.text) {
-        setDetectedKind(classifySignLabel(result.text));
+      // Mode huruf menolak label non-huruf agar konsisten dengan jalur rekaman.
+      const picked = mode === 'huruf' ? pickCandidate(result, isLetterLabel) : null;
+      const label = mode === 'huruf' ? picked?.label ?? '' : result.text ?? '';
+      const fallback =
+        mode === 'huruf'
+          ? 'Tidak ada isyarat huruf yang dikenali. Coba ulangi dengan pencahayaan lebih baik.'
+          : result.note || 'Isyarat belum dikenali. Coba ulangi dengan pencahayaan lebih baik.';
+
+      setTranslatedText(label || fallback);
+      if (label) {
+        setDetectedKind(classifySignLabel(label));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
-        saveHistory(result.text);
+        saveHistory(label);
       }
     } catch (error) {
       showFailure(error);
@@ -223,6 +255,17 @@ export default function CameraTranslateScreen() {
       await processRecording(media, asset.duration ?? 0);
       return;
     }
+
+    // Angka & kata hanya ada di model video; server menolak gambar pada
+    // stage=kata (400 STAGE_MEDIA_MISMATCH), jadi dicegah sebelum dikirim.
+    if (VIDEO_ONLY_MODES.includes(mode)) {
+      Alert.alert(
+        'Butuh rekaman video',
+        'Mode Angka dan Kata membutuhkan rekaman video. Untuk gambar, pilih mode Huruf atau Otomatis.'
+      );
+      return;
+    }
+
     await processImage(media);
   };
 
@@ -232,8 +275,14 @@ export default function CameraTranslateScreen() {
   const helperText = isRecording
     ? `Tahan tiap isyarat ±2 detik (maks ${MAX_RECORDING_SEC} dtk)`
     : busy
-      ? 'Menganalisis rangkaian isyarat...'
-      : 'Ketuk rekam, peragakan isyarat, lalu ketuk lagi untuk berhenti';
+      ? MODE_PROCESSING_TEXT[mode]
+      : MODE_HELPER_TEXT[mode];
+
+  const handleSelectMode = (id: string) => {
+    setMode(id as RecognitionMode);
+    setTranslatedText(WAITING_TEXT);
+    setDetectedKind(null);
+  };
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
@@ -245,6 +294,18 @@ export default function CameraTranslateScreen() {
             right={<Badge text="BISINDO" variant="accent" />}
             title="Isyarat → Teks/Audio"
             tone="dark"
+          />
+        </View>
+
+        <View
+          pointerEvents={isRecording || busy ? 'none' : 'auto'}
+          style={[styles.modeBar, (isRecording || busy) && styles.modeBarDisabled]}
+        >
+          <CategoryTabs
+            activeCategory={mode}
+            categories={RECOGNITION_MODE_OPTIONS}
+            contentPadding={spacing.lg}
+            onSelect={handleSelectMode}
           />
         </View>
 
@@ -344,6 +405,13 @@ const styles = createSheet((colors) => ({
   topBar: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
+  },
+  modeBar: {
+    flexShrink: 0,
+    paddingBottom: spacing.xs,
+  },
+  modeBarDisabled: {
+    opacity: 0.4,
   },
   cameraContainer: {
     flex: 1,

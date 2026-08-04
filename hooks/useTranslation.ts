@@ -5,6 +5,7 @@ import {
   recognizeSequence,
   textToSign,
   type MediaUpload,
+  type RecognitionMode,
   type SequenceRecognitionResult,
   type SignRecognitionResult,
   type TextToSignResult,
@@ -50,13 +51,14 @@ export function useTranslation() {
   /** Rekaman video → rangkaian isyarat (beberapa huruf/angka + kata). */
   const translateSequence = useCallback(async (
     video: MediaUpload,
-    durationMs?: number
+    durationMs?: number,
+    mode?: RecognitionMode
   ): Promise<SequenceRecognitionResult> => {
     const requestId = ++requestIdRef.current;
     setIsDetecting(true);
     setTranslatedText('');
     try {
-      const result = await recognizeSequence(video, { durationMs });
+      const result = await recognizeSequence(video, { durationMs, mode });
       if (requestIdRef.current === requestId) {
         setTranslatedText(result.text || result.note || 'Isyarat belum dikenali.');
       }

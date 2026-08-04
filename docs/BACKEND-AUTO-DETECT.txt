@@ -175,9 +175,10 @@ d) Akibat poin a dan c, aplikasi terpaksa mengirim dua permintaan untuk
 3.5 KONTRAK PERSIS DARI SISI APLIKASI MOBILE
     (mohon disesuaikan, ini yang benar-benar dikirim/dibaca aplikasi)
 
-    A. Yang DIKIRIM aplikasi SEKARANG (dua permintaan per rekaman):
+    A. Yang DIKIRIM aplikasi SEKARANG (per rekaman, bergantung mode yang
+       dipilih pengguna di layar kamera — lihat bagian 6 poin 5):
 
-       Permintaan 1 - urutan gerakan
+       Permintaan 1 - urutan gerakan  (mode Otomatis / Angka / Kata)
          POST /api/v1/translate/sign-to-text
          Content-Type: multipart/form-data
          field "stage" = "kata"
@@ -186,13 +187,18 @@ d) Akibat poin a dan c, aplikasi terpaksa mengirim dua permintaan untuk
                                        ter-mirror)
          timeout klien : 120 detik
 
-       Permintaan 2 - satu frame diam
+       Permintaan 2 - frame diam  (mode Otomatis / Huruf; s.d. 12 kali,
+                                   maks 3 bersamaan)
          POST /api/v1/translate/sign-to-text
          Content-Type: multipart/form-data
          field "stage" = "abjad"
-         field "file"  = isyarat-frame.jpg (image/jpeg, diambil dari
-                                            tengah durasi rekaman)
+         field "file"  = isyarat-frame.jpg (image/jpeg, dicuplik merata
+                                            sepanjang durasi rekaman)
          timeout klien : 60 detik
+
+       Ringkasan beban per terjemahan:
+         Otomatis : s.d. 13 request   Huruf : s.d. 12 request
+         Angka    : 1 request         Kata  : 1 request
 
        Keduanya dikirim TANPA header Authorization (endpoint ini publik
        seperti sekarang). Mohon jangan diubah menjadi wajib token.
@@ -285,15 +291,46 @@ d) Akibat poin a dan c, aplikasi terpaksa mengirim dua permintaan untuk
 Sampai perubahan di atas tersedia, aplikasi melakukan hal berikut:
 
   1. Mengirim video rekaman ke stage=kata.
-  2. Mengekstrak satu frame di tengah rekaman di perangkat, lalu
-     mengirimnya ke stage=abjad.
+  2. Mengekstrak beberapa frame dari rekaman di perangkat (s.d. 12 frame,
+     maks 3 request bersamaan), lalu mengirimnya ke stage=abjad.
   3. Menjalankan keduanya paralel, lalu memilih hasil dengan confidence
      tertinggi yang lolos ambang server.
   4. Menentukan jenis dari bentuk label: satu karakter A-Z dianggap
      huruf, seluruhnya digit dianggap angka, selain itu dianggap kata.
 
-Cara ini bekerja, tetapi memakai kuota dua kali lipat dan tidak bisa
-memperbaiki masalah model video yang belum punya kelas huruf.
+  5. BARU - PEMILIH MODE DI LAYAR KAMERA.
+     Pengguna dapat mengunci jenis isyarat: Otomatis / Huruf / Angka /
+     Kata. Ini penanggulangan langsung untuk masalah (b) di bagian 2 —
+     kelas angka yang mendominasi dan mengalahkan kelas kata.
+
+     Yang dilakukan tiap mode (TANPA nilai stage baru, TANPA perubahan
+     API — hanya memilih stage yang sudah ada lalu menyaring
+     "candidates[]" di sisi aplikasi):
+
+       Otomatis : perilaku lama (1 request kata + s.d. 12 request abjad)
+       Huruf    : hanya stage=abjad; kandidat non-huruf dibuang
+       Angka    : hanya stage=kata (1 request); kandidat non-digit dibuang
+       Kata     : hanya stage=kata (1 request); kandidat digit dibuang
+
+     Contoh nyata dari bagian 2b — Dataset/Video/Kata/Air:
+       respons server : "10" (0.404), "Mereka" (0.325), "6" (0.050)
+       mode Kata      -> aplikasi menampilkan "MEREKA" (0.325)
+       mode Angka     -> aplikasi menampilkan "10" (0.404)
+
+     Kandidat di bawah confidence 0.25 diabaikan; bila tak ada kandidat
+     yang cocok dengan mode, aplikasi menampilkan catatan "belum
+     dikenali", BUKAN label berjenis salah.
+
+     Catatan: mode Angka tidak memakai sampling frame sama sekali, karena
+     model stage=abjad tidak punya kelas digit. Sebaliknya mode Huruf
+     tidak mengirim video sama sekali, karena model stage=kata tidak
+     punya kelas huruf (bagian 2a).
+
+Cara ini bekerja, tetapi hanya memperbaiki PEMILIHAN hasil, bukan
+kualitas model. Permintaan di bagian 3 (stage=auto, field "kind",
+pemisahan model angka, model video yang mencakup huruf) TETAP kami
+perlukan — begitu tersedia, mode Otomatis langsung memakainya dan
+penyaringan di sisi aplikasi ini bisa disederhanakan.
 
 Terima kasih atas bantuannya.
 ========================================================================

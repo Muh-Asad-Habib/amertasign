@@ -216,6 +216,13 @@ Error (envelope tetap):
 > belum tersedia di server). Pada `stage="auto"`, deteksi huruf dari video
 > mengandalkan sampling frame diam → model abjad. Setelah dataset video huruf
 > dikirim, model kata akan dilatih ulang dan pemisahan model angka dipertimbangkan.
+>
+> Sementara itu aplikasi menyediakan **pemilih mode** di layar kamera
+> (Otomatis / Huruf / Angka / Kata). Mode hanya memilih `stage` yang sudah ada
+> lalu menyaring `candidates[]` di sisi klien — tidak menambah nilai `stage` baru
+> dan tidak mengubah kontrak endpoint ini. Mode `Angka`/`Kata` cukup 1 request
+> (`stage="kata"`), mode `Huruf` hanya `stage="abjad"`. Rinciannya di
+> [`BACKEND-AUTO-DETECT.txt`](./BACKEND-AUTO-DETECT.txt) bagian 6 poin 5.
 
 #### POST `/translate/text-to-sign`
 

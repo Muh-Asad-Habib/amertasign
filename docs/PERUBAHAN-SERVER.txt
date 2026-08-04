@@ -231,6 +231,19 @@ RANGKAIAN isyarat (lihat poin 14), 1 rekaman menjadi:
   Total: s.d. 13 request per satu kali terjemahan, selesai dalam
   beberapa detik (burst singkat).
 
+TAMBAHAN: pengguna kini bisa MENGUNCI jenis isyarat di layar kamera
+(Otomatis / Huruf / Angka / Kata). Beban per terjemahan mengikuti mode:
+
+  Otomatis : s.d. 13 request  (1 kata + s.d. 12 abjad) — kasus terburuk
+  Huruf    : s.d. 12 request  (abjad saja, TANPA request video)
+  Angka    : 1 request        (stage=kata saja)
+  Kata     : 1 request        (stage=kata saja)
+
+Jadi angka 13 di atas tetap batas atas yang harus ditanggung server,
+tapi dalam pemakaian nyata sebagian besar terjemahan akan jauh lebih
+ringan. Tidak ada nilai stage baru — mode hanya memilih stage yang
+sudah ada dan menyaring "candidates[]" di sisi aplikasi.
+
 Yang perlu dipastikan:
 - Rate limit JANGAN memblokir burst ini:
     login : minimal 30 request / menit / user
@@ -586,6 +599,11 @@ PERUBAHAN DI SISI MOBILE YANG PERLU TIM SERVER TAHU
 (SUDAH kami kerjakan, tidak perlu tindakan — sekadar informasi)
 - Deteksi rangkaian isyarat interim: 1 rekaman = 1 request kata +
   s.d. 12 request abjad (burst, maks 3 bersamaan) — lihat poin 7.
+- Pemilih mode di layar kamera (Otomatis / Huruf / Angka / Kata).
+  Mode hanya memilih stage yang SUDAH ADA lalu menyaring "candidates[]"
+  di sisi aplikasi — tidak ada nilai stage baru dan tidak ada perubahan
+  API. Efeknya beban turun drastis pada mode Angka/Kata (1 request).
+  Lihat BACKEND-AUTO-DETECT.txt bagian 6 poin 5.
 - Input teks-ke-isyarat dibatasi 200 karakter di aplikasi (poin 18).
 - Saat logout, aplikasi mengeksekusi DELETE /history yang tertunda
   (fitur "Urungkan") SEBELUM memanggil POST /auth/logout (poin 8a).

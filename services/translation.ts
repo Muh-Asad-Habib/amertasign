@@ -9,6 +9,26 @@ export type SignMatchType = 'exact' | 'spelling';
 /** Jenis isyarat yang dikenali otomatis dari bentuk label model. */
 export type SignKind = 'huruf' | 'angka' | 'kata';
 
+/**
+ * Mode pengenalan yang dipilih pengguna di layar kamera.
+ *
+ * Mengunci mode menyaring `candidates[]` yang sudah dikirim server, sehingga
+ * jenis isyarat yang salah tidak bisa menang. Ini penanggulangan sisi aplikasi
+ * untuk kelas angka yang mendominasi kelas kata pada model `stage=kata`
+ * (lihat docs/BACKEND-AUTO-DETECT.txt poin b) — tanpa perubahan API.
+ */
+export type RecognitionMode = 'otomatis' | 'huruf' | 'angka' | 'kata';
+
+/** Mode satu-tembak: cukup satu request video, tanpa sampling frame. */
+export type SingleShotMode = Extract<RecognitionMode, 'angka' | 'kata'>;
+
+export const RECOGNITION_MODE_OPTIONS: Array<{ id: RecognitionMode; label: string }> = [
+  { id: 'otomatis', label: 'Otomatis' },
+  { id: 'huruf', label: 'Huruf' },
+  { id: 'angka', label: 'Angka' },
+  { id: 'kata', label: 'Kata' },
+];
+
 export interface TextToSignUnit {
   token: string;
   word: string;
@@ -148,6 +168,34 @@ export const SIGN_KIND_LABEL: Record<SequenceKind, string> = {
   rangkai: 'Rangkaian',
 };
 
+/** Label huruf dari model abjad: tepat satu karakter A–Z. */
+export function isLetterLabel(label: string): boolean {
+  return /^[A-Za-z]$/.test(label.trim());
+}
+
+/** Label angka dari model kata: seluruhnya digit (mis. "7", "10"). */
+export function isDigitLabel(label: string): boolean {
+  return /^\d+$/.test(label.trim());
+}
+
+/** Label kata: apa pun yang bukan digit — huruf tunggal ikut ditolak. */
+export function isWordLabel(label: string): boolean {
+  const value = label.trim();
+  return value.length > 0 && !isDigitLabel(value) && !isLetterLabel(value);
+}
+
+const MODE_PREDICATE: Record<SignKind, (label: string) => boolean> = {
+  huruf: isLetterLabel,
+  angka: isDigitLabel,
+  kata: isWordLabel,
+};
+
+/** Catatan saat tak satu pun kandidat cocok dengan mode yang dikunci. */
+const NO_MATCH_NOTE: Record<SingleShotMode, string> = {
+  angka: 'Tidak ada isyarat angka yang dikenali. Peragakan angka lebih jelas, atau ganti mode.',
+  kata: 'Tidak ada isyarat kata yang dikenali. Peragakan kata lebih jelas, atau ganti mode.',
+};
+
 /**
  * Ambil satu frame dari video rekaman untuk dikirim ke model abjad
  * (model gambar). `atMs` idealnya saat pose sedang ditahan.
@@ -200,9 +248,81 @@ export const SEQUENCE_TUNING = {
   spellingWinsAt: 4,
   /** Confidence kata minimum untuk mengalahkan ejaan 3 token. */
   wordBeatsSpellingConfidence: 0.85,
+  /** Confidence minimum kandidat hasil penyaringan mode agar layak ditampilkan. */
+  minFilteredConfidence: 0.25,
 } as const;
 
 export type SequenceTuning = typeof SEQUENCE_TUNING;
+
+/**
+ * Pilih kandidat terbaik yang lolos predikat mode.
+ *
+ * Label teratas (`text`) didahulukan bila sudah cocok; kalau tidak, `candidates`
+ * ditelusuri menurun (diurutkan defensif karena urutan server tidak dijamin).
+ * Kandidat di bawah `minFilteredConfidence` diabaikan — menampilkan tebakan
+ * lemah lebih buruk daripada mengaku belum mengenali.
+ * (Fungsi murni — diuji unit test.)
+ */
+export function pickCandidate(
+  result: SignRecognitionResult | null,
+  predicate: (label: string) => boolean,
+  tuning: SequenceTuning = SEQUENCE_TUNING
+): RecognitionCandidate | null {
+  if (!result) {
+    return null;
+  }
+
+  const text = result.text?.trim() ?? '';
+  const confidence = result.confidence ?? 0;
+  if (text && predicate(text) && confidence >= tuning.minFilteredConfidence) {
+    return { label: text, confidence };
+  }
+
+  const ranked = [...(result.candidates ?? [])].sort((a, b) => b.confidence - a.confidence);
+  for (const candidate of ranked) {
+    const label = candidate.label?.trim() ?? '';
+    if (label && predicate(label) && candidate.confidence >= tuning.minFilteredConfidence) {
+      return { label, confidence: candidate.confidence };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Bungkus hasil satu-tembak (mode angka/kata) menjadi bentuk rangkaian supaya
+ * layar kamera hanya perlu menangani satu tipe hasil.
+ * (Fungsi murni — diuji unit test.)
+ */
+export function resolveSingleShotResult(
+  result: SignRecognitionResult | null,
+  mode: SingleShotMode,
+  tuning: SequenceTuning = SEQUENCE_TUNING
+): SequenceRecognitionResult {
+  const candidates = [...(result?.candidates ?? [])].sort((a, b) => b.confidence - a.confidence);
+  const picked = pickCandidate(result, MODE_PREDICATE[mode], tuning);
+
+  if (!picked) {
+    return {
+      text: '',
+      kind: null,
+      confidence: candidates[0]?.confidence ?? 0,
+      tokens: [],
+      candidates,
+      note: result?.note ?? NO_MATCH_NOTE[mode],
+    };
+  }
+
+  const label = picked.label.toUpperCase();
+  return {
+    text: label,
+    kind: mode,
+    confidence: picked.confidence,
+    tokens: [{ label, kind: mode, confidence: picked.confidence }],
+    candidates,
+    note: null,
+  };
+}
 
 /**
  * Rencanakan titik waktu pengambilan frame: merata di dalam rentang berguna
@@ -405,23 +525,46 @@ async function mapWithConcurrency<T, R>(
  * Kenali RANGKAIAN isyarat (beberapa huruf/angka + satu kata) dari satu video.
  * Menggantikan recognizeAuto: satu isyarat tetap terdeteksi sama baiknya
  * (degradasi anggun), banyak isyarat statis kini dirangkai jadi ejaan.
+ *
+ * `mode` mengunci jalur yang dipakai (lihat RecognitionMode):
+ * - 'angka' / 'kata' → 1 request video saja, kandidat disaring per jenis.
+ * - 'huruf'          → sampling frame saja, tanpa request video.
+ * - 'otomatis'       → kedua jalur berjalan lalu digabung heuristik.
  */
 export async function recognizeSequence(
   video: MediaUpload,
-  options: { durationMs?: number } = {}
+  options: { durationMs?: number; mode?: RecognitionMode } = {}
 ): Promise<SequenceRecognitionResult> {
+  const mode = options.mode ?? 'otomatis';
+
+  // Angka & kata hanya ada di model video — sampling frame tidak berguna di sini.
+  if (mode === 'angka' || mode === 'kata') {
+    const result = await recognizeMedia({ ...video, type: 'video' }, 'kata');
+    return resolveSingleShotResult(result, mode);
+  }
+
   const frameTimes = planFrameTimes(options.durationMs ?? 0);
   const frameErrors: unknown[] = [];
 
+  // Model abjad hanya menerima gambar, jadi mode huruf melewatkan request video.
+  const runWordModel = mode === 'otomatis';
+
   const [wordSettled, samples] = await Promise.all([
-    recognizeMedia({ ...video, type: 'video' }, 'kata').then(
-      (value) => ({ status: 'fulfilled' as const, value }),
-      (reason) => ({ status: 'rejected' as const, reason })
-    ),
+    runWordModel
+      ? recognizeMedia({ ...video, type: 'video' }, 'kata').then(
+        (value) => ({ status: 'fulfilled' as const, value }),
+        (reason) => ({ status: 'rejected' as const, reason })
+      )
+      : Promise.resolve({ status: 'skipped' as const }),
     mapWithConcurrency(frameTimes, SEQUENCE_TUNING.frameConcurrency, async (timeMs) => {
       try {
         const frame = await extractFrame(video.uri, timeMs);
         const result = await recognizeMedia(frame, 'abjad');
+        // Mode huruf menolak label non-huruf sebelum frame ikut dirakit.
+        if (mode === 'huruf') {
+          const picked = pickCandidate(result, isLetterLabel);
+          return { timeMs, label: picked?.label ?? '', confidence: picked?.confidence ?? 0 };
+        }
         return { timeMs, label: result.text ?? '', confidence: result.confidence ?? 0 };
       } catch (error) {
         // Satu frame gagal tidak boleh menggagalkan seluruh terjemahan.
@@ -431,11 +574,19 @@ export async function recognizeSequence(
     }),
   ]);
 
+  const allFramesFailed = frameErrors.length === frameTimes.length;
+
   // Semua jalur gagal total (bukan sekadar "tak dikenali") → lempar error asli.
-  if (wordSettled.status === 'rejected' && frameErrors.length === frameTimes.length) {
+  if (wordSettled.status === 'rejected' && allFramesFailed) {
     throw wordSettled.reason instanceof Error
       ? wordSettled.reason
       : new Error('Pengenalan isyarat gagal. Coba ulangi.');
+  }
+
+  // Mode huruf tidak punya jalur cadangan: kegagalan frame = kegagalan total.
+  if (wordSettled.status === 'skipped' && allFramesFailed) {
+    const reason = frameErrors[0];
+    throw reason instanceof Error ? reason : new Error('Pengenalan isyarat gagal. Coba ulangi.');
   }
 
   const word = wordSettled.status === 'fulfilled' ? wordSettled.value : null;
