@@ -297,18 +297,6 @@ export default function CameraTranslateScreen() {
           />
         </View>
 
-        <View
-          pointerEvents={isRecording || busy ? 'none' : 'auto'}
-          style={[styles.modeBar, (isRecording || busy) && styles.modeBarDisabled]}
-        >
-          <CategoryTabs
-            activeCategory={mode}
-            categories={RECOGNITION_MODE_OPTIONS}
-            contentPadding={spacing.lg}
-            onSelect={handleSelectMode}
-          />
-        </View>
-
         <View style={styles.cameraContainer}>
           <CameraView
             elapsedMs={elapsedMs}
@@ -348,6 +336,19 @@ export default function CameraTranslateScreen() {
           />
 
           <View style={styles.controls}>
+            <View
+              pointerEvents={isRecording || busy ? 'none' : 'auto'}
+              style={[styles.modeBar, (isRecording || busy) && styles.modeBarDisabled]}
+            >
+              <CategoryTabs
+                activeCategory={mode}
+                categories={RECOGNITION_MODE_OPTIONS}
+                centered
+                onSelect={handleSelectMode}
+                size="sm"
+              />
+            </View>
+
             <Text variant="body" color="secondary" align="center" style={styles.helperText}>
               {helperText}
             </Text>
@@ -407,8 +408,8 @@ const styles = createSheet((colors) => ({
     paddingVertical: spacing.sm,
   },
   modeBar: {
-    flexShrink: 0,
-    paddingBottom: spacing.xs,
+    alignSelf: 'stretch',
+    marginBottom: spacing.sm,
   },
   modeBarDisabled: {
     opacity: 0.4,
