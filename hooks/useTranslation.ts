@@ -6,6 +6,7 @@ import {
   textToSign,
   type MediaUpload,
   type RecognitionMode,
+  type RecognitionStage,
   type SequenceRecognitionResult,
   type SignRecognitionResult,
   type TextToSignResult,
@@ -30,7 +31,7 @@ export function useTranslation() {
 
   const translateMedia = useCallback(async (
     media: MediaUpload,
-    stage: 'abjad' | 'kata'
+    stage: RecognitionStage
   ): Promise<SignRecognitionResult> => {
     const requestId = ++requestIdRef.current;
     setIsDetecting(true);

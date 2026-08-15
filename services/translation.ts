@@ -1,26 +1,44 @@
 import * as VideoThumbnails from 'expo-video-thumbnails';
 
 import type { SignLanguageType } from '../types';
-import { apiRequest, apiUpload, resolveApiUrl } from './api';
+import { ApiError, apiRequest, apiUpload, resolveApiUrl } from './api';
 
 export type SignMediaType = 'video' | 'image';
 export type SignMatchType = 'exact' | 'spelling';
 
-/** Jenis isyarat yang dikenali otomatis dari bentuk label model. */
+/** Jenis isyarat; kini dikirim server lewat field `kind` (fallback: bentuk label). */
 export type SignKind = 'huruf' | 'angka' | 'kata';
 
 /**
- * Mode pengenalan yang dipilih pengguna di layar kamera.
- *
- * Mengunci mode menyaring `candidates[]` yang sudah dikirim server, sehingga
- * jenis isyarat yang salah tidak bisa menang. Ini penanggulangan sisi aplikasi
- * untuk kelas angka yang mendominasi kelas kata pada model `stage=kata`
- * (lihat docs/BACKEND-AUTO-DETECT.txt poin b) — tanpa perubahan API.
+ * Nilai `stage` pada POST /translate/sign-to-text:
+ * - `abjad` : model huruf A–Z   — hanya gambar/frame
+ * - `angka` : model angka 1–19  — hanya gambar/frame
+ * - `kata`  : model kata        — hanya video
+ * - `auto`  : server memilih sendiri model huruf/angka/kata (gambar & video)
+ */
+export type RecognitionStage = 'abjad' | 'angka' | 'kata' | 'auto';
+
+/**
+ * Mode pengenalan yang dipilih pengguna di layar kamera. Mode menentukan
+ * `stage` yang dipakai, bukan lagi sekadar menyaring `candidates[]`:
+ *   otomatis → stage=auto (1 request, server yang membedakan jenis)
+ *   huruf    → stage=abjad pada frame cuplikan
+ *   angka    → stage=angka pada frame cuplikan
+ *   kata     → stage=kata pada video penuh
  */
 export type RecognitionMode = 'otomatis' | 'huruf' | 'angka' | 'kata';
 
 /** Mode satu-tembak: cukup satu request video, tanpa sampling frame. */
 export type SingleShotMode = Extract<RecognitionMode, 'angka' | 'kata'>;
+
+/** Mode isyarat statis: dikenali dari frame diam, bukan dari urutan gerakan. */
+export type StaticMode = Extract<RecognitionMode, 'huruf' | 'angka'>;
+
+/** Stage frame diam per mode statis — model angka terpisah dari model huruf. */
+export const STATIC_MODE_STAGE: Record<StaticMode, Extract<RecognitionStage, 'abjad' | 'angka'>> = {
+  huruf: 'abjad',
+  angka: 'angka',
+};
 
 export const RECOGNITION_MODE_OPTIONS: Array<{ id: RecognitionMode; label: string }> = [
   { id: 'otomatis', label: 'Otomatis' },
@@ -51,6 +69,17 @@ export interface TextToSignResult {
 export interface RecognitionCandidate {
   label: string;
   confidence: number;
+  /** Jenis label menurut server (additive; server lama tidak mengirimnya). */
+  kind?: SignKind | null;
+}
+
+/** Satu gerakan hasil segmentasi server pada rekaman multi-isyarat (stage=auto). */
+export interface RecognitionSegment {
+  label: string;
+  kind?: SignKind | null;
+  confidence: number;
+  startMs: number;
+  endMs: number;
 }
 
 export interface SignRecognitionResult {
@@ -58,9 +87,13 @@ export interface SignRecognitionResult {
   confidence: number;
   candidates: RecognitionCandidate[];
   mode: 'BISINDO';
-  stage: 'abjad' | 'kata';
+  stage: RecognitionStage;
   model_loaded: boolean;
   note?: string | null;
+  /** Jenis label final dari server; null bila `text` kosong. */
+  kind?: SignKind | null;
+  /** Rincian gerakan bila rekaman berisi beberapa isyarat berurutan. */
+  segments?: RecognitionSegment[] | null;
 }
 
 export interface MediaUpload {
@@ -124,13 +157,20 @@ export async function textToSign(
 const IMAGE_UPLOAD_TIMEOUT_MS = 60000;
 const VIDEO_UPLOAD_TIMEOUT_MS = 120000;
 
+/** Ekstensi video yang dikenali server — dipakai menebak jenis media. */
+const VIDEO_EXTENSIONS = ['mp4', 'mov', 'm4v', 'avi', 'mkv', 'webm'];
+
 /** Foto/video → teks menggunakan MediaPipe + model backend. */
 export async function recognizeMedia(
   media: MediaUpload,
-  stage: 'abjad' | 'kata'
+  stage: RecognitionStage
 ): Promise<SignRecognitionResult> {
   const extension = media.uri.split('?')[0].split('.').pop()?.toLowerCase();
-  const isVideo = media.type ? media.type === 'video' : stage === 'kata';
+  const isVideo = media.type
+    ? media.type === 'video'
+    : extension
+      ? VIDEO_EXTENSIONS.includes(extension)
+      : stage === 'kata';
   const name = media.fileName || `isyarat.${extension || (isVideo ? 'mp4' : 'jpg')}`;
   const mimeType = media.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg');
   const formData = new FormData();
@@ -149,6 +189,7 @@ export async function recognizeMedia(
 /**
  * Tebak jenis isyarat dari bentuk label model:
  * satu karakter A–Z → huruf, seluruhnya digit → angka, sisanya kata.
+ * Dipakai hanya sebagai cadangan bila server tidak mengirim `kind`.
  */
 export function classifySignLabel(label: string): SignKind {
   const value = label.trim();
@@ -159,6 +200,11 @@ export function classifySignLabel(label: string): SignKind {
     return 'angka';
   }
   return 'kata';
+}
+
+/** Jenis label: pakai `kind` dari server, jatuh ke tebakan bentuk label. */
+export function resolveSignKind(label: string, kind?: SignKind | null): SignKind {
+  return kind ?? classifySignLabel(label);
 }
 
 export const SIGN_KIND_LABEL: Record<SequenceKind, string> = {
@@ -173,7 +219,7 @@ export function isLetterLabel(label: string): boolean {
   return /^[A-Za-z]$/.test(label.trim());
 }
 
-/** Label angka dari model kata: seluruhnya digit (mis. "7", "10"). */
+/** Label angka dari model angka: seluruhnya digit (mis. "7", "10"). */
 export function isDigitLabel(label: string): boolean {
   return /^\d+$/.test(label.trim());
 }
@@ -184,14 +230,16 @@ export function isWordLabel(label: string): boolean {
   return value.length > 0 && !isDigitLabel(value) && !isLetterLabel(value);
 }
 
-const MODE_PREDICATE: Record<SignKind, (label: string) => boolean> = {
+/** Predikat label per jenis isyarat — dipakai menyaring kandidat per mode. */
+export const SIGN_KIND_PREDICATE: Record<SignKind, (label: string) => boolean> = {
   huruf: isLetterLabel,
   angka: isDigitLabel,
   kata: isWordLabel,
 };
 
 /** Catatan saat tak satu pun kandidat cocok dengan mode yang dikunci. */
-const NO_MATCH_NOTE: Record<SingleShotMode, string> = {
+const NO_MATCH_NOTE: Record<Exclude<RecognitionMode, 'otomatis'>, string> = {
+  huruf: 'Tidak ada isyarat huruf yang dikenali. Peragakan huruf lebih jelas, atau ganti mode.',
   angka: 'Tidak ada isyarat angka yang dikenali. Peragakan angka lebih jelas, atau ganti mode.',
   kata: 'Tidak ada isyarat kata yang dikenali. Peragakan kata lebih jelas, atau ganti mode.',
 };
@@ -212,19 +260,20 @@ async function extractFrame(videoUri: string, atMs: number): Promise<MediaUpload
  * ============================================================================
  * PIPELINE RANGKAIAN ISYARAT — beberapa isyarat dalam SATU rekaman.
  *
- * Server belum punya segmentasi temporal (stage=auto multi — lihat
- * docs/PERUBAHAN-SERVER.txt poin 14). Solusi sementara di sisi aplikasi:
- * 1. Cuplik banyak frame dari video → klasifikasi tiap frame ke model abjad.
+ * Mode Otomatis kini cukup SATU request `stage=auto`: server menjalankan model
+ * huruf + angka + kata, menyegmentasi rekaman multi-isyarat sendiri, dan
+ * mengirim rinciannya lewat `segments[]` (lihat docs/API-SPEC.md).
+ *
+ * Mode statis (Huruf/Angka) tetap memakai cuplikan frame di perangkat, karena
+ * `stage=abjad`/`stage=angka` hanya menerima gambar:
+ * 1. Cuplik banyak frame dari video → kirim tiap frame ke stage terkait.
  * 2. Rakit timeline label: label yang stabil beberapa sampel berurutan =
  *    isyarat yang ditahan; label yang cuma muncul sekali = frame transisi
  *    antar isyarat (dibuang).
- * 3. Video penuh tetap dikirim ke model kata (isyarat dinamis) secara paralel.
- * 4. Gabungkan: rangkaian ejaan huruf/angka vs satu kata — pilih yang paling
- *    meyakinkan (aturan di mergeSequenceResult).
  *
- * Keterbatasan yang disengaja: beberapa KATA dinamis dalam satu video belum
- * bisa dipisah di sisi aplikasi — itu butuh segmentasi di server. Begitu
- * stage=auto multi tersedia, fungsi ini tinggal memanggil 1 request.
+ * Pipeline lama (video ke model kata + frame ke model abjad lalu digabung
+ * mergeSequenceResult) dipertahankan sebagai CADANGAN untuk server yang belum
+ * mengenal `stage=auto`.
  * ============================================================================
  */
 
@@ -299,8 +348,8 @@ export function resolveSingleShotResult(
   mode: SingleShotMode,
   tuning: SequenceTuning = SEQUENCE_TUNING
 ): SequenceRecognitionResult {
-  const candidates = [...(result?.candidates ?? [])].sort((a, b) => b.confidence - a.confidence);
-  const picked = pickCandidate(result, MODE_PREDICATE[mode], tuning);
+  const candidates = sortCandidates(result?.candidates);
+  const picked = pickCandidate(result, SIGN_KIND_PREDICATE[mode], tuning);
 
   if (!picked) {
     return {
@@ -320,6 +369,116 @@ export function resolveSingleShotResult(
     confidence: picked.confidence,
     tokens: [{ label, kind: mode, confidence: picked.confidence }],
     candidates,
+    note: null,
+  };
+}
+
+/** Salin kandidat lalu urutkan menurun — urutan dari server tidak dijamin. */
+function sortCandidates(candidates?: RecognitionCandidate[] | null): RecognitionCandidate[] {
+  return [...(candidates ?? [])].sort((a, b) => b.confidence - a.confidence);
+}
+
+/** Gabungkan kandidat dari banyak frame: satu baris per label, ambil terbaik. */
+function dedupeCandidates(candidates: RecognitionCandidate[], limit = 5): RecognitionCandidate[] {
+  const best = new Map<string, RecognitionCandidate>();
+  for (const candidate of candidates) {
+    const label = candidate.label?.trim() ?? '';
+    if (!label) {
+      continue;
+    }
+    const current = best.get(label);
+    if (!current || candidate.confidence > current.confidence) {
+      best.set(label, { ...candidate, label });
+    }
+  }
+  return sortCandidates([...best.values()]).slice(0, limit);
+}
+
+/**
+ * Terjemahkan hasil `stage=auto` menjadi bentuk rangkaian yang dipakai UI.
+ *
+ * Server sudah menentukan jenis (`kind`) dan, untuk rekaman multi-isyarat,
+ * memecahnya di `segments[]` sekaligus menyambungkan teksnya. Klien hanya
+ * memetakan ulang tanpa menebak-nebak lagi.
+ * (Fungsi murni — diuji unit test.)
+ */
+export function resolveAutoResult(
+  result: SignRecognitionResult | null
+): SequenceRecognitionResult {
+  const candidates = sortCandidates(result?.candidates);
+  const text = result?.text?.trim() ?? '';
+  const tokens: SequenceToken[] = (result?.segments ?? [])
+    .map((segment) => ({
+      label: (segment.label ?? '').trim().toUpperCase(),
+      kind: resolveSignKind(segment.label ?? '', segment.kind),
+      confidence: segment.confidence ?? 0,
+    }))
+    .filter((token) => token.label.length > 0);
+
+  if (!text && tokens.length === 0) {
+    return {
+      text: '',
+      kind: null,
+      confidence: candidates[0]?.confidence ?? 0,
+      tokens: [],
+      candidates,
+      note: result?.note ?? EMPTY_SEQUENCE_NOTE,
+    };
+  }
+
+  if (tokens.length === 0) {
+    const label = text.toUpperCase();
+    const kind = resolveSignKind(text, result?.kind);
+    const confidence = result?.confidence ?? 0;
+    return {
+      text: label,
+      kind,
+      confidence,
+      tokens: [{ label, kind, confidence }],
+      candidates,
+      note: null,
+    };
+  }
+
+  return {
+    text: (text || joinSequenceTokens(tokens)).toUpperCase(),
+    kind: tokens.length > 1 ? 'rangkai' : tokens[0].kind,
+    confidence: result?.confidence ?? Math.min(...tokens.map((token) => token.confidence)),
+    tokens,
+    candidates,
+    note: null,
+  };
+}
+
+/**
+ * Susun hasil jalur frame statis (mode Huruf/Angka) dari token yang sudah
+ * dirakit assembleSignTimeline.
+ * (Fungsi murni — diuji unit test.)
+ */
+export function resolveStaticFramesResult(
+  tokens: SequenceToken[],
+  candidates: RecognitionCandidate[],
+  mode: StaticMode
+): SequenceRecognitionResult {
+  const ranked = dedupeCandidates(candidates);
+
+  if (tokens.length === 0) {
+    return {
+      text: '',
+      kind: null,
+      confidence: ranked[0]?.confidence ?? 0,
+      tokens: [],
+      candidates: ranked,
+      note: NO_MATCH_NOTE[mode],
+    };
+  }
+
+  return {
+    text: joinSequenceTokens(tokens),
+    kind: tokens.length > 1 ? 'rangkai' : tokens[0].kind,
+    confidence: Math.min(...tokens.map((token) => token.confidence)),
+    tokens,
+    candidates: ranked,
     note: null,
   };
 }
@@ -522,14 +681,14 @@ async function mapWithConcurrency<T, R>(
 }
 
 /**
- * Kenali RANGKAIAN isyarat (beberapa huruf/angka + satu kata) dari satu video.
- * Menggantikan recognizeAuto: satu isyarat tetap terdeteksi sama baiknya
- * (degradasi anggun), banyak isyarat statis kini dirangkai jadi ejaan.
+ * Kenali RANGKAIAN isyarat (beberapa huruf/angka + kata) dari satu video.
  *
  * `mode` mengunci jalur yang dipakai (lihat RecognitionMode):
- * - 'angka' / 'kata' → 1 request video saja, kandidat disaring per jenis.
- * - 'huruf'          → sampling frame saja, tanpa request video.
- * - 'otomatis'       → kedua jalur berjalan lalu digabung heuristik.
+ * - 'otomatis' → 1 request `stage=auto`; server memilih model huruf/angka/kata
+ *                dan menyegmentasi rekaman multi-isyarat sendiri.
+ * - 'huruf'    → cuplikan frame → `stage=abjad`.
+ * - 'angka'    → cuplikan frame → `stage=angka` (model angka terpisah).
+ * - 'kata'     → 1 request video → `stage=kata`.
  */
 export async function recognizeSequence(
   video: MediaUpload,
@@ -537,34 +696,98 @@ export async function recognizeSequence(
 ): Promise<SequenceRecognitionResult> {
   const mode = options.mode ?? 'otomatis';
 
-  // Angka & kata hanya ada di model video — sampling frame tidak berguna di sini.
-  if (mode === 'angka' || mode === 'kata') {
+  if (mode === 'kata') {
     const result = await recognizeMedia({ ...video, type: 'video' }, 'kata');
     return resolveSingleShotResult(result, mode);
   }
 
-  const frameTimes = planFrameTimes(options.durationMs ?? 0);
+  if (mode === 'huruf' || mode === 'angka') {
+    return recognizeStaticFrames(video, mode, options.durationMs ?? 0);
+  }
+
+  try {
+    const result = await recognizeMedia({ ...video, type: 'video' }, 'auto');
+    return resolveAutoResult(result);
+  } catch (error) {
+    // Server lama belum mengenal stage=auto → pakai pipeline gabungan lama.
+    if (!isUnsupportedStageError(error)) {
+      throw error;
+    }
+    return recognizeSequenceLegacy(video, options.durationMs ?? 0);
+  }
+}
+
+/** True bila server menolak nilai `stage` (mis. belum mendukung "auto"). */
+function isUnsupportedStageError(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    (error.status === 422 || error.code === 'VALIDATION_ERROR')
+  );
+}
+
+/**
+ * Mode statis (Huruf/Angka): cuplik beberapa frame diam dari rekaman lalu
+ * kirim ke model frame terkait. Label yang tidak sesuai jenis mode dibuang
+ * sebelum timeline dirakit, sehingga tebakan berjenis salah tidak ikut tampil.
+ */
+async function recognizeStaticFrames(
+  video: MediaUpload,
+  mode: StaticMode,
+  durationMs: number
+): Promise<SequenceRecognitionResult> {
+  const stage = STATIC_MODE_STAGE[mode];
+  const predicate = SIGN_KIND_PREDICATE[mode];
+  const frameTimes = planFrameTimes(durationMs);
+  const frameErrors: unknown[] = [];
+  const candidates: RecognitionCandidate[] = [];
+
+  const samples = await mapWithConcurrency(
+    frameTimes,
+    SEQUENCE_TUNING.frameConcurrency,
+    async (timeMs) => {
+      try {
+        const frame = await extractFrame(video.uri, timeMs);
+        const result = await recognizeMedia(frame, stage);
+        candidates.push(...(result.candidates ?? []));
+        const picked = pickCandidate(result, predicate);
+        return { timeMs, label: picked?.label ?? '', confidence: picked?.confidence ?? 0 };
+      } catch (error) {
+        // Satu frame gagal tidak boleh menggagalkan seluruh terjemahan.
+        frameErrors.push(error);
+        return { timeMs, label: '', confidence: 0 };
+      }
+    }
+  );
+
+  // Tanpa jalur cadangan: semua frame gagal = kegagalan total.
+  if (frameErrors.length === frameTimes.length) {
+    const reason = frameErrors[0];
+    throw reason instanceof Error ? reason : new Error('Pengenalan isyarat gagal. Coba ulangi.');
+  }
+
+  return resolveStaticFramesResult(assembleSignTimeline(samples), candidates, mode);
+}
+
+/**
+ * Cadangan untuk server tanpa `stage=auto`: video penuh ke model kata dan
+ * cuplikan frame ke model abjad, lalu digabung heuristik mergeSequenceResult.
+ */
+async function recognizeSequenceLegacy(
+  video: MediaUpload,
+  durationMs: number
+): Promise<SequenceRecognitionResult> {
+  const frameTimes = planFrameTimes(durationMs);
   const frameErrors: unknown[] = [];
 
-  // Model abjad hanya menerima gambar, jadi mode huruf melewatkan request video.
-  const runWordModel = mode === 'otomatis';
-
   const [wordSettled, samples] = await Promise.all([
-    runWordModel
-      ? recognizeMedia({ ...video, type: 'video' }, 'kata').then(
-        (value) => ({ status: 'fulfilled' as const, value }),
-        (reason) => ({ status: 'rejected' as const, reason })
-      )
-      : Promise.resolve({ status: 'skipped' as const }),
+    recognizeMedia({ ...video, type: 'video' }, 'kata').then(
+      (value) => ({ status: 'fulfilled' as const, value }),
+      (reason) => ({ status: 'rejected' as const, reason })
+    ),
     mapWithConcurrency(frameTimes, SEQUENCE_TUNING.frameConcurrency, async (timeMs) => {
       try {
         const frame = await extractFrame(video.uri, timeMs);
         const result = await recognizeMedia(frame, 'abjad');
-        // Mode huruf menolak label non-huruf sebelum frame ikut dirakit.
-        if (mode === 'huruf') {
-          const picked = pickCandidate(result, isLetterLabel);
-          return { timeMs, label: picked?.label ?? '', confidence: picked?.confidence ?? 0 };
-        }
         return { timeMs, label: result.text ?? '', confidence: result.confidence ?? 0 };
       } catch (error) {
         // Satu frame gagal tidak boleh menggagalkan seluruh terjemahan.
@@ -574,22 +797,13 @@ export async function recognizeSequence(
     }),
   ]);
 
-  const allFramesFailed = frameErrors.length === frameTimes.length;
-
   // Semua jalur gagal total (bukan sekadar "tak dikenali") → lempar error asli.
-  if (wordSettled.status === 'rejected' && allFramesFailed) {
+  if (wordSettled.status === 'rejected' && frameErrors.length === frameTimes.length) {
     throw wordSettled.reason instanceof Error
       ? wordSettled.reason
       : new Error('Pengenalan isyarat gagal. Coba ulangi.');
   }
 
-  // Mode huruf tidak punya jalur cadangan: kegagalan frame = kegagalan total.
-  if (wordSettled.status === 'skipped' && allFramesFailed) {
-    const reason = frameErrors[0];
-    throw reason instanceof Error ? reason : new Error('Pengenalan isyarat gagal. Coba ulangi.');
-  }
-
   const word = wordSettled.status === 'fulfilled' ? wordSettled.value : null;
-  const tokens = assembleSignTimeline(samples);
-  return mergeSequenceResult(tokens, word);
+  return mergeSequenceResult(assembleSignTimeline(samples), word);
 }

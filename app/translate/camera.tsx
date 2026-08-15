@@ -23,13 +23,14 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
 import { toUserMessage } from '../../utils/errors';
 import {
-  classifySignLabel,
-  isLetterLabel,
   pickCandidate,
   RECOGNITION_MODE_OPTIONS,
+  resolveSignKind,
   SIGN_KIND_LABEL,
+  SIGN_KIND_PREDICATE,
   type MediaUpload,
   type RecognitionMode,
+  type RecognitionStage,
   type SequenceKind,
 } from '../../services/translation';
 
@@ -46,7 +47,7 @@ const TIMER_INTERVAL_MS = 200;
 const MODE_HELPER_TEXT: Record<RecognitionMode, string> = {
   otomatis: 'Ketuk rekam, peragakan isyarat, lalu ketuk lagi untuk berhenti',
   huruf: 'Tahan tiap huruf ±2 detik — beberapa huruf dirangkai jadi ejaan',
-  angka: 'Peragakan satu angka, tahan sampai gerakan selesai',
+  angka: 'Tahan tiap angka ±2 detik — beberapa angka dirangkai berurutan',
   kata: 'Peragakan satu kata, tahan sampai gerakan selesai',
 };
 
@@ -54,12 +55,19 @@ const MODE_HELPER_TEXT: Record<RecognitionMode, string> = {
 const MODE_PROCESSING_TEXT: Record<RecognitionMode, string> = {
   otomatis: 'Menganalisis rangkaian gerakan...',
   huruf: 'Menganalisis rangkaian huruf...',
-  angka: 'Menganalisis isyarat angka...',
+  angka: 'Menganalisis rangkaian angka...',
   kata: 'Menganalisis isyarat kata...',
 };
 
+/** Stage yang dipakai untuk gambar dari galeri, per mode yang dikunci. */
+const IMAGE_STAGE_BY_MODE: Record<Exclude<RecognitionMode, 'kata'>, RecognitionStage> = {
+  otomatis: 'auto',
+  huruf: 'abjad',
+  angka: 'angka',
+};
+
 /** Mode yang hanya bisa dijalankan model video — gambar galeri tidak didukung. */
-const VIDEO_ONLY_MODES: RecognitionMode[] = ['angka', 'kata'];
+const VIDEO_ONLY_MODES: RecognitionMode[] = ['kata'];
 
 export default function CameraTranslateScreen() {
   useThemeMode();
@@ -149,24 +157,28 @@ export default function CameraTranslateScreen() {
     }
   };
 
-  /** Gambar dari galeri hanya bisa dikenali model abjad (huruf). */
+  /** Gambar dari galeri: model frame diam sesuai mode (auto/abjad/angka). */
   const processImage = async (media: MediaUpload) => {
+    if (mode === 'kata') {
+      return;
+    }
+
     setIsProcessing(true);
     setTranslatedText('Menganalisis bentuk tangan...');
     setDetectedKind(null);
     try {
-      const result = await translateMedia(media, 'abjad');
-      // Mode huruf menolak label non-huruf agar konsisten dengan jalur rekaman.
-      const picked = mode === 'huruf' ? pickCandidate(result, isLetterLabel) : null;
-      const label = mode === 'huruf' ? picked?.label ?? '' : result.text ?? '';
-      const fallback =
-        mode === 'huruf'
-          ? 'Tidak ada isyarat huruf yang dikenali. Coba ulangi dengan pencahayaan lebih baik.'
-          : result.note || 'Isyarat belum dikenali. Coba ulangi dengan pencahayaan lebih baik.';
+      const result = await translateMedia(media, IMAGE_STAGE_BY_MODE[mode]);
+      // Mode terkunci menolak label berjenis lain agar konsisten dengan rekaman.
+      const locked = mode === 'huruf' || mode === 'angka';
+      const picked = locked ? pickCandidate(result, SIGN_KIND_PREDICATE[mode]) : null;
+      const label = locked ? picked?.label ?? '' : result.text ?? '';
+      const fallback = locked
+        ? `Tidak ada isyarat ${mode} yang dikenali. Coba ulangi dengan pencahayaan lebih baik.`
+        : result.note || 'Isyarat belum dikenali. Coba ulangi dengan pencahayaan lebih baik.';
 
       setTranslatedText(label || fallback);
       if (label) {
-        setDetectedKind(classifySignLabel(label));
+        setDetectedKind(locked ? mode : resolveSignKind(label, result.kind));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
         saveHistory(label);
       }
@@ -256,12 +268,12 @@ export default function CameraTranslateScreen() {
       return;
     }
 
-    // Angka & kata hanya ada di model video; server menolak gambar pada
-    // stage=kata (400 STAGE_MEDIA_MISMATCH), jadi dicegah sebelum dikirim.
+    // Model kata hanya menerima video; server menolak gambar pada stage=kata
+    // (400 STAGE_MEDIA_MISMATCH), jadi dicegah sebelum dikirim.
     if (VIDEO_ONLY_MODES.includes(mode)) {
       Alert.alert(
         'Butuh rekaman video',
-        'Mode Angka dan Kata membutuhkan rekaman video. Untuk gambar, pilih mode Huruf atau Otomatis.'
+        'Mode Kata membutuhkan rekaman video. Untuk gambar, pilih mode Otomatis, Huruf, atau Angka.'
       );
       return;
     }

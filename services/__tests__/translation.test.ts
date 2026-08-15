@@ -8,8 +8,12 @@ import {
   mergeSequenceResult,
   pickCandidate,
   planFrameTimes,
+  resolveAutoResult,
+  resolveSignKind,
   resolveSingleShotResult,
+  resolveStaticFramesResult,
   SEQUENCE_TUNING,
+  STATIC_MODE_STAGE,
   type SequenceSample,
   type SequenceToken,
   type SignRecognitionResult,
@@ -324,5 +328,178 @@ describe('resolveSingleShotResult', () => {
     const result = resolveSingleShotResult(null, 'angka');
     expect(result.text).toBe('');
     expect(result.note).toBeTruthy();
+  });
+});
+
+describe('STATIC_MODE_STAGE', () => {
+  it('mode angka memakai model angka terpisah, bukan model kata', () => {
+    expect(STATIC_MODE_STAGE.angka).toBe('angka');
+    expect(STATIC_MODE_STAGE.huruf).toBe('abjad');
+  });
+});
+
+describe('resolveSignKind', () => {
+  it('memakai kind dari server bila tersedia', () => {
+    expect(resolveSignKind('10', 'angka')).toBe('angka');
+    // Label "L" dari model kata BISINDO tetap dihormati sebagai kata.
+    expect(resolveSignKind('L', 'kata')).toBe('kata');
+  });
+
+  it('jatuh ke tebakan bentuk label bila server tidak mengirim kind', () => {
+    expect(resolveSignKind('7')).toBe('angka');
+    expect(resolveSignKind('A', null)).toBe('huruf');
+    expect(resolveSignKind('Mereka', undefined)).toBe('kata');
+  });
+});
+
+/** Helper: hasil `stage=auto` dari server. */
+const autoResult = (
+  overrides: Partial<SignRecognitionResult> = {}
+): SignRecognitionResult => ({
+  text: '',
+  confidence: 0,
+  candidates: [],
+  mode: 'BISINDO',
+  stage: 'auto',
+  model_loaded: true,
+  note: null,
+  ...overrides,
+});
+
+describe('resolveAutoResult', () => {
+  it('satu angka dari server dipakai apa adanya beserta kind-nya', () => {
+    const result = resolveAutoResult(
+      autoResult({
+        text: '7',
+        kind: 'angka',
+        confidence: 0.99,
+        candidates: [{ label: '7', confidence: 0.99, kind: 'angka' }],
+      })
+    );
+    expect(result.text).toBe('7');
+    expect(result.kind).toBe('angka');
+    expect(result.tokens).toEqual([{ label: '7', kind: 'angka', confidence: 0.99 }]);
+    expect(result.note).toBeNull();
+  });
+
+  it('kata tetap kata meski labelnya satu huruf (kind server menang)', () => {
+    const result = resolveAutoResult(autoResult({ text: 'Mereka', kind: 'kata', confidence: 0.8 }));
+    expect(result.text).toBe('MEREKA');
+    expect(result.kind).toBe('kata');
+  });
+
+  it('segments multi-isyarat jadi token rangkaian, teks dari server dipakai', () => {
+    const result = resolveAutoResult(
+      autoResult({
+        text: 'ABC',
+        kind: 'huruf',
+        confidence: 0.97,
+        segments: [
+          { label: 'A', kind: 'huruf', confidence: 0.98, startMs: 0, endMs: 933 },
+          { label: 'B', kind: 'huruf', confidence: 0.97, startMs: 1000, endMs: 1933 },
+          { label: 'C', kind: 'huruf', confidence: 0.99, startMs: 2000, endMs: 2933 },
+        ],
+      })
+    );
+    expect(result.text).toBe('ABC');
+    expect(result.kind).toBe('rangkai');
+    expect(result.tokens.map((token) => token.label)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('tanpa teks server, token segments dirangkai sendiri', () => {
+    const result = resolveAutoResult(
+      autoResult({
+        segments: [
+          { label: '1', kind: 'angka', confidence: 0.9, startMs: 0, endMs: 900 },
+          { label: '2', kind: 'angka', confidence: 0.9, startMs: 1000, endMs: 1900 },
+        ],
+      })
+    );
+    expect(result.text).toBe('1 2');
+    expect(result.kind).toBe('rangkai');
+  });
+
+  it('hasil kosong memakai catatan server', () => {
+    const result = resolveAutoResult(autoResult({ note: 'Tidak ada tangan terdeteksi.' }));
+    expect(result.text).toBe('');
+    expect(result.kind).toBeNull();
+    expect(result.note).toBe('Tidak ada tangan terdeteksi.');
+  });
+
+  it('hasil null aman dan tetap bercatatan', () => {
+    const result = resolveAutoResult(null);
+    expect(result.text).toBe('');
+    expect(result.note).toBeTruthy();
+  });
+
+  // Respons nyata server untuk Dataset/Video/Angka/7/Angka 7-1.mp4: kandidat
+  // kata "Bingung" (0.86) tetap kalah karena server sudah memutuskan kind-nya.
+  it('angka menang atas kandidat kata pada respons nyata server', () => {
+    const result = resolveAutoResult(
+      autoResult({
+        text: '7',
+        kind: 'angka',
+        confidence: 0.9999847412109375,
+        candidates: [
+          { label: '7', confidence: 0.9999998807907104, kind: 'angka' },
+          { label: 'Bingung', confidence: 0.8638699054718018, kind: 'kata' },
+          { label: 'Hijau', confidence: 0.11176732182502747, kind: 'kata' },
+        ],
+      })
+    );
+    expect(result.text).toBe('7');
+    expect(result.kind).toBe('angka');
+  });
+});
+
+describe('resolveStaticFramesResult', () => {
+  const digits = (labels: string[]): SequenceToken[] =>
+    labels.map((label) => ({ label, kind: 'angka' as const, confidence: 0.9 }));
+
+  // Respons nyata stage=angka untuk 5 frame Dataset/Gambar/Angka/12 (semua "12").
+  it('frame angka yang stabil menghasilkan satu token angka', () => {
+    const tokens = assembleSignTimeline([
+      sample(0, '12', 1),
+      sample(900, '12', 1),
+      sample(1800, '12', 1),
+      sample(2700, '12', 0.999),
+      sample(3600, '12', 0.996),
+    ]);
+    const result = resolveStaticFramesResult(tokens, [{ label: '12', confidence: 1 }], 'angka');
+    expect(result.text).toBe('12');
+    expect(result.kind).toBe('angka');
+  });
+
+  it('satu angka stabil memakai kind angka', () => {
+    const result = resolveStaticFramesResult(digits(['7']), [{ label: '7', confidence: 0.9 }], 'angka');
+    expect(result.text).toBe('7');
+    expect(result.kind).toBe('angka');
+    expect(result.note).toBeNull();
+  });
+
+  it('beberapa angka berurutan jadi rangkaian dipisah spasi', () => {
+    const result = resolveStaticFramesResult(digits(['1', '2']), [], 'angka');
+    expect(result.text).toBe('1 2');
+    expect(result.kind).toBe('rangkai');
+  });
+
+  it('tanpa token: catatan per mode dan kandidat mentah tetap dikembalikan', () => {
+    const result = resolveStaticFramesResult(
+      [],
+      [
+        { label: '3', confidence: 0.1 },
+        { label: '9', confidence: 0.2 },
+        { label: '3', confidence: 0.15 },
+      ],
+      'angka'
+    );
+    expect(result.text).toBe('');
+    expect(result.kind).toBeNull();
+    expect(result.note).toContain('angka');
+    // Kandidat dari banyak frame digabung: satu baris per label, ambil terbaik.
+    expect(result.candidates).toEqual([
+      { label: '9', confidence: 0.2 },
+      { label: '3', confidence: 0.15 },
+    ]);
   });
 });

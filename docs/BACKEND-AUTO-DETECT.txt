@@ -3,6 +3,14 @@ PERMINTAAN PERUBAHAN BACKEND AMERTASIGN
 Deteksi Otomatis Huruf / Angka / Kata pada /translate/sign-to-text
 ========================================================================
 
+STATUS (14 Agustus 2026): SUDAH DIPENUHI SERVER — dokumen ini disimpan
+sebagai riwayat. Server produksi kini menyediakan stage="auto",
+stage="angka" (model angka terpisah, hanya gambar/frame), field "kind",
+dan field "segments" untuk rekaman multi-isyarat. Aplikasi mobile tidak
+lagi memakai solusi sementara di bagian 6: mode Otomatis cukup 1 request
+stage="auto", mode Angka memakai stage="angka" pada frame cuplikan.
+Pemetaan terkini ada di API-SPEC.md bagian POST /translate/sign-to-text.
+
 Ditujukan untuk: tim pengelola server https://amertasign.lab-if.tech
 Tanggal        : 28 Juli 2026
 Dari           : tim aplikasi mobile Amerta Sign

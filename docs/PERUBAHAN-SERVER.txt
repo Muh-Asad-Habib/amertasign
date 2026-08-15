@@ -221,9 +221,24 @@ AI masih memproses.
 ================================================================
 7. POLA REQUEST AI DARI MOBILE — SUDAH BERUBAH, MOHON DIBACA ULANG
 ================================================================
+PEMBARUAN 14 Agustus 2026: server sudah menyediakan stage="auto" dan
+stage="angka", sehingga pola request di bawah berubah lagi menjadi:
+
+  Otomatis : 1 request   stage=auto  (video penuh; server yang
+                                      memisahkan huruf/angka/kata dan
+                                      mengirim segments[])
+  Huruf    : s.d. 12 request stage=abjad (frame JPEG dari video)
+  Angka    : s.d. 12 request stage=angka (frame JPEG dari video)
+  Kata     : 1 request   stage=kata  (video penuh)
+
+Batas atas beban per terjemahan turun dari 13 menjadi 12 request, dan
+kasus paling sering (Otomatis) kini hanya 1 request. Uraian historis di
+bawah tetap disimpan sebagai catatan.
+
+--- HISTORIS ---
 SEBELUMNYA: 1 rekaman = 2 request paralel (stage=abjad + stage=kata).
 
-SEKARANG (mulai versi aplikasi berikutnya): untuk mendukung deteksi
+LALU (versi sebelum stage=auto tersedia): untuk mendukung deteksi
 RANGKAIAN isyarat (lihat poin 14), 1 rekaman menjadi:
   - 1 request  stage=kata   (video penuh, MP4)
   - s.d. 12 request stage=abjad (frame JPEG diambil dari video,
@@ -243,6 +258,7 @@ Jadi angka 13 di atas tetap batas atas yang harus ditanggung server,
 tapi dalam pemakaian nyata sebagian besar terjemahan akan jauh lebih
 ringan. Tidak ada nilai stage baru — mode hanya memilih stage yang
 sudah ada dan menyaring "candidates[]" di sisi aplikasi.
+--- AKHIR HISTORIS ---
 
 Yang perlu dipastikan:
 - Rate limit JANGAN memblokir burst ini:

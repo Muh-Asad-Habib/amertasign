@@ -126,7 +126,7 @@ Aturan: user hanya bisa akses riwayat miliknya (scope by user ID dari token). Re
 
 > Catatan: deteksi live kemungkinan berjalan on-device (TFLite/MediaPipe) atau via WebSocket streaming — perlu diskusi arsitektur. Untuk MVP, endpoint `text-to-sign` cukup mengembalikan URL aset video/gambar peragaan dari kamus.
 >
-> Deteksi otomatis huruf/angka/kata pada `sign-to-text` (usulan `stage=auto` + field `kind`) dijelaskan terpisah di [`BACKEND-AUTO-DETECT.txt`](./BACKEND-AUTO-DETECT.txt).
+> Deteksi otomatis huruf/angka/kata pada `sign-to-text` sudah tersedia di server (`stage=auto`, `stage=angka`, field `kind`, dan `segments`). Riwayat permintaannya ada di [`BACKEND-AUTO-DETECT.txt`](./BACKEND-AUTO-DETECT.txt).
 
 #### POST `/translate/sign-to-text`
 
@@ -134,16 +134,17 @@ Endpoint publik (tanpa `Authorization`). Body `multipart/form-data`:
 
 | Field | Nilai |
 |---|---|
-| `stage` | `"abjad"` \| `"kata"` \| `"auto"` |
+| `stage` | `"abjad"` \| `"angka"` \| `"kata"` \| `"auto"` |
 | `file` | gambar (`image/jpeg`, `image/png`, …) atau video (`video/mp4`, `video/quicktime`, …) maks **40 MB** |
 
 - `stage="abjad"` — hanya gambar (video → `400 STAGE_MEDIA_MISMATCH`). Model huruf A–Z.
-- `stage="kata"` — hanya video (gambar → `400 STAGE_MEDIA_MISMATCH`). Model angka + kata.
-- `stage="auto"` — **baru**; server menentukan sendiri jenis isyarat:
-  - `file` video → model kata dijalankan pada urutan frame **dan** model abjad pada
-    sampling 5 frame diam (35%–65% durasi); kandidat terbaik kedua model dibandingkan,
-    pemenangnya dikembalikan.
-  - `file` gambar → cukup model abjad.
+- `stage="angka"` — hanya gambar (video → `400 STAGE_MEDIA_MISMATCH`). Model angka
+  **terpisah** (kelas 1–19), bukan lagi kelas angka yang menumpang model kata.
+- `stage="kata"` — hanya video (gambar → `400 STAGE_MEDIA_MISMATCH`). Model kata.
+- `stage="auto"` — server menentukan sendiri jenis isyarat:
+  - `file` video → model kata pada urutan frame **dan** model huruf/angka pada
+    frame diam; kandidat terbaik dibandingkan, pemenangnya dikembalikan.
+  - `file` gambar → model huruf + angka.
 - Rekaman disarankan ≤15 detik, 720p, tanpa audio. Timeout proxy ≥300 detik
   (klien mobile memakai 120 detik).
 
@@ -208,21 +209,25 @@ Error (envelope tetap):
 
 | Kode | Kondisi |
 |---|---|
-| `STAGE_MEDIA_MISMATCH` (400) | abjad+video atau kata+gambar |
+| `STAGE_MEDIA_MISMATCH` (400) | abjad/angka + video, atau kata + gambar |
 | `UNSUPPORTED_MEDIA` (415) | ekstensi bukan gambar/video yang didukung |
 | `MEDIA_TOO_LARGE` (413) | berkas > 40 MB |
 
-> Catatan: model video belum memiliki kelas huruf (dataset `Dataset/Video/Huruf`
-> belum tersedia di server). Pada `stage="auto"`, deteksi huruf dari video
-> mengandalkan sampling frame diam → model abjad. Setelah dataset video huruf
-> dikirim, model kata akan dilatih ulang dan pemisahan model angka dipertimbangkan.
+> **Pemetaan mode di layar kamera → `stage`** (`services/translation.ts`):
 >
-> Sementara itu aplikasi menyediakan **pemilih mode** di layar kamera
-> (Otomatis / Huruf / Angka / Kata). Mode hanya memilih `stage` yang sudah ada
-> lalu menyaring `candidates[]` di sisi klien — tidak menambah nilai `stage` baru
-> dan tidak mengubah kontrak endpoint ini. Mode `Angka`/`Kata` cukup 1 request
-> (`stage="kata"`), mode `Huruf` hanya `stage="abjad"`. Rinciannya di
-> [`BACKEND-AUTO-DETECT.txt`](./BACKEND-AUTO-DETECT.txt) bagian 6 poin 5.
+> | Mode | Jalur | Jumlah request |
+> |---|---|---|
+> | Otomatis | video → `stage="auto"`; `segments[]` dipakai sebagai rangkaian | 1 |
+> | Huruf | frame cuplikan → `stage="abjad"` | s.d. 12 |
+> | Angka | frame cuplikan → `stage="angka"` | s.d. 12 |
+> | Kata | video penuh → `stage="kata"` | 1 |
+>
+> Gambar dari galeri memakai `stage` yang sama (Otomatis → `auto`, Huruf →
+> `abjad`, Angka → `angka`); hanya mode Kata yang menolak gambar. Jenis hasil
+> dibaca dari field `kind` milik server, tebakan bentuk label hanya cadangan.
+> Bila server menolak `stage="auto"` (HTTP 422 / `VALIDATION_ERROR`), aplikasi
+> otomatis kembali ke pipeline lama (video → `kata` + frame → `abjad`) yang
+> dijelaskan di [`BACKEND-AUTO-DETECT.txt`](./BACKEND-AUTO-DETECT.txt) bagian 6.
 
 #### POST `/translate/text-to-sign`
 
