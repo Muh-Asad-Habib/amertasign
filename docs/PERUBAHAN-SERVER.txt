@@ -2,7 +2,7 @@
 DAFTAR LENGKAP PERUBAHAN YANG DIBUTUHKAN DI SERVER — AmertaSign
 Dari: Tim Mobile
 Versi: GABUNGAN (menggantikan "CATATAN-UNTUK-TIM-SERVER.txt" dan
-addendum sebelumnya — cukup pakai dokumen ini saja, poin 1-20)
+addendum sebelumnya — cukup pakai dokumen ini saja, poin 1-21)
 ================================================================
 
 Kalau tim server SUDAH mengerjakan sebagian poin dari dokumen
@@ -22,7 +22,7 @@ PENTING: JANGAN langsung menerapkan semua poin di bawah tanpa
 pengecekan. Termasuk bila pengerjaan dibantu AI — AI TIDAK BOLEH
 langsung menulis ulang kode berdasarkan dokumen ini saja.
 
-Urutannya WAJIB begini untuk SETIAP poin (bagian 1 sampai 20):
+Urutannya WAJIB begini untuk SETIAP poin (bagian 1 sampai 21):
 
   LANGKAH 1 — CEK KONDISI SEKARANG
     Buka kode / konfigurasi yang bersangkutan dan pastikan dulu:
@@ -610,6 +610,64 @@ b) Field "hasPassword" pada objek user:
 
 
 ================================================================
+21. DEPLOY MEDIA KAMUS BARU — PERAGA LAKI-LAKI & PEREMPUAN
+================================================================
+KONDISI SEKARANG DI PRODUKSI (dicek 17 Agustus, amertasign.lab-if.tech):
+  - GET /api/v1/translate/avatars →
+      female: available=false, coverage=0.0
+  - POST /translate/text-to-sign dengan "avatar":"female" →
+      avatarFallback=true, semua unit kembali ke peraga male LAMA
+      (video baju batik biru — bukan peraga dataset Kamus yang baru).
+  - "terima kasih" masih dieja per huruf (matchType=spelling),
+      padahal pencocokan frasa multi-kata sudah ada di kode baru.
+  Kesimpulan: server produksi masih menjalankan KODE LAMA dan
+  MEDIA LAMA.
+
+PADAHAL DI REPO amertasign-llm SUDAH LENGKAP (branch main):
+  - Dataset video baru sudah tracked di git: data/kamus/Laki-laki
+    (Angka 23, Huruf 26, Kata 63 file) dan data/kamus/Perempuan
+    (114 media, termasuk Angka 28 file).
+  - Skrip impor + prosedurnya sudah ada:
+    commit f4508c7 "feat(sign-media): impor dataset Kamus ke media
+    kamus mobile + frasa multi-kata".
+
+YANG PERLU DIJALANKAN DI SERVER (peran mobile/all), dari root repo —
+sesuai DEPLOYMENT.md bagian "Media kamus mobile (peraga BISINDO)":
+
+  git pull                                  # ambil kode + data/kamus
+  # restart backend sesuai prosedur biasa (systemd) agar kode baru aktif
+  backend/.venv/bin/python scripts/import_kamus_sign_media.py
+  cd backend && .venv/bin/python scripts/normalize_sign_media.py --jobs 4 && cd ..
+  backend/.venv/bin/python scripts/import_kamus_sign_media.py --thumbs
+
+  Catatan: butuh ffmpeg/ffprobe di PATH. Proses idempoten — file
+  yang sudah pernah diimpor dilewati; tabel dictionary_entries +
+  sign_media tersinkron otomatis di akhir (juga saat startup backend).
+
+EFEK YANG DIHARAPKAN SETELAH DIJALANKAN:
+  - Video peraga MALE ikut TERGANTI dengan dataset Kamus yang baru
+    (peraga kemeja flanel) — bukan hanya menambah female.
+  - Alfabet 26 semua bervideo, angka 28 (1-20, 30-100), kata 72.
+  - Avatar female aktif; stem yang hanya ada di Perempuan tetap
+    aman (fallback per unit sudah ditangani kode).
+
+CARA VERIFIKASI CEPAT SETELAH DEPLOY:
+  1) GET /api/v1/translate/avatars
+       → female available=true, coverage > 0.9
+  2) POST /api/v1/translate/text-to-sign
+       body {"text":"makan","signLanguageType":"bisindo","avatar":"female"}
+       → avatarFallback=false, videoUrl mengandung /female/kata/
+  3) POST body {"text":"terima kasih","signLanguageType":"bisindo"}
+       → 1 unit matchType=exact (bukan ejaan per huruf)
+  4) Buka video angka /api/v1/media/bisindo/angka/1.mp4
+       → peraga baru (bukan video baju batik biru lama)
+
+TIDAK ADA perubahan yang dibutuhkan di sisi mobile: APK terbaru
+sudah mengirim "avatar" sesuai Pengaturan dan menampilkan catatan
+fallback selama media female belum tersedia.
+
+
+================================================================
 PERUBAHAN DI SISI MOBILE YANG PERLU TIM SERVER TAHU
 ================================================================
 (SUDAH kami kerjakan, tidak perlu tindakan — sekadar informasi)
@@ -681,17 +739,20 @@ Status: [sudah sesuai] / [sudah diubah] / [belum] / [perlu diskusi]
   [   ] 18. Validasi 200 karakter + TEXT_TOO_LONG / TEXT_EMPTY
   [   ] 19. Rate limit 429 JSON + code RATE_LIMITED
   [   ] 20. Konfirmasi deep link Google + field hasPassword
+  [   ] 21. Deploy media kamus baru (import_kamus_sign_media + restart)
 
 
 ================================================================
 CATATAN PENUTUP
 ================================================================
 Prioritas menurut kami:
-  1) Poin 14 (multi-isyarat — inti produk; Tahap A dulu, lalu B)
-  2) Poin 17 & 20 (cek cepat, risiko bug produksi)
-  3) Poin 1 (keamanan reset password) & 7 (rate limit selaras)
-  4) Poin 18 & 19, lalu 15 & 16
-  5) Sisanya konfirmasi / konfigurasi.
+  1) Poin 21 (deploy media kamus — pengguna sudah melihat fallback
+     "peraga perempuan belum tersedia" di aplikasi)
+  2) Poin 14 (multi-isyarat — inti produk; Tahap A dulu, lalu B)
+  3) Poin 17 & 20 (cek cepat, risiko bug produksi)
+  4) Poin 1 (keamanan reset password) & 7 (rate limit selaras)
+  5) Poin 18 & 19, lalu 15 & 16
+  6) Sisanya konfirmasi / konfigurasi.
 
 Selain poin 10, 11, 14, 15, 16 yang butuh endpoint/kemampuan
 baru, sisanya hanya konfirmasi dan penyesuaian konfigurasi. Tidak
