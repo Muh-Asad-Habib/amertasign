@@ -1,4 +1,5 @@
 import { dictionaryEntries as fallbackEntries } from '../constants/MockData';
+import { isHiddenSignWord } from '../constants/Dictionary';
 import type { DictionaryEntry } from '../types';
 import { apiRequest, resolveApiUrl } from './api';
 
@@ -7,6 +8,14 @@ let cachedAt = 0;
 
 /** Umur cache kamus; setelah lewat, data diambil ulang dari backend. */
 const CACHE_TTL_MS = 30 * 60 * 1000;
+
+/**
+ * Buang entri yang sedang disembunyikan sementara.
+ * Lihat CATATAN SEMENTARA di constants/Dictionary.ts — hapus filter ini
+ * bersama HIDDEN_SIGN_WORDS ketika media peraga kedua gender sudah lengkap.
+ */
+const withoutHiddenWords = (entries: DictionaryEntry[]): DictionaryEntry[] =>
+  entries.filter((entry) => !isHiddenSignWord(entry.word));
 
 export interface DictionaryFetchResult {
   entries: DictionaryEntry[];
@@ -42,10 +51,11 @@ export async function fetchDictionaryEntries(): Promise<DictionaryFetchResult> {
       cursor = data.nextCursor;
     } while (cursor);
 
-    if (items.length > 0) {
-      cachedEntries = items;
+    const visibleItems = withoutHiddenWords(items);
+    if (visibleItems.length > 0) {
+      cachedEntries = visibleItems;
       cachedAt = Date.now();
-      return { entries: items, isFallback: false };
+      return { entries: visibleItems, isFallback: false };
     }
   } catch {
     // Backend tidak terjangkau — pakai fallback di bawah.
@@ -56,7 +66,7 @@ export async function fetchDictionaryEntries(): Promise<DictionaryFetchResult> {
     return { entries: cachedEntries, isFallback: true };
   }
 
-  return { entries: fallbackEntries, isFallback: true };
+  return { entries: withoutHiddenWords(fallbackEntries), isFallback: true };
 }
 
 export async function searchDictionary(search: string): Promise<DictionaryEntry[]> {
@@ -64,10 +74,12 @@ export async function searchDictionary(search: string): Promise<DictionaryEntry[
     const data = await apiRequest<{ items: DictionaryEntry[] }>(
       `/dictionary?search=${encodeURIComponent(search)}&limit=10`
     );
-    return data.items.map(normalizeEntry);
+    return withoutHiddenWords(data.items.map(normalizeEntry));
   } catch {
     const normalized = search.trim().toLowerCase();
-    return fallbackEntries.filter((entry) => entry.word.toLowerCase().includes(normalized));
+    return withoutHiddenWords(fallbackEntries).filter((entry) =>
+      entry.word.toLowerCase().includes(normalized)
+    );
   }
 }
 
