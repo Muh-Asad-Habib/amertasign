@@ -11,6 +11,7 @@ import {
   type SignRecognitionResult,
   type TextToSignResult,
 } from '../services/translation';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 /** Aplikasi hanya mendukung BISINDO (Bahasa Isyarat Indonesia). */
 export type SignLanguageType = 'bisindo';
@@ -82,7 +83,9 @@ export function useTranslation() {
 
     setIsDetecting(true);
     try {
-      const result = await textToSign(text, SIGN_LANGUAGE_TYPE);
+      // Karakter peraga (laki-laki/perempuan) mengikuti Pengaturan.
+      const avatar = useSettingsStore.getState().avatarGender;
+      const result = await textToSign(text, SIGN_LANGUAGE_TYPE, avatar);
       if (requestIdRef.current === requestId) {
         setTranslatedText(result.text);
         return result;

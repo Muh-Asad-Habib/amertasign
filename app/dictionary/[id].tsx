@@ -21,11 +21,19 @@ import Stack from '../../components/ui/Stack';
 import Text from '../../components/ui/Text';
 import { colors, gradients, radius, spacing } from '../../theme';
 import { useDictionary } from '../../hooks/useDictionary';
+import useEntrySignMedia from '../../hooks/useEntrySignMedia';
 import { useTTS } from '../../hooks/useTTS';
 import { useThemeMode } from '../../hooks/useThemeMode';
 import { CATEGORY_LABELS } from '../../constants/Dictionary';
+import { avatarMediaUrl } from '../../utils/avatarMediaUrl';
+import type { AvatarGender } from '../../store/useSettingsStore';
 
 import { createSheet } from '../../theme';
+
+const AVATAR_LABEL: Record<AvatarGender, string> = {
+  male: 'Laki-laki',
+  female: 'Perempuan',
+};
 
 export default function DictionaryDetailScreen() {
   useThemeMode();
@@ -36,6 +44,7 @@ export default function DictionaryDetailScreen() {
   const { speak } = useTTS();
 
   const entry = useMemo(() => allEntries.find((item) => item.id === entryId), [allEntries, entryId]);
+  const { videoUrl, isResolving, isFallback, avatarGender } = useEntrySignMedia(entry);
 
   const relatedEntries = useMemo(() => {
     if (!entry) {
@@ -100,7 +109,33 @@ export default function DictionaryDetailScreen() {
         </GradientSurface>
 
         <Section kicker="Belajar" title="Video Peraga">
-          <SignVideoPlayer videoUrl={entry.videoUrl} word={entry.word} />
+          <Stack gap={spacing.sm}>
+            {isResolving ? (
+              // Media peraga alternatif sedang diminta — jangan buru-buru
+              // menampilkan "media tidak tersedia".
+              <View style={styles.mediaLoading}>
+                <ActivityIndicator color={colors.primary} size="large" />
+                <Text variant="caption" color="secondary">
+                  Memuat video peraga…
+                </Text>
+              </View>
+            ) : (
+              <SignVideoPlayer videoUrl={videoUrl} word={entry.word} />
+            )}
+            <View style={styles.avatarNote}>
+              <Ionicons
+                color={colors.textTertiary}
+                name={avatarGender === 'male' ? 'man-outline' : 'woman-outline'}
+                size={16}
+              />
+              <Text variant="caption" color="tertiary" style={styles.avatarNoteText}>
+                Karakter peraga: {AVATAR_LABEL[avatarGender]}
+                {isFallback && !isResolving
+                  ? ` — video peraga ${AVATAR_LABEL[avatarGender].toLowerCase()} untuk kata ini belum tersedia, sementara memakai peraga lain.`
+                  : ''}
+              </Text>
+            </View>
+          </Stack>
         </Section>
 
         <Row gap={spacing.sm}>
@@ -126,7 +161,8 @@ export default function DictionaryDetailScreen() {
               {relatedEntries.map((item) => (
                 <WordCard
                   category={CATEGORY_LABELS[item.category]}
-                  imageUrl={item.imageUrl}
+                  fallbackImageUrl={item.imageUrl}
+                  imageUrl={avatarMediaUrl(item.imageUrl, avatarGender)}
                   key={item.id}
                   onPress={() => router.push({ pathname: '/dictionary/[id]', params: { id: item.id } })}
                   type={item.type}
@@ -170,6 +206,20 @@ const styles = createSheet((colors) => ({
     marginTop: 0,
   },
   actionButton: {
+    flex: 1,
+  },
+  mediaLoading: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    justifyContent: 'center',
+    minHeight: 220,
+  },
+  avatarNote: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  avatarNoteText: {
     flex: 1,
   },
 }));

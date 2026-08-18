@@ -30,6 +30,8 @@ import { useDictionary } from '../../hooks/useDictionary';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useKeyboardWindowOverlap } from '../../hooks/useKeyboardOverlap';
 import { useThemeMode } from '../../hooks/useThemeMode';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { avatarMediaUrl } from '../../utils/avatarMediaUrl';
 import type { DictionaryCategory, DictionaryEntry } from '../../types';
 import { CATEGORY_LABELS as SHARED_CATEGORY_LABELS } from '../../constants/Dictionary';
 
@@ -106,6 +108,8 @@ export default function DictionaryScreen() {
   const [searchPinned, setSearchPinned] = useState(false);
   const heroHeightRef = useRef(0);
   const pinnedRef = useRef(false);
+  // Thumbnail daftar mengikuti karakter peraga terpilih (lihat utils/avatarMediaUrl).
+  const avatarGender = useSettingsStore((state) => state.avatarGender);
 
   const { filteredEntries, favoriteEntries, historyEntries, isLoadingEntries, isOffline, refresh } =
     useDictionary({
@@ -320,7 +324,8 @@ export default function DictionaryScreen() {
           <View style={styles.entryRow}>
             <WordCard
               category={CATEGORY_LABELS[item.entry.category]}
-              imageUrl={item.entry.imageUrl}
+              fallbackImageUrl={item.entry.imageUrl}
+              imageUrl={avatarMediaUrl(item.entry.imageUrl, avatarGender)}
               onPress={() => handleOpenEntry(item.entry.id)}
               tint={item.index}
               type={item.entry.type}

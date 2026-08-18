@@ -1,10 +1,14 @@
 import * as VideoThumbnails from 'expo-video-thumbnails';
 
+import { isHiddenSignWord } from '../constants/Dictionary';
 import type { SignLanguageType } from '../types';
 import { ApiError, apiRequest, apiUpload, resolveApiUrl } from './api';
 
 export type SignMediaType = 'video' | 'image';
 export type SignMatchType = 'exact' | 'spelling';
+
+/** Karakter peraga media isyarat; mengikuti pilihan gender di Pengaturan. */
+export type SignAvatar = 'male' | 'female';
 
 /** Jenis isyarat; kini dikirim server lewat field `kind` (fallback: bentuk label). */
 export type SignKind = 'huruf' | 'angka' | 'kata';
@@ -57,6 +61,10 @@ export interface TextToSignUnit {
   mediaUrl: string;
   mediaType: SignMediaType;
   matchType: SignMatchType;
+  /** Durasi media (ms) dari server; additive — server lama tidak mengirimnya. */
+  durationMs?: number | null;
+  /** Peraga yang benar-benar dipakai unit ini (bisa berbeda dari yang diminta). */
+  avatar?: SignAvatar;
 }
 
 export interface TextToSignResult {
@@ -64,6 +72,11 @@ export interface TextToSignResult {
   signLanguageType: SignLanguageType;
   units: TextToSignUnit[];
   unmatched: string[];
+  /** Peraga yang dipakai server; additive — server lama tidak mengirimnya. */
+  avatar?: SignAvatar;
+  avatarRequested?: SignAvatar;
+  /** True bila ada unit dialihkan ke peraga lain karena medianya belum ada. */
+  avatarFallback?: boolean;
 }
 
 export interface RecognitionCandidate {
@@ -136,20 +149,33 @@ export interface SequenceRecognitionResult {
 /** Teks → rangkaian media isyarat dari kamus backend. */
 export async function textToSign(
   text: string,
-  signLanguageType: SignLanguageType = 'bisindo'
+  signLanguageType: SignLanguageType = 'bisindo',
+  avatar?: SignAvatar
 ): Promise<TextToSignResult> {
   const result = await apiRequest<TextToSignResult>('/translate/text-to-sign', {
     method: 'POST',
-    body: { text: text.trim(), signLanguageType },
+    // `avatar` opsional: server fallback ke peraga default bila medianya belum ada.
+    body: { text: text.trim(), signLanguageType, ...(avatar ? { avatar } : {}) },
   });
+  const units = result.units.map((unit) => ({
+    ...unit,
+    imageUrl: resolveApiUrl(unit.imageUrl),
+    videoUrl: resolveApiUrl(unit.videoUrl),
+    mediaUrl: resolveApiUrl(unit.mediaUrl),
+  }));
+  // SEMENTARA: kata yang disembunyikan (lihat CATATAN di constants/Dictionary.ts)
+  // ikut disaring dari hasil terjemahan; token-nya dipindah ke `unmatched` agar
+  // UI menampilkan "Karakter belum tersedia". Ejaan per huruf tidak terpengaruh.
+  const visibleUnits = units.filter(
+    (unit) => !(unit.matchType === 'exact' && isHiddenSignWord(unit.word))
+  );
+  const hiddenTokens = units
+    .filter((unit) => unit.matchType === 'exact' && isHiddenSignWord(unit.word))
+    .map((unit) => unit.token);
   return {
     ...result,
-    units: result.units.map((unit) => ({
-      ...unit,
-      imageUrl: resolveApiUrl(unit.imageUrl),
-      videoUrl: resolveApiUrl(unit.videoUrl),
-      mediaUrl: resolveApiUrl(unit.mediaUrl),
-    })),
+    units: visibleUnits,
+    unmatched: Array.from(new Set([...result.unmatched, ...hiddenTokens])),
   };
 }
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -17,12 +17,38 @@ export interface WordCardProps {
   type: SignType;
   onPress: () => void;
   imageUrl?: string;
+  /** Cadangan bila `imageUrl` gagal dimuat (mis. media peraga terpilih belum ada). */
+  fallbackImageUrl?: string;
   /** Indeks rotasi warna thumbnail (palet permen). Kosong = biru primer. */
   tint?: number;
 }
 
-export default function WordCard({ word, category, type, onPress, imageUrl, tint }: WordCardProps) {
+export default function WordCard({
+  word,
+  category,
+  type,
+  onPress,
+  imageUrl,
+  fallbackImageUrl,
+  tint,
+}: WordCardProps) {
   const pop = tint != null ? popAt(tint) : null;
+
+  // Urutan kandidat gambar: utama → cadangan; gagal semua → ikon tangan.
+  const candidates = useMemo(() => {
+    const urls: string[] = [];
+    for (const url of [imageUrl, fallbackImageUrl]) {
+      if (url && !urls.includes(url)) {
+        urls.push(url);
+      }
+    }
+    return urls;
+  }, [imageUrl, fallbackImageUrl]);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  useEffect(() => {
+    setCandidateIndex(0);
+  }, [candidates]);
+  const displayUrl = candidates[candidateIndex];
 
   return (
     <PressableScale
@@ -33,8 +59,12 @@ export default function WordCard({ word, category, type, onPress, imageUrl, tint
       style={styles.container}
     >
       <View style={[styles.thumbnail, pop ? { backgroundColor: pop.surface } : null]}>
-        {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={styles.image} />
+        {displayUrl ? (
+          <Image
+            source={{ uri: displayUrl }}
+            style={styles.image}
+            onError={() => setCandidateIndex((index) => index + 1)}
+          />
         ) : (
           <Ionicons color={pop ? pop.color : colors.primary} name="hand-left" size={26} />
         )}

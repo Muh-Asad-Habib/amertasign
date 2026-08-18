@@ -396,8 +396,9 @@ Tabel di bawah adalah status terkini, bukan lagi rencana penggantian mock.
 |---|---|---|
 | `services/auth.ts` | Terhubung API | `/auth/login`, `/auth/register`, `/auth/me`, `/auth/logout`, `/auth/refresh` |
 | `store/useHistoryStore.ts` | Terhubung API (optimistic update lokal) | `GET/POST/DELETE /history` |
-| `services/translation.ts` | Terhubung API (upload multipart + auth) | `/translate/sign-to-text`, `/translate/text-to-sign` |
+| `services/translation.ts` | Terhubung API (upload multipart + auth); text-to-sign mengirim `avatar` sesuai gender peraga di Pengaturan | `/translate/sign-to-text`, `/translate/text-to-sign` |
 | `services/dictionary.ts` | Terhubung API + cache TTL 30 menit dan fallback lokal saat offline | `GET /dictionary` |
+| `hooks/useEntrySignMedia.ts` | Video peraga di detail kamus mengikuti gender peraga dari Pengaturan (cache per entri+peraga; fallback senyap ke video bawaan entri) | `POST /translate/text-to-sign` |
 | `services/database.ts` | Favorit user via API; favorit & riwayat pencarian mode tamu disimpan lokal (SecureStore) | `/favorites` |
 | `constants/MockData.ts` | Hanya cadangan offline/demo bila API tidak dapat dihubungi | — |
 
