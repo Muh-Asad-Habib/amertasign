@@ -183,7 +183,7 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
             <Text style={styles.hintText}>
               {isRecording
                 ? 'Tahan tiap isyarat ±2 detik — ketuk tombol merah untuk berhenti'
-                : 'Posisikan tangan di dalam bingkai'}
+                : 'Jarak ±1 m, cahaya merata, kedua tangan tetap di bingkai'}
             </Text>
           </View>
         </View>
