@@ -365,13 +365,13 @@ export function pickCandidate(
 }
 
 /**
- * Bungkus hasil satu-tembak (mode angka/kata) menjadi bentuk rangkaian supaya
- * layar kamera hanya perlu menangani satu tipe hasil.
+ * Bungkus hasil satu-tembak (mode huruf/angka/kata) menjadi bentuk rangkaian
+ * supaya layar kamera hanya perlu menangani satu tipe hasil.
  * (Fungsi murni — diuji unit test.)
  */
 export function resolveSingleShotResult(
   result: SignRecognitionResult | null,
-  mode: SingleShotMode,
+  mode: SingleShotMode | StaticMode,
   tuning: SequenceTuning = SEQUENCE_TUNING
 ): SequenceRecognitionResult {
   const candidates = sortCandidates(result?.candidates);
@@ -398,6 +398,42 @@ export function resolveSingleShotResult(
     note: null,
   };
 }
+
+/**
+ * Susun hasil video-utuh mode Huruf/Angka (server menganalisis SEMUA frame).
+ *
+ * `segments[]` dari server menjadi token rangkaian; label yang tidak sesuai
+ * jenis mode dibuang. Tanpa segmen, hasil tunggal diperlakukan seperti
+ * single-shot dengan penyaringan mode yang sama.
+ * (Fungsi murni — diuji unit test.)
+ */
+export function resolveStaticVideoResult(
+  result: SignRecognitionResult | null,
+  mode: StaticMode
+): SequenceRecognitionResult {
+  const predicate = SIGN_KIND_PREDICATE[mode];
+  const tokens: SequenceToken[] = (result?.segments ?? [])
+    .map((segment) => ({
+      label: (segment.label ?? '').trim().toUpperCase(),
+      kind: mode as SignKind,
+      confidence: segment.confidence ?? 0,
+    }))
+    .filter((token) => token.label.length > 0 && predicate(token.label));
+
+  if (tokens.length === 0) {
+    return resolveSingleShotResult(result, mode);
+  }
+
+  return {
+    text: joinSequenceTokens(tokens),
+    kind: tokens.length > 1 ? 'rangkai' : tokens[0].kind,
+    confidence: Math.min(...tokens.map((token) => token.confidence)),
+    tokens,
+    candidates: sortCandidates(result?.candidates),
+    note: null,
+  };
+}
+
 
 /** Salin kandidat lalu urutkan menurun — urutan dari server tidak dijamin. */
 function sortCandidates(candidates?: RecognitionCandidate[] | null): RecognitionCandidate[] {
@@ -752,11 +788,45 @@ function isUnsupportedStageError(error: unknown): boolean {
 }
 
 /**
- * Mode statis (Huruf/Angka): cuplik beberapa frame diam dari rekaman lalu
- * kirim ke model frame terkait. Label yang tidak sesuai jenis mode dibuang
- * sebelum timeline dirakit, sehingga tebakan berjenis salah tidak ikut tampil.
+ * Mode statis (Huruf/Angka): unggah VIDEO UTUH supaya server menganalisis
+ * SEMUA frame — isyarat sensitif per frame, cuplikan bisa melewatkan pose.
+ * Server lama yang belum mendukung video pada stage statis membalas
+ * STAGE_MEDIA_MISMATCH → otomatis kembali ke jalur cuplikan frame lama.
  */
 async function recognizeStaticFrames(
+  video: MediaUpload,
+  mode: StaticMode,
+  durationMs: number
+): Promise<SequenceRecognitionResult> {
+  const stage = STATIC_MODE_STAGE[mode];
+  try {
+    const result = await recognizeMedia({ ...video, type: 'video' }, stage);
+    return resolveStaticVideoResult(result, mode);
+  } catch (error) {
+    if (!isStaticVideoUnsupportedError(error)) {
+      throw error;
+    }
+  }
+  return recognizeStaticFramesSampled(video, mode, durationMs);
+}
+
+/** True bila server belum mendukung video utk stage abjad/angka (server lama). */
+function isStaticVideoUnsupportedError(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    (error.code === 'STAGE_MEDIA_MISMATCH' ||
+      error.status === 422 ||
+      error.code === 'VALIDATION_ERROR')
+  );
+}
+
+/**
+ * Jalur CADANGAN mode statis untuk server lama: cuplik beberapa frame diam
+ * dari rekaman lalu kirim ke model frame terkait. Label yang tidak sesuai
+ * jenis mode dibuang sebelum timeline dirakit, sehingga tebakan berjenis
+ * salah tidak ikut tampil.
+ */
+async function recognizeStaticFramesSampled(
   video: MediaUpload,
   mode: StaticMode,
   durationMs: number
