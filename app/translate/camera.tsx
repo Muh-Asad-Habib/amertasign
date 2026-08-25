@@ -1,21 +1,32 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useCameraPermissions } from 'expo-camera';
 import type { CameraType } from 'expo-camera';
 
-import CameraView, { type CameraViewHandle } from '../../components/translate/CameraView';
+import LiveSignView, { type LiveTrackerPhase } from '../../components/translate/LiveSignView';
 import TranslationOutput from '../../components/translate/TranslationOutput';
 import BackHeader from '../../components/ui/BackHeader';
 import Badge from '../../components/ui/Badge';
 import CategoryTabs from '../../components/ui/CategoryTabs';
 import PressableScale from '../../components/ui/PressableScale';
 import Text from '../../components/ui/Text';
-import { colors, overlay, palette, radius, spacing, touchTargetMin } from '../../theme';
+import {
+  colors,
+  fontFamily,
+  gradients,
+  overlay,
+  palette,
+  radius,
+  spacing,
+  touchTargetMin,
+} from '../../theme';
 import { useTTS } from '../../hooks/useTTS';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeMode } from '../../hooks/useThemeMode';
@@ -23,94 +34,131 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
 import { toUserMessage } from '../../utils/errors';
 import {
-  pickCandidate,
+  LiveRecognitionSession,
+  type LiveHand,
+  type LiveStage,
+} from '../../services/liveRecognition';
+import {
+  joinSequenceTokens,
   RECOGNITION_MODE_OPTIONS,
   resolveSignKind,
   SIGN_KIND_LABEL,
-  SIGN_KIND_PREDICATE,
   type MediaUpload,
   type RecognitionMode,
-  type RecognitionStage,
   type SequenceKind,
+  type SequenceToken,
 } from '../../services/translation';
 
 import { createSheet } from '../../theme';
 
 const WAITING_TEXT = 'Tekan tombol rekam untuk mulai mendeteksi isyarat...';
-/** Batas aman durasi rekaman agar berkas unggahan tidak membengkak. */
-const MAX_RECORDING_SEC = 15;
-/** Jeda minimum sebelum perekaman boleh dihentikan (native butuh waktu siap). */
-const MIN_RECORDING_MS = 800;
 const TIMER_INTERVAL_MS = 200;
 
-/** Panduan singkat di atas tombol rekam, disesuaikan mode yang dikunci. */
-const MODE_HELPER_TEXT: Record<RecognitionMode, string> = {
-  otomatis: 'Ketuk rekam, peragakan isyarat, lalu ketuk lagi untuk berhenti',
-  huruf: 'Tahan tiap huruf ±2 detik — beberapa huruf dirangkai jadi ejaan',
-  angka: 'Tahan tiap angka ±2 detik — beberapa angka dirangkai berurutan',
-  kata: 'Peragakan satu kata, tahan sampai gerakan selesai',
-};
+/**
+ * DETEKSI LIVE — pipeline yang sama dengan aplikasi web: landmark tangan
+ * dideteksi DI PERANGKAT (MediaPipe dalam WebView), lalu dikirim streaming
+ * ke server sebagai JSON kecil. Tidak ada lagi unggah video dari tombol
+ * rekam; unggah video/gambar tetap tersedia lewat tombol galeri.
+ *
+ * Mode "otomatis" hanya relevan untuk galeri (server yang memilah), jadi tab
+ * live cukup Huruf | Angka | Kata.
+ */
+type LiveMode = Exclude<RecognitionMode, 'otomatis'>;
 
-/** Teks status selama hasil rekaman diproses. */
-const MODE_PROCESSING_TEXT: Record<RecognitionMode, string> = {
-  otomatis: 'Menganalisis rangkaian gerakan...',
-  huruf: 'Menganalisis rangkaian huruf...',
-  angka: 'Menganalisis rangkaian angka...',
-  kata: 'Menganalisis isyarat kata...',
-};
+const LIVE_MODE_OPTIONS = RECOGNITION_MODE_OPTIONS.filter(
+  (option) => option.id !== 'otomatis'
+);
 
-/** Stage yang dipakai untuk gambar dari galeri, per mode yang dikunci. */
-const IMAGE_STAGE_BY_MODE: Record<Exclude<RecognitionMode, 'kata'>, RecognitionStage> = {
-  otomatis: 'auto',
+const STAGE_BY_LIVE_MODE: Record<LiveMode, LiveStage> = {
   huruf: 'abjad',
   angka: 'angka',
+  kata: 'kata',
 };
 
-/** Mode yang hanya bisa dijalankan model video — gambar galeri tidak didukung. */
-const VIDEO_ONLY_MODES: RecognitionMode[] = ['kata'];
+/** Panduan singkat di atas tombol rekam, per mode live. */
+const MODE_HELPER_TEXT: Record<LiveMode, string> = {
+  huruf: 'Ketuk rekam, tahan tiap huruf ±1–2 detik — huruf dirangkai jadi ejaan',
+  angka: 'Ketuk rekam, tahan tiap angka ±1–2 detik — angka dirangkai berurutan',
+  kata: 'Ketuk rekam, peragakan kata, beri jeda singkat antar kata',
+};
+
+const formatElapsed = (ms: number): string => {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const minutes = String(Math.floor(total / 60)).padStart(2, '0');
+  const seconds = String(total % 60).padStart(2, '0');
+  return `${minutes}:${seconds}`;
+};
+
+/** Jenis gabungan token untuk badge hasil: seragam → jenisnya, campur → rangkai. */
+const kindOfTokens = (tokens: SequenceToken[]): SequenceKind | null => {
+  if (tokens.length === 0) {
+    return null;
+  }
+  const kinds = new Set(tokens.map((token) => token.kind));
+  return kinds.size === 1 ? tokens[0].kind : 'rangkai';
+};
 
 export default function CameraTranslateScreen() {
   useThemeMode();
   const router = useRouter();
-  const {
-    signLanguageType,
-    isDetecting,
-    translateSequence,
-    translateMedia,
-  } = useTranslation();
-  const [isRecording, setIsRecording] = useState(false);
+  const { signLanguageType, isDetecting, translateSequence, translateMedia } = useTranslation();
+
+  const [permission, requestPermission] = useCameraPermissions();
+  const hasCamera = Boolean(permission?.granted);
+  const canRequestPermission = permission?.canAskAgain !== false;
+
+  const [isLive, setIsLive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [facing, setFacing] = useState<CameraType>('front');
   const [torchEnabled, setTorchEnabled] = useState(false);
-  const [mode, setMode] = useState<RecognitionMode>('otomatis');
+  const [mode, setMode] = useState<LiveMode>('kata');
   const [translatedText, setTranslatedText] = useState(WAITING_TEXT);
   const [detectedKind, setDetectedKind] = useState<SequenceKind | null>(null);
-  const cameraRef = useRef<CameraViewHandle>(null);
+  const [trackerPhase, setTrackerPhase] = useState<LiveTrackerPhase>('loading');
+  const [liveHint, setLiveHint] = useState('');
+  const [capturing, setCapturing] = useState(false);
+  const [segmentBusy, setSegmentBusy] = useState(false);
+
+  const sessionRef = useRef<LiveRecognitionSession | null>(null);
+  const tokensRef = useRef<SequenceToken[]>([]);
   const startedAtRef = useRef(0);
   const { speak } = useTTS();
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const addHistoryEntry = useHistoryStore((state) => state.addEntry);
 
-  // Penunjuk waktu rekaman + hentikan otomatis saat batas aman tercapai.
+  // Kamera langsung "terhubung" saat layar dibuka: minta izin sekali di awal.
   useEffect(() => {
-    if (!isRecording) {
+    if (permission && !permission.granted && permission.canAskAgain) {
+      void requestPermission();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permission?.granted]);
+
+  // Penunjuk durasi sesi live.
+  useEffect(() => {
+    if (!isLive) {
       return;
     }
-
     const timer = setInterval(() => {
-      const elapsed = Date.now() - startedAtRef.current;
-      setElapsedMs(elapsed);
-      if (elapsed >= MAX_RECORDING_SEC * 1000) {
-        cameraRef.current?.stopRecording();
-      }
+      setElapsedMs(Date.now() - startedAtRef.current);
     }, TIMER_INTERVAL_MS);
-
     return () => {
       clearInterval(timer);
     };
-  }, [isRecording]);
+  }, [isLive]);
+
+  // Sesi live dihentikan bersih saat layar ditinggalkan.
+  useEffect(() => {
+    return () => {
+      const session = sessionRef.current;
+      sessionRef.current = null;
+      if (session) {
+        void session.stop();
+      }
+    };
+  }, []);
 
   const saveHistory = useCallback(
     (text: string) => {
@@ -130,24 +178,123 @@ export default function CameraTranslateScreen() {
     setDetectedKind(null);
     Alert.alert(
       'Pengenalan gagal',
-      toUserMessage(error, 'Media tidak dapat dikenali. Coba rekam ulang dengan pencahayaan lebih baik.')
+      toUserMessage(error, 'Media tidak dapat dikenali. Coba ulangi dengan pencahayaan lebih baik.')
     );
   };
 
-  /** Rekaman video → rangkaian isyarat (beberapa huruf/angka + kata). */
-  const processRecording = async (video: MediaUpload, durationMs: number) => {
+  // ── Sesi LIVE (tombol rekam) ──────────────────────────────────────────
+
+  const handleFrame = useCallback((hands: LiveHand[], now: number) => {
+    sessionRef.current?.handleFrame(hands, now);
+  }, []);
+
+  const handlePhase = useCallback((phase: LiveTrackerPhase, message: string) => {
+    setTrackerPhase(phase);
+    if (phase === 'error' && message) {
+      setTranslatedText(message);
+    }
+  }, []);
+
+  const startLive = useCallback(() => {
+    if (sessionRef.current) {
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+    tokensRef.current = [];
+    startedAtRef.current = Date.now();
+    setElapsedMs(0);
+    setDetectedKind(null);
+    setLiveHint('');
+    setCapturing(false);
+    setSegmentBusy(false);
+    setTranslatedText('Peragakan isyarat di depan kamera...');
+
+    sessionRef.current = new LiveRecognitionSession({
+      stage: STAGE_BY_LIVE_MODE[mode],
+      callbacks: {
+        onLive: (text, confidence) => {
+          setLiveHint(text ? `${text} · ${Math.round(confidence * 100)}%` : '');
+        },
+        onCommit: (label, kind, confidence) => {
+          tokensRef.current = [...tokensRef.current, { label, kind, confidence }];
+          setTranslatedText(joinSequenceTokens(tokensRef.current));
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
+        },
+        onCapturing: setCapturing,
+        onProcessing: setSegmentBusy,
+        onError: (message) => {
+          setLiveHint('');
+          Alert.alert('Koneksi bermasalah', message);
+        },
+      },
+    });
+    setIsLive(true);
+  }, [mode]);
+
+  const stopLive = useCallback(async () => {
+    const session = sessionRef.current;
+    if (!session) {
+      return;
+    }
+    sessionRef.current = null;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+    setIsLive(false);
+    setLiveHint('');
+    setCapturing(false);
     setIsProcessing(true);
-    setTranslatedText(MODE_PROCESSING_TEXT[mode]);
+    try {
+      // Menunggu segmen kata terakhir dikenali (flush) sebelum finalisasi.
+      await session.stop();
+    } finally {
+      setIsProcessing(false);
+      setSegmentBusy(false);
+    }
+
+    const tokens = tokensRef.current;
+    const text = joinSequenceTokens(tokens);
+    if (text) {
+      setTranslatedText(text);
+      setDetectedKind(kindOfTokens(tokens));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
+      saveHistory(text);
+    } else {
+      setTranslatedText(
+        'Isyarat belum dikenali. Tahan isyarat lebih lama dan pastikan tangan terlihat jelas di bingkai.'
+      );
+      setDetectedKind(null);
+    }
+  }, [saveHistory]);
+
+  const handleToggleLive = useCallback(() => {
+    if (isProcessing) {
+      return;
+    }
+    if (isLive) {
+      void stopLive();
+      return;
+    }
+    if (trackerPhase !== 'camera-on') {
+      return;
+    }
+    startLive();
+  }, [isLive, isProcessing, startLive, stopLive, trackerPhase]);
+
+  // ── Galeri (jalur unggah lama — tetap tersedia sebagai cadangan) ──────
+
+  /** Video galeri → stage otomatis: server menyegmentasi & memilih model. */
+  const processGalleryVideo = async (video: MediaUpload, durationMs: number) => {
+    setIsProcessing(true);
+    setTranslatedText('Menganalisis rangkaian gerakan...');
     setDetectedKind(null);
     try {
-      const result = await translateSequence(video, durationMs, mode);
+      const result = await translateSequence(video, durationMs, 'otomatis');
       if (result.text) {
         setTranslatedText(result.text);
         setDetectedKind(result.kind);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
         saveHistory(result.text);
       } else {
-        setTranslatedText(result.note || 'Isyarat belum dikenali. Coba ulangi dengan gerakan lebih jelas.');
+        setTranslatedText(result.note || 'Isyarat belum dikenali. Coba video dengan gerakan lebih jelas.');
         setDetectedKind(null);
       }
     } catch (error) {
@@ -157,28 +304,18 @@ export default function CameraTranslateScreen() {
     }
   };
 
-  /** Gambar dari galeri: model frame diam sesuai mode (auto/abjad/angka). */
-  const processImage = async (media: MediaUpload) => {
-    if (mode === 'kata') {
-      return;
-    }
-
+  const processGalleryImage = async (media: MediaUpload) => {
     setIsProcessing(true);
     setTranslatedText('Menganalisis bentuk tangan...');
     setDetectedKind(null);
     try {
-      const result = await translateMedia(media, IMAGE_STAGE_BY_MODE[mode]);
-      // Mode terkunci menolak label berjenis lain agar konsisten dengan rekaman.
-      const locked = mode === 'huruf' || mode === 'angka';
-      const picked = locked ? pickCandidate(result, SIGN_KIND_PREDICATE[mode]) : null;
-      const label = locked ? picked?.label ?? '' : result.text ?? '';
-      const fallback = locked
-        ? `Tidak ada isyarat ${mode} yang dikenali. Coba ulangi dengan pencahayaan lebih baik.`
-        : result.note || 'Isyarat belum dikenali. Coba ulangi dengan pencahayaan lebih baik.';
-
-      setTranslatedText(label || fallback);
+      const result = await translateMedia(media, 'auto');
+      const label = result.text ?? '';
+      setTranslatedText(
+        label || result.note || 'Isyarat belum dikenali. Coba ulangi dengan pencahayaan lebih baik.'
+      );
       if (label) {
-        setDetectedKind(locked ? mode : resolveSignKind(label, result.kind));
+        setDetectedKind(resolveSignKind(label, result.kind));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
         saveHistory(label);
       }
@@ -189,59 +326,9 @@ export default function CameraTranslateScreen() {
     }
   };
 
-  const handleToggleRecording = async () => {
-    if (isProcessing) {
-      return;
-    }
-
-    if (isRecording) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
-      // Perekam native butuh jeda singkat sebelum bisa dihentikan; klip yang
-      // terlalu pendek juga hampir mustahil dikenali model.
-      const elapsed = Date.now() - startedAtRef.current;
-      if (elapsed < MIN_RECORDING_MS) {
-        setTimeout(() => cameraRef.current?.stopRecording(), MIN_RECORDING_MS - elapsed);
-        return;
-      }
-      cameraRef.current?.stopRecording();
-      return;
-    }
-
-    if (!cameraRef.current) {
-      return;
-    }
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
-    startedAtRef.current = Date.now();
-    setElapsedMs(0);
-    setDetectedKind(null);
-    setTranslatedText('Merekam isyarat... ketuk lagi untuk berhenti.');
-    setIsRecording(true);
-
-    try {
-      // Promise ini baru selesai setelah stopRecording() dipanggil.
-      const video = await cameraRef.current.startRecording(MAX_RECORDING_SEC);
-      const durationMs = Date.now() - startedAtRef.current;
-      setIsRecording(false);
-      await processRecording(video, durationMs);
-    } catch (error) {
-      setIsRecording(false);
-      showFailure(error);
-    }
-  };
-
-  const handleFlipCamera = () => {
-    if (isRecording) {
-      return;
-    }
-    // Senter hanya ada di kamera belakang — padamkan saat pindah ke depan.
-    setTorchEnabled(false);
-    setFacing((current) => (current === 'front' ? 'back' : 'front'));
-  };
-
   const handlePickFromGallery = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
+    const galleryPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!galleryPermission.granted) {
       Alert.alert('Izin Galeri', 'Izinkan akses galeri untuk menerjemahkan foto atau video isyarat.');
       return;
     }
@@ -250,7 +337,6 @@ export default function CameraTranslateScreen() {
       mediaTypes: ['images', 'videos'],
       quality: 0.8,
     });
-
     if (result.canceled) {
       return;
     }
@@ -262,36 +348,52 @@ export default function CameraTranslateScreen() {
       mimeType: asset.mimeType,
       type: asset.type === 'video' ? 'video' : 'image',
     };
-
     if (media.type === 'video') {
-      await processRecording(media, asset.duration ?? 0);
+      await processGalleryVideo(media, asset.duration ?? 0);
       return;
     }
+    await processGalleryImage(media);
+  };
 
-    // Model kata hanya menerima video; server menolak gambar pada stage=kata
-    // (400 STAGE_MEDIA_MISMATCH), jadi dicegah sebelum dikirim.
-    if (VIDEO_ONLY_MODES.includes(mode)) {
-      Alert.alert(
-        'Butuh rekaman video',
-        'Mode Kata membutuhkan rekaman video. Untuk gambar, pilih mode Otomatis, Huruf, atau Angka.'
-      );
-      return;
-    }
+  // ── UI ────────────────────────────────────────────────────────────────
 
-    await processImage(media);
+  const handleFlipCamera = () => {
+    // Senter hanya ada di kamera belakang — padamkan saat pindah ke depan.
+    setTorchEnabled(false);
+    setFacing((current) => (current === 'front' ? 'back' : 'front'));
   };
 
   const busy = isProcessing || isDetecting;
-  // Sengaja ringkas: teks ini duduk di atas tombol rekam, dan setiap baris
-  // tambahan langsung memangkas tinggi pratinjau kamera di atasnya.
-  const helperText = isRecording
-    ? `Tahan tiap isyarat ±2 detik (maks ${MAX_RECORDING_SEC} dtk)`
+  const trackerReady = trackerPhase === 'camera-on';
+
+  const helperText = isLive
+    ? mode === 'kata'
+      ? segmentBusy
+        ? 'Mengenali gerakan...'
+        : capturing
+          ? 'Menangkap gerakan... beri jeda untuk menutup kata'
+          : liveHint
+            ? `Terdeteksi: ${liveHint}`
+            : 'Peragakan satu kata, lalu jeda sejenak'
+      : liveHint
+        ? `Terdeteksi: ${liveHint}`
+        : 'Arahkan tangan ke kamera, tahan isyaratnya'
     : busy
-      ? MODE_PROCESSING_TEXT[mode]
-      : MODE_HELPER_TEXT[mode];
+      ? 'Menganalisis...'
+      : trackerReady
+        ? MODE_HELPER_TEXT[mode]
+        : 'Menyiapkan deteksi tangan...';
+
+  const statusText = isLive
+    ? `LIVE · ${formatElapsed(elapsedMs)}`
+    : busy
+      ? 'Menganalisis...'
+      : trackerReady
+        ? 'Siap mendeteksi'
+        : 'Menyiapkan...';
 
   const handleSelectMode = (id: string) => {
-    setMode(id as RecognitionMode);
+    setMode(id as LiveMode);
     setTranslatedText(WAITING_TEXT);
     setDetectedKind(null);
   };
@@ -310,29 +412,87 @@ export default function CameraTranslateScreen() {
         </View>
 
         <View style={styles.cameraContainer}>
-          <CameraView
-            elapsedMs={elapsedMs}
-            facing={facing}
-            isProcessing={busy}
-            isRecording={isRecording}
-            ref={cameraRef}
-            torchEnabled={torchEnabled}
-          />
-          {facing === 'back' ? (
-            <PressableScale
-              accessibilityRole="button"
-              accessibilityLabel={torchEnabled ? 'Matikan senter' : 'Nyalakan senter'}
-              accessibilityState={{ selected: torchEnabled }}
-              onPress={() => setTorchEnabled((value) => !value)}
-              style={[styles.torchButton, torchEnabled && styles.torchButtonActive]}
-            >
-              <Ionicons
-                color={torchEnabled ? colors.textOnAccent : colors.textOnPrimary}
-                name={torchEnabled ? 'flash' : 'flash-off'}
-                size={20}
+          <View style={styles.cameraFrame}>
+            {hasCamera ? (
+              <LiveSignView
+                facing={facing}
+                onFrame={handleFrame}
+                onPhase={handlePhase}
+                torchEnabled={torchEnabled}
               />
-            </PressableScale>
-          ) : null}
+            ) : (
+              <View style={styles.permissionWrap}>
+                <LinearGradient
+                  colors={gradients.ink}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.cameraGlyph}>
+                  <Ionicons color={colors.textOnPrimary} name="videocam-off-outline" size={34} />
+                </View>
+                <Text variant="bodyStrong" color="onPrimary" align="center">
+                  Izinkan akses kamera
+                </Text>
+                <Text style={styles.permissionSubtitle}>
+                  {canRequestPermission
+                    ? 'Amerta Sign butuh kamera untuk mendeteksi isyarat BISINDO.'
+                    : 'Izin kamera diblokir. Aktifkan izin Kamera lewat Pengaturan perangkat.'}
+                </Text>
+                <PressableScale
+                  accessibilityRole="button"
+                  accessibilityLabel={canRequestPermission ? 'Izinkan kamera' : 'Buka pengaturan aplikasi'}
+                  onPress={() => {
+                    if (canRequestPermission) {
+                      void requestPermission();
+                      return;
+                    }
+                    void Linking.openSettings();
+                  }}
+                  style={styles.permissionBtn}
+                >
+                  <Text variant="bodyStrong" style={styles.permissionText}>
+                    {canRequestPermission ? 'Izinkan Kamera' : 'Buka Pengaturan'}
+                  </Text>
+                </PressableScale>
+              </View>
+            )}
+
+            {/* Bingkai pemindai (viewfinder) — berubah merah saat live. */}
+            <View pointerEvents="none" style={[styles.corner, styles.cornerTL, isLive && styles.cornerRecording]} />
+            <View pointerEvents="none" style={[styles.corner, styles.cornerTR, isLive && styles.cornerRecording]} />
+            <View pointerEvents="none" style={[styles.corner, styles.cornerBL, isLive && styles.cornerRecording]} />
+            <View pointerEvents="none" style={[styles.corner, styles.cornerBR, isLive && styles.cornerRecording]} />
+
+            {hasCamera ? (
+              <View
+                accessible
+                accessibilityLiveRegion="polite"
+                accessibilityLabel={isLive ? 'Deteksi isyarat berjalan' : statusText}
+                pointerEvents="none"
+                style={[styles.statusPill, isLive && styles.statusPillRecording]}
+              >
+                <View style={[styles.statusDot, trackerReady && styles.statusDotReady, isLive && styles.statusDotRecording]} />
+                <Text style={[styles.statusText, isLive && styles.statusTextRecording]}>{statusText}</Text>
+              </View>
+            ) : null}
+
+            {facing === 'back' && hasCamera ? (
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel={torchEnabled ? 'Matikan senter' : 'Nyalakan senter'}
+                accessibilityState={{ selected: torchEnabled }}
+                onPress={() => setTorchEnabled((value) => !value)}
+                style={[styles.torchButton, torchEnabled && styles.torchButtonActive]}
+              >
+                <Ionicons
+                  color={torchEnabled ? colors.textOnAccent : colors.textOnPrimary}
+                  name={torchEnabled ? 'flash' : 'flash-off'}
+                  size={20}
+                />
+              </PressableScale>
+            ) : null}
+          </View>
         </View>
 
         <View style={styles.bottomSheet}>
@@ -349,12 +509,12 @@ export default function CameraTranslateScreen() {
 
           <View style={styles.controls}>
             <View
-              pointerEvents={isRecording || busy ? 'none' : 'auto'}
-              style={[styles.modeBar, (isRecording || busy) && styles.modeBarDisabled]}
+              pointerEvents={isLive || busy ? 'none' : 'auto'}
+              style={[styles.modeBar, (isLive || busy) && styles.modeBarDisabled]}
             >
               <CategoryTabs
                 activeCategory={mode}
-                categories={RECOGNITION_MODE_OPTIONS}
+                categories={LIVE_MODE_OPTIONS}
                 centered
                 onSelect={handleSelectMode}
                 size="sm"
@@ -369,32 +529,36 @@ export default function CameraTranslateScreen() {
               <PressableScale
                 accessibilityRole="button"
                 accessibilityLabel="Pilih dari galeri"
-                disabled={isRecording || busy}
+                disabled={isLive || busy}
                 onPress={() => {
                   void handlePickFromGallery();
                 }}
-                style={[styles.sideButton, (isRecording || busy) && styles.sideButtonDisabled]}
+                style={[styles.sideButton, (isLive || busy) && styles.sideButtonDisabled]}
               >
                 <Ionicons color={colors.primary} name="images-outline" size={22} />
               </PressableScale>
 
               <PressableScale
                 accessibilityRole="button"
-                accessibilityLabel={isRecording ? 'Hentikan rekaman' : 'Mulai rekam isyarat'}
-                accessibilityState={{ selected: isRecording }}
-                disabled={busy}
-                onPress={() => void handleToggleRecording()}
-                style={[styles.detectButton, isRecording && styles.detectButtonRecording]}
+                accessibilityLabel={isLive ? 'Hentikan deteksi' : 'Mulai deteksi isyarat'}
+                accessibilityState={{ selected: isLive }}
+                disabled={busy || (!isLive && !trackerReady)}
+                onPress={handleToggleLive}
+                style={[
+                  styles.detectButton,
+                  isLive && styles.detectButtonRecording,
+                  !isLive && (!trackerReady || busy) && styles.detectButtonDisabled,
+                ]}
               >
-                <View style={[styles.detectButtonInner, isRecording && styles.detectButtonInnerActive]} />
+                <View style={[styles.detectButtonInner, isLive && styles.detectButtonInnerActive]} />
               </PressableScale>
 
               <PressableScale
                 accessibilityRole="button"
                 accessibilityLabel="Balik kamera"
-                disabled={isRecording || busy}
+                disabled={busy}
                 onPress={handleFlipCamera}
-                style={[styles.sideButton, (isRecording || busy) && styles.sideButtonDisabled]}
+                style={[styles.sideButton, busy && styles.sideButtonDisabled]}
               >
                 <Ionicons color={colors.primary} name="camera-reverse-outline" size={22} />
               </PressableScale>
@@ -405,6 +569,8 @@ export default function CameraTranslateScreen() {
     </SafeAreaView>
   );
 }
+
+const CORNER = 30;
 
 const styles = createSheet((colors) => ({
   safeArea: {
@@ -434,10 +600,72 @@ const styles = createSheet((colors) => ({
     paddingBottom: spacing.md,
     paddingTop: spacing.sm,
   },
+  cameraFrame: {
+    borderRadius: radius.xxl,
+    flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+  },
+  corner: {
+    position: 'absolute',
+    width: CORNER,
+    height: CORNER,
+    borderColor: colors.accent,
+    zIndex: 2,
+  },
+  cornerRecording: {
+    borderColor: colors.error,
+  },
+  cornerTL: { top: spacing.base, left: spacing.base, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 12 },
+  cornerTR: { top: spacing.base, right: spacing.base, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 12 },
+  cornerBL: { bottom: spacing.base, left: spacing.base, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 12 },
+  cornerBR: { bottom: spacing.base, right: spacing.base, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 12 },
+  statusPill: {
+    position: 'absolute',
+    top: spacing.base,
+    left: spacing.base + CORNER + spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: overlay.inkScrim,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: overlay.onInkBorder,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    zIndex: 3,
+  },
+  statusPillRecording: {
+    backgroundColor: overlay.errorTint,
+    borderColor: overlay.errorBorder,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: radius.full,
+    backgroundColor: colors.textTertiary,
+  },
+  statusDotReady: {
+    backgroundColor: colors.accent,
+  },
+  statusDotRecording: {
+    backgroundColor: palette.errorBright,
+    width: 10,
+    height: 10,
+  },
+  statusText: {
+    color: overlay.onInkText,
+    fontFamily: fontFamily.bodySemiBold,
+    fontSize: 13,
+  },
+  statusTextRecording: {
+    color: palette.white,
+    letterSpacing: 0.8,
+  },
   torchButton: {
     position: 'absolute',
-    top: spacing.lg,
-    right: spacing.xl,
+    top: spacing.base,
+    right: spacing.base,
     width: touchTargetMin,
     height: touchTargetMin,
     borderRadius: radius.full,
@@ -451,6 +679,40 @@ const styles = createSheet((colors) => ({
   torchButtonActive: {
     backgroundColor: colors.accent,
     borderColor: colors.accentStrong,
+  },
+  permissionWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xl,
+  },
+  cameraGlyph: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderColor: overlay.onInkBorder,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    height: 60,
+    justifyContent: 'center',
+    width: 60,
+    marginBottom: spacing.sm,
+  },
+  permissionSubtitle: {
+    color: colors.textOnPrimary,
+    opacity: 0.85,
+    textAlign: 'center',
+    fontSize: 13,
+    marginBottom: spacing.md,
+  },
+  permissionBtn: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+  },
+  permissionText: {
+    color: colors.textOnAccent,
   },
   bottomSheet: {
     backgroundColor: colors.surface,
@@ -506,6 +768,9 @@ const styles = createSheet((colors) => ({
     borderColor: colors.error,
     borderWidth: 6,
     backgroundColor: colors.surface,
+  },
+  detectButtonDisabled: {
+    opacity: 0.5,
   },
   detectButtonInner: {
     backgroundColor: colors.surface,
