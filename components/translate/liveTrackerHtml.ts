@@ -7,6 +7,11 @@
  * - aset MediaPipe bisa diambil dari origin (`/mediapipe/*`, tersedia di
  *   produksi) dengan fallback CDN (pola sama dgn web lib/mediapipe.ts).
  *
+ * Ketahanan Android WebView: delegate GPU kadang berhasil DIBUAT tapi gagal
+ * saat `detectForVideo` (WebGL bermasalah di sebagian perangkat). Karena itu
+ * kegagalan deteksi beruntun sebelum deteksi pertama memicu pembangunan
+ * ulang landmarker dengan delegate CPU secara otomatis.
+ *
  * Pesan page → RN (JSON):
  *   { type:'frame',  hands:[{handedness,score,landmarks:[{x,y,z}x21]}], now, fps }
  *   { type:'status', phase:'loading'|'ready'|'camera-on'|'error', message? }
@@ -39,7 +44,7 @@ export function buildLiveTrackerHtml(): string {
 <div id="stage">
   <video id="v" playsinline muted autoplay></video>
   <canvas id="c"></canvas>
-  <div id="msg">Menyiapkan deteksi tangan…</div>
+  <div id="msg">Menyiapkan deteksi tangan</div>
 </div>
 <script>
 (function () {
@@ -51,7 +56,7 @@ export function buildLiveTrackerHtml(): string {
     var el = document.getElementById('msg');
     if (el) el.textContent = message || '';
   }
-  window.onerror = function (message) { status('error', 'Tracker error: ' + message); };
+  window.onerror = function (message) { status('error', 'Gangguan tracker: ' + message); };
 
   var VERSION = '${TASKS_VISION_VERSION}';
   // Bundel JS API tasks-vision — dari CDN (origin backend tidak meng-hostnya).
@@ -75,48 +80,72 @@ export function buildLiveTrackerHtml(): string {
   var video = document.getElementById('v');
   var canvas = document.getElementById('c');
   var ctx = canvas.getContext('2d');
-  var landmarker = null;
   var visionApi = null;
+  var landmarker = null;
+  var currentDelegate = 'GPU';
+  var rebuildingCpu = false;
+  var detectErrorStreak = 0;
+  var everDetectedHand = false;
   var stream = null;
   var track = null;
   var facing = 'user';
+  var cameraOn = false;
   var lastVideoTime = -1;
   var lastPostAt = 0;
   var lastEmptyPostAt = 0;
   var frameTimes = [];
+  var stageName = 'memuat komponen';
 
   // Kerangka jari untuk overlay (indeks landmark MediaPipe Hands).
   var CONNECTIONS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
 
-  function loadBundle(index) {
-    if (index >= BUNDLE_URLS.length) {
-      return Promise.reject(new Error('Semua sumber bundel MediaPipe gagal dimuat.'));
+  async function loadBundle() {
+    var lastError = null;
+    for (var i = 0; i < BUNDLE_URLS.length; i++) {
+      try { return await import(BUNDLE_URLS[i]); }
+      catch (e) { lastError = e; }
     }
-    return import(BUNDLE_URLS[index]).catch(function () { return loadBundle(index + 1); });
+    throw lastError || new Error('Komponen deteksi gagal dimuat');
   }
 
-  function createLandmarker(vision) {
+  // Coba tiap sumber aset dengan delegate yang diminta; urutan GPU dulu baru
+  // CPU ditangani pemanggil.
+  async function buildLandmarker(delegate) {
     var lastError = null;
-    var chain = Promise.reject();
-    ASSET_SOURCES.forEach(function (source) {
-      ['GPU', 'CPU'].forEach(function (delegate) {
-        chain = chain.catch(function () {
-          return vision.FilesetResolver.forVisionTasks(source.wasm).then(function (fileset) {
-            return vision.HandLandmarker.createFromOptions(fileset, {
-              baseOptions: { modelAssetPath: source.model, delegate: delegate },
-              runningMode: 'VIDEO',
-              numHands: 2,
-              minHandDetectionConfidence: 0.3,
-              minHandPresenceConfidence: 0.3,
-              minTrackingConfidence: 0.3
-            });
-          });
-        }).catch(function (error) { lastError = error; return Promise.reject(error); });
-      });
-    });
-    return chain.catch(function () {
-      throw lastError || new Error('HandLandmarker gagal dibuat.');
-    });
+    for (var i = 0; i < ASSET_SOURCES.length; i++) {
+      var source = ASSET_SOURCES[i];
+      try {
+        var fileset = await visionApi.FilesetResolver.forVisionTasks(source.wasm);
+        return await visionApi.HandLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: source.model, delegate: delegate },
+          runningMode: 'VIDEO',
+          numHands: 2,
+          minHandDetectionConfidence: 0.3,
+          minHandPresenceConfidence: 0.3,
+          minTrackingConfidence: 0.3
+        });
+      } catch (e) { lastError = e; }
+    }
+    throw lastError || new Error('Model deteksi tangan gagal dimuat');
+  }
+
+  // GPU di sebagian WebView Android berhasil dibuat tapi gagal saat deteksi.
+  // Setelah beberapa kegagalan beruntun (sebelum ada deteksi sukses), bangun
+  // ulang dengan CPU — sekali saja.
+  async function rebuildWithCpu() {
+    if (rebuildingCpu || currentDelegate === 'CPU') return;
+    rebuildingCpu = true;
+    var old = landmarker;
+    landmarker = null;
+    try { if (old && old.close) old.close(); } catch (e) {}
+    try {
+      currentDelegate = 'CPU';
+      landmarker = await buildLandmarker('CPU');
+      detectErrorStreak = 0;
+    } catch (e) {
+      status('error', 'Deteksi tangan tidak didukung perangkat ini: ' + (e && e.message ? e.message : e));
+    }
+    rebuildingCpu = false;
   }
 
   function applyMirror() {
@@ -125,25 +154,24 @@ export function buildLiveTrackerHtml(): string {
     canvas.classList.toggle('mirror', mirrored);
   }
 
-  function startCamera() {
+  async function startCamera() {
     if (stream) {
       stream.getTracks().forEach(function (t) { t.stop(); });
       stream = null;
       track = null;
     }
-    return navigator.mediaDevices.getUserMedia({
+    var mediaStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
-    }).then(function (mediaStream) {
-      stream = mediaStream;
-      track = mediaStream.getVideoTracks()[0] || null;
-      video.srcObject = mediaStream;
-      applyMirror();
-      lastVideoTime = -1;
-      return video.play();
-    }).then(function () {
-      status('camera-on', '');
     });
+    stream = mediaStream;
+    track = mediaStream.getVideoTracks()[0] || null;
+    video.srcObject = mediaStream;
+    applyMirror();
+    lastVideoTime = -1;
+    try { await video.play(); } catch (e) { /* autoplay muted umumnya lolos */ }
+    cameraOn = true;
+    status('camera-on', '');
   }
 
   function drawHands(hands) {
@@ -206,10 +234,18 @@ export function buildLiveTrackerHtml(): string {
     var detection;
     try {
       detection = landmarker.detectForVideo(video, now);
+      detectErrorStreak = 0;
     } catch (e) {
+      detectErrorStreak++;
+      // GPU rusak saat runtime → pindah CPU sebelum menyerah.
+      if (!everDetectedHand && detectErrorStreak >= 8) rebuildWithCpu();
+      else if (detectErrorStreak >= 60) {
+        status('error', 'Deteksi tangan berhenti: ' + (e && e.message ? e.message : e));
+      }
       return;
     }
     var hands = toHands(detection);
+    if (hands.length > 0) everDetectedHand = true;
     drawHands(hands);
 
     frameTimes.push(now);
@@ -246,20 +282,37 @@ export function buildLiveTrackerHtml(): string {
     }
   };
 
-  status('loading', 'Memuat model deteksi tangan…');
-  loadBundle(0).then(function (vision) {
-    visionApi = vision;
-    return createLandmarker(vision);
-  }).then(function (created) {
-    landmarker = created;
-    status('ready', 'Membuka kamera…');
-    return startCamera();
-  }).then(function () {
-    status('camera-on', '');
-    requestAnimationFrame(loop);
-  }).catch(function (error) {
-    status('error', (error && error.message) ? error.message : 'Gagal menyiapkan deteksi.');
-  });
+  // Penjaga: bila macet di satu tahap terlalu lama, beri tahu tahapnya.
+  setTimeout(function () {
+    if (!cameraOn) {
+      status('error', 'Persiapan macet pada tahap ' + stageName + ' - periksa koneksi internet lalu buka ulang layar ini');
+    }
+  }, 30000);
+
+  (async function init() {
+    try {
+      stageName = 'memuat komponen';
+      status('loading', 'Memuat komponen deteksi tangan');
+      visionApi = await loadBundle();
+
+      stageName = 'memuat model';
+      status('loading', 'Memuat model deteksi tangan');
+      try {
+        landmarker = await buildLandmarker('GPU');
+        currentDelegate = 'GPU';
+      } catch (e) {
+        landmarker = await buildLandmarker('CPU');
+        currentDelegate = 'CPU';
+      }
+
+      stageName = 'membuka kamera';
+      status('ready', 'Membuka kamera');
+      await startCamera();
+      requestAnimationFrame(loop);
+    } catch (error) {
+      status('error', (error && error.message) ? error.message : 'Gagal menyiapkan deteksi tangan');
+    }
+  })();
 })();
 </script>
 </body>

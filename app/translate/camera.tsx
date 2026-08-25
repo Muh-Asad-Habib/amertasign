@@ -51,7 +51,7 @@ import {
 
 import { createSheet } from '../../theme';
 
-const WAITING_TEXT = 'Tekan tombol rekam untuk mulai mendeteksi isyarat...';
+const WAITING_TEXT = 'Tekan tombol rekam untuk mulai mendeteksi isyarat';
 const TIMER_INTERVAL_MS = 200;
 
 /**
@@ -207,7 +207,7 @@ export default function CameraTranslateScreen() {
     setLiveHint('');
     setCapturing(false);
     setSegmentBusy(false);
-    setTranslatedText('Peragakan isyarat di depan kamera...');
+    setTranslatedText('Peragakan isyarat di depan kamera');
 
     sessionRef.current = new LiveRecognitionSession({
       stage: STAGE_BY_LIVE_MODE[mode],
@@ -284,7 +284,7 @@ export default function CameraTranslateScreen() {
   /** Video galeri → stage otomatis: server menyegmentasi & memilih model. */
   const processGalleryVideo = async (video: MediaUpload, durationMs: number) => {
     setIsProcessing(true);
-    setTranslatedText('Menganalisis rangkaian gerakan...');
+    setTranslatedText('Menganalisis rangkaian gerakan');
     setDetectedKind(null);
     try {
       const result = await translateSequence(video, durationMs, 'otomatis');
@@ -306,7 +306,7 @@ export default function CameraTranslateScreen() {
 
   const processGalleryImage = async (media: MediaUpload) => {
     setIsProcessing(true);
-    setTranslatedText('Menganalisis bentuk tangan...');
+    setTranslatedText('Menganalisis bentuk tangan');
     setDetectedKind(null);
     try {
       const result = await translateMedia(media, 'auto');
@@ -369,9 +369,9 @@ export default function CameraTranslateScreen() {
   const helperText = isLive
     ? mode === 'kata'
       ? segmentBusy
-        ? 'Mengenali gerakan...'
+        ? 'Mengenali gerakan'
         : capturing
-          ? 'Menangkap gerakan... beri jeda untuk menutup kata'
+          ? 'Menangkap gerakan - beri jeda untuk menutup kata'
           : liveHint
             ? `Terdeteksi: ${liveHint}`
             : 'Peragakan satu kata, lalu jeda sejenak'
@@ -379,18 +379,18 @@ export default function CameraTranslateScreen() {
         ? `Terdeteksi: ${liveHint}`
         : 'Arahkan tangan ke kamera, tahan isyaratnya'
     : busy
-      ? 'Menganalisis...'
+      ? 'Menganalisis'
       : trackerReady
         ? MODE_HELPER_TEXT[mode]
-        : 'Menyiapkan deteksi tangan...';
+        : 'Menyiapkan deteksi tangan';
 
   const statusText = isLive
     ? `LIVE · ${formatElapsed(elapsedMs)}`
     : busy
-      ? 'Menganalisis...'
+      ? 'Menganalisis'
       : trackerReady
         ? 'Siap mendeteksi'
-        : 'Menyiapkan...';
+        : 'Menyiapkan';
 
   const handleSelectMode = (id: string) => {
     setMode(id as LiveMode);

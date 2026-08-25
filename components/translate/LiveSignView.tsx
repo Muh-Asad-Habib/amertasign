@@ -53,7 +53,7 @@ const LiveSignView = forwardRef<LiveSignViewHandle, LiveSignViewProps>(function 
 ) {
   const webViewRef = useRef<WebView>(null);
   const [phase, setPhase] = useState<LiveTrackerPhase>('loading');
-  const [statusMessage, setStatusMessage] = useState('Menyiapkan deteksi tangan…');
+  const [statusMessage, setStatusMessage] = useState('Menyiapkan deteksi tangan');
   const [handsDetected, setHandsDetected] = useState(0);
 
   const html = useMemo(() => buildLiveTrackerHtml(), []);
@@ -136,7 +136,7 @@ const LiveSignView = forwardRef<LiveSignViewHandle, LiveSignViewProps>(function 
           <Text style={styles.statusText}>
             {phase === 'error'
               ? statusMessage || 'Deteksi tangan gagal dimuat. Periksa koneksi internet.'
-              : statusMessage || 'Menyiapkan deteksi tangan…'}
+              : statusMessage || 'Menyiapkan deteksi tangan'}
           </Text>
         </View>
       ) : (
