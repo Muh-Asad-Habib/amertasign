@@ -22,6 +22,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useDictionaryStore } from '../store/useDictionaryStore';
 import { useHistoryStore } from '../store/useHistoryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useOrientationStore } from '../store/useOrientationStore';
 import { lockPortrait } from '../utils/orientation';
 
 import { createSheet } from '../theme';
@@ -79,7 +80,11 @@ export default function RootLayout() {
 
     const bootstrapAuth = async () => {
       try {
-        await Promise.all([initializeAuth(), useSettingsStore.getState().hydrate()]);
+        await Promise.all([
+          initializeAuth(),
+          useSettingsStore.getState().hydrate(),
+          useOrientationStore.getState().hydrate(),
+        ]);
       } catch {
         useAuthStore.setState({ isAuthenticated: false, isLoading: false, user: null });
       } finally {

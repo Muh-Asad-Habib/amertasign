@@ -4,6 +4,7 @@ import {
   recognizeMedia,
   recognizeSequence,
   textToSign,
+  type CameraOrientationMarker,
   type MediaUpload,
   type RecognitionMode,
   type RecognitionStage,
@@ -54,13 +55,14 @@ export function useTranslation() {
   const translateSequence = useCallback(async (
     video: MediaUpload,
     durationMs?: number,
-    mode?: RecognitionMode
+    mode?: RecognitionMode,
+    orientation?: CameraOrientationMarker
   ): Promise<SequenceRecognitionResult> => {
     const requestId = ++requestIdRef.current;
     setIsDetecting(true);
     setTranslatedText('');
     try {
-      const result = await recognizeSequence(video, { durationMs, mode });
+      const result = await recognizeSequence(video, { durationMs, mode, orientation });
       if (requestIdRef.current === requestId) {
         setTranslatedText(result.text || result.note || 'Isyarat belum dikenali.');
       }

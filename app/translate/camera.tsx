@@ -21,6 +21,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeMode } from '../../hooks/useThemeMode';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore } from '../../store/useHistoryStore';
+import { useOrientationStore } from '../../store/useOrientationStore';
 import { toUserMessage } from '../../utils/errors';
 import {
   pickCandidate,
@@ -28,6 +29,7 @@ import {
   resolveSignKind,
   SIGN_KIND_LABEL,
   SIGN_KIND_PREDICATE,
+  type CameraOrientationMarker,
   type MediaUpload,
   type RecognitionMode,
   type RecognitionStage,
@@ -134,13 +136,33 @@ export default function CameraTranslateScreen() {
     );
   };
 
-  /** Rekaman video → rangkaian isyarat (beberapa huruf/angka + kata). */
-  const processRecording = async (video: MediaUpload, durationMs: number) => {
+  /** Rekaman video → rangkaian isyarat (beberapa huruf/angka + kata).
+
+  `orientation` hanya diisi untuk rekaman KAMERA SENDIRI (galeri tidak —
+  provenance-nya tak diketahui). Bila belum tahu status cermin kamera depan,
+  tebakan server (orientation_source "tta") dikumpulkan sebagai suara sampai
+  verdict perangkat terkunci — unggahan berikutnya memakai penanda pasti.
+  `fromFrontCamera` membatasi voting ke rekaman kamera depan sendiri; video
+  galeri tidak pernah menyumbang suara. */
+  const processRecording = async (
+    video: MediaUpload,
+    durationMs: number,
+    orientation?: CameraOrientationMarker,
+    fromFrontCamera = false
+  ) => {
     setIsProcessing(true);
     setTranslatedText(MODE_PROCESSING_TEXT[mode]);
     setDetectedKind(null);
     try {
-      const result = await translateSequence(video, durationMs, mode);
+      const result = await translateSequence(video, durationMs, mode, orientation);
+      if (
+        fromFrontCamera &&
+        !orientation &&
+        result.orientation_source === 'tta' &&
+        (result.orientation_used === 'normal' || result.orientation_used === 'cermin')
+      ) {
+        useOrientationStore.getState().addVote(result.orientation_used);
+      }
       if (result.text) {
         setTranslatedText(result.text);
         setDetectedKind(result.kind);
@@ -223,7 +245,13 @@ export default function CameraTranslateScreen() {
       const video = await cameraRef.current.startRecording(MAX_RECORDING_SEC);
       const durationMs = Date.now() - startedAtRef.current;
       setIsRecording(false);
-      await processRecording(video, durationMs);
+      // Kamera belakang tidak pernah tercermin; depan pakai verdict perangkat
+      // (null = belum tahu -> tanpa penanda, server menebak + kita voting).
+      const orientation: CameraOrientationMarker | undefined =
+        facing === 'back'
+          ? 'normal'
+          : useOrientationStore.getState().frontOrientation ?? undefined;
+      await processRecording(video, durationMs, orientation, facing === 'front');
     } catch (error) {
       setIsRecording(false);
       showFailure(error);

@@ -86,6 +86,24 @@ export interface RecognitionCandidate {
   kind?: SignKind | null;
 }
 
+/**
+ * Penanda orientasi berkas rekaman: "normal" = apa adanya, "cermin" =
+ * tercermin horizontal (kamera depan sebagian HP menyimpan begitu).
+ * Dikirim sebagai form field `orientasi` supaya server mengoreksi landmark
+ * secara deterministik alih-alih menebak lewat Mirror-TTA.
+ */
+export type CameraOrientationMarker = 'normal' | 'cermin';
+
+/** Hasil kalibrasi orientasi kamera dari server. */
+export interface OrientationCalibrationResult {
+  orientation: CameraOrientationMarker;
+  /** Jarak rata-rata wrist dari garis tengah (0..0,5); makin besar makin pasti. */
+  margin: number;
+  /** margin >= 0,1 — di bawah itu minta pengguna mengulang kalibrasi. */
+  reliable: boolean;
+  framesWithHands: number;
+}
+
 /** Satu gerakan hasil segmentasi server pada rekaman multi-isyarat (stage=auto). */
 export interface RecognitionSegment {
   label: string;
@@ -107,6 +125,13 @@ export interface SignRecognitionResult {
   kind?: SignKind | null;
   /** Rincian gerakan bila rekaman berisi beberapa isyarat berurutan. */
   segments?: RecognitionSegment[] | null;
+  /**
+   * Orientasi rekaman yang dipakai server + sumbernya ("penanda" = keputusan
+   * klien dihormati, "tta" = server menebak sendiri). Server lama tidak
+   * mengirim field ini (additive).
+   */
+  orientation_used?: CameraOrientationMarker | null;
+  orientation_source?: 'penanda' | 'tta' | null;
 }
 
 export interface MediaUpload {
@@ -144,6 +169,9 @@ export interface SequenceRecognitionResult {
   tokens: SequenceToken[];
   candidates: RecognitionCandidate[];
   note?: string | null;
+  /** Orientasi yang dipakai server (diteruskan dari respons mentah). */
+  orientation_used?: CameraOrientationMarker | null;
+  orientation_source?: 'penanda' | 'tta' | null;
 }
 
 /** Teks → rangkaian media isyarat dari kamus backend. */
@@ -189,7 +217,8 @@ const VIDEO_EXTENSIONS = ['mp4', 'mov', 'm4v', 'avi', 'mkv', 'webm'];
 /** Foto/video → teks menggunakan MediaPipe + model backend. */
 export async function recognizeMedia(
   media: MediaUpload,
-  stage: RecognitionStage
+  stage: RecognitionStage,
+  orientation?: CameraOrientationMarker
 ): Promise<SignRecognitionResult> {
   const extension = media.uri.split('?')[0].split('.').pop()?.toLowerCase();
   const isVideo = media.type
@@ -201,6 +230,11 @@ export async function recognizeMedia(
   const mimeType = media.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg');
   const formData = new FormData();
   formData.append('stage', stage);
+  if (orientation) {
+    // Status cermin perangkat SUDAH diketahui: server mengoreksi landmark
+    // deterministik dan melewati tebak-tebakan Mirror-TTA.
+    formData.append('orientasi', orientation);
+  }
   formData.append(
     'file',
     { uri: media.uri, name, type: mimeType } as unknown as Blob
@@ -209,6 +243,27 @@ export async function recognizeMedia(
     '/translate/sign-to-text',
     formData,
     { timeoutMs: isVideo ? VIDEO_UPLOAD_TIMEOUT_MS : IMAGE_UPLOAD_TIMEOUT_MS }
+  );
+}
+
+/**
+ * Kalibrasi status cermin kamera depan: unggah video ~2 dtk (pengguna
+ * meletakkan satu tangan di SISI KANAN TUBUH); server menentukan lewat posisi
+ * wrist. Simpan hasilnya ke useOrientationStore (source "manual").
+ */
+export async function calibrateOrientation(
+  media: MediaUpload
+): Promise<OrientationCalibrationResult> {
+  const name = media.fileName || 'kalibrasi.mp4';
+  const formData = new FormData();
+  formData.append(
+    'file',
+    { uri: media.uri, name, type: media.mimeType || 'video/mp4' } as unknown as Blob
+  );
+  return apiUpload<OrientationCalibrationResult>(
+    '/translate/kalibrasi-orientasi',
+    formData,
+    { timeoutMs: VIDEO_UPLOAD_TIMEOUT_MS }
   );
 }
 
@@ -754,22 +809,28 @@ async function mapWithConcurrency<T, R>(
  */
 export async function recognizeSequence(
   video: MediaUpload,
-  options: { durationMs?: number; mode?: RecognitionMode } = {}
+  options: {
+    durationMs?: number;
+    mode?: RecognitionMode;
+    /** Penanda orientasi rekaman (hanya utk rekaman kamera sendiri, bukan galeri). */
+    orientation?: CameraOrientationMarker;
+  } = {}
 ): Promise<SequenceRecognitionResult> {
   const mode = options.mode ?? 'otomatis';
+  const orientation = options.orientation;
 
   if (mode === 'kata') {
-    const result = await recognizeMedia({ ...video, type: 'video' }, 'kata');
-    return resolveSingleShotResult(result, mode);
+    const result = await recognizeMedia({ ...video, type: 'video' }, 'kata', orientation);
+    return withOrientation(resolveSingleShotResult(result, mode), result);
   }
 
   if (mode === 'huruf' || mode === 'angka') {
-    return recognizeStaticFrames(video, mode, options.durationMs ?? 0);
+    return recognizeStaticFrames(video, mode, options.durationMs ?? 0, orientation);
   }
 
   try {
-    const result = await recognizeMedia({ ...video, type: 'video' }, 'auto');
-    return resolveAutoResult(result);
+    const result = await recognizeMedia({ ...video, type: 'video' }, 'auto', orientation);
+    return withOrientation(resolveAutoResult(result), result);
   } catch (error) {
     // Server lama belum mengenal stage=auto → pakai pipeline gabungan lama.
     if (!isUnsupportedStageError(error)) {
@@ -777,6 +838,18 @@ export async function recognizeSequence(
     }
     return recognizeSequenceLegacy(video, options.durationMs ?? 0);
   }
+}
+
+/** Teruskan info orientasi respons mentah ke hasil rangkaian (utk voting klien). */
+function withOrientation(
+  sequence: SequenceRecognitionResult,
+  raw: SignRecognitionResult
+): SequenceRecognitionResult {
+  return {
+    ...sequence,
+    orientation_used: raw.orientation_used ?? null,
+    orientation_source: raw.orientation_source ?? null,
+  };
 }
 
 /** True bila server menolak nilai `stage` (mis. belum mendukung "auto"). */
@@ -796,18 +869,19 @@ function isUnsupportedStageError(error: unknown): boolean {
 async function recognizeStaticFrames(
   video: MediaUpload,
   mode: StaticMode,
-  durationMs: number
+  durationMs: number,
+  orientation?: CameraOrientationMarker
 ): Promise<SequenceRecognitionResult> {
   const stage = STATIC_MODE_STAGE[mode];
   try {
-    const result = await recognizeMedia({ ...video, type: 'video' }, stage);
-    return resolveStaticVideoResult(result, mode);
+    const result = await recognizeMedia({ ...video, type: 'video' }, stage, orientation);
+    return withOrientation(resolveStaticVideoResult(result, mode), result);
   } catch (error) {
     if (!isStaticVideoUnsupportedError(error)) {
       throw error;
     }
   }
-  return recognizeStaticFramesSampled(video, mode, durationMs);
+  return recognizeStaticFramesSampled(video, mode, durationMs, orientation);
 }
 
 /** True bila server belum mendukung video utk stage abjad/angka (server lama). */
@@ -829,7 +903,8 @@ function isStaticVideoUnsupportedError(error: unknown): boolean {
 async function recognizeStaticFramesSampled(
   video: MediaUpload,
   mode: StaticMode,
-  durationMs: number
+  durationMs: number,
+  orientation?: CameraOrientationMarker
 ): Promise<SequenceRecognitionResult> {
   const stage = STATIC_MODE_STAGE[mode];
   const predicate = SIGN_KIND_PREDICATE[mode];
@@ -842,8 +917,9 @@ async function recognizeStaticFramesSampled(
     SEQUENCE_TUNING.frameConcurrency,
     async (timeMs) => {
       try {
+        // Frame cuplikan mewarisi status cermin videonya — penanda ikut.
         const frame = await extractFrame(video.uri, timeMs);
-        const result = await recognizeMedia(frame, stage);
+        const result = await recognizeMedia(frame, stage, orientation);
         candidates.push(...(result.candidates ?? []));
         const picked = pickCandidate(result, predicate);
         return { timeMs, label: picked?.label ?? '', confidence: picked?.confidence ?? 0 };

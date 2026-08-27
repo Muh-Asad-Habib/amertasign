@@ -13,6 +13,7 @@ import Text from '../../components/ui/Text';
 import { colors, layoutSpacing, radius, shadow, spacing, touchTargetMin } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useHistoryStore, CLEAR_HISTORY_UNDO_MS } from '../../store/useHistoryStore';
+import { useOrientationStore } from '../../store/useOrientationStore';
 import {
   useSettingsStore,
   type AvatarGender,
@@ -268,6 +269,14 @@ export default function SettingsScreen() {
   const historyCount = useHistoryStore((state) =>
     user && !isGuest ? (state.itemsByUser[user.id]?.length ?? 0) : 0
   );
+  const frontOrientation = useOrientationStore((state) => state.frontOrientation);
+  const orientationSource = useOrientationStore((state) => state.source);
+  const orientationLabel =
+    frontOrientation === null
+      ? 'Belum dikalibrasi — deteksi otomatis berjalan'
+      : `${frontOrientation === 'cermin' ? 'Tercermin' : 'Normal'} (${
+          orientationSource === 'manual' ? 'kalibrasi manual' : 'otomatis'
+        })`;
 
   const displayName = isGuest ? 'Tamu' : user?.name || 'Pengguna';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'A';
@@ -444,6 +453,19 @@ export default function SettingsScreen() {
               value: isGuest ? 'Tidak tersimpan di mode tamu' : `${historyCount} riwayat tersimpan`,
               accent: true,
               onPress: () => router.push('/history'),
+            },
+          ]}
+        />
+
+        <SettingsGroup
+          title="Kamera"
+          rows={[
+            {
+              icon: 'camera-outline',
+              label: 'Kalibrasi Kamera Depan',
+              value: orientationLabel,
+              accent: true,
+              onPress: () => router.push('/kalibrasi-kamera'),
             },
           ]}
         />

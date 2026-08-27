@@ -88,9 +88,12 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
       if (!cameraRef.current || !cameraReady) {
         throw new Error('Kamera belum siap. Tunggu sebentar lalu coba lagi.');
       }
+      // Opsi `mirror` recordAsync sengaja TIDAK dipakai: deprecated, iOS
+      // membalik tapi Android mengabaikannya (ikut perilaku pabrikan) —
+      // hasilnya acak antar perangkat. Status cermin kini ditangani penanda
+      // `orientasi` per perangkat (useOrientationStore) + koreksi di server.
       const result = await cameraRef.current.recordAsync({
         maxDuration: maxDurationSec,
-        mirror: facing === 'front',
       });
       if (!result?.uri) {
         throw new Error('Perekaman video gagal.');
@@ -100,7 +103,7 @@ const CameraView = forwardRef<CameraViewHandle, CameraViewProps>(function Camera
     stopRecording() {
       cameraRef.current?.stopRecording();
     },
-  }), [cameraReady, facing]);
+  }), [cameraReady]);
 
   const statusText = isRecording
     ? `MEREKAM · ${formatElapsed(elapsedMs)}`
