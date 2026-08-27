@@ -10,14 +10,13 @@ import * as SecureStore from 'expo-secure-store';
  * dikirim sebagai penanda `orientasi` pada setiap unggahan. Kamera belakang
  * tidak pernah tercermin sehingga tak butuh store ini.
  *
- * Dua jalur pengisian:
- * - AUTO  : server menebak lewat Mirror-TTA dan membalas `orientation_used`
- *           (source "tta"); tiga tebakan pertama dikumpulkan sebagai suara,
- *           mayoritas 2 dari 3 mengunci verdict.
- * - MANUAL: layar Kalibrasi Kamera (Pengaturan) — menimpa hasil auto.
+ * Pengisian hanya OTOMATIS: server menebak lewat Mirror-TTA dan membalas
+ * `orientation_used` (source "tta"); tiga tebakan pertama dikumpulkan sebagai
+ * suara dan verdict terkunci saat suara BULAT. Layar kalibrasi manual sudah
+ * dihapus — pengguna tidak perlu melakukan langkah tambahan apa pun.
  */
 export type CameraOrientation = 'normal' | 'cermin';
-export type OrientationSource = 'auto' | 'manual';
+export type OrientationSource = 'auto';
 
 /**
  * Jumlah suara TTA yang dikumpulkan sebelum verdict otomatis dikunci.
@@ -34,7 +33,7 @@ export const ORIENTATION_VOTES_NEEDED = 3;
 interface OrientationState {
   /** Verdict kamera depan; null = belum diketahui (unggahan tanpa penanda). */
   frontOrientation: CameraOrientation | null;
-  /** Asal verdict — manual selalu menang atas auto. */
+  /** Asal verdict; kini selalu "auto" (kalibrasi manual dihapus). */
   source: OrientationSource | null;
   /** Suara tebakan TTA yang terkumpul (maks ORIENTATION_VOTES_NEEDED). */
   votes: CameraOrientation[];
@@ -42,9 +41,7 @@ interface OrientationState {
   hydrate: () => Promise<void>;
   /** Catat satu tebakan TTA; mengunci verdict saat suara cukup. */
   addVote: (orientation: CameraOrientation) => void;
-  /** Simpan hasil kalibrasi manual (menimpa auto, mengosongkan suara). */
-  setManual: (orientation: CameraOrientation) => void;
-  /** Buang verdict + suara (dipakai tombol "kalibrasi ulang"). */
+  /** Buang verdict + suara (mulai lagi dari deteksi otomatis). */
   reset: () => void;
 }
 
@@ -102,10 +99,7 @@ export const useOrientationStore = create<OrientationState>((set, get) => ({
           frontOrientation: isOrientation(saved.frontOrientation)
             ? saved.frontOrientation
             : null,
-          source:
-            saved.source === 'auto' || saved.source === 'manual'
-              ? saved.source
-              : null,
+          source: saved.source === 'auto' ? saved.source : null,
           votes: Array.isArray(saved.votes)
             ? saved.votes.filter(isOrientation).slice(0, ORIENTATION_VOTES_NEEDED)
             : [],
@@ -119,9 +113,9 @@ export const useOrientationStore = create<OrientationState>((set, get) => ({
   },
   addVote: (orientation) => {
     const state = get();
-    // Verdict manual final; verdict auto yang sudah terkunci juga tidak
-    // diubah suara baru (unggahan berikutnya sudah memakai penanda sehingga
-    // server tidak menebak lagi — tidak ada umpan balik ganda).
+    // Verdict yang sudah terkunci tidak diubah suara baru (unggahan
+    // berikutnya sudah memakai penanda sehingga server tidak menebak lagi —
+    // tidak ada umpan balik ganda).
     if (state.frontOrientation !== null) {
       return;
     }
@@ -132,10 +126,6 @@ export const useOrientationStore = create<OrientationState>((set, get) => ({
         ? { votes, frontOrientation: verdict, source: 'auto' }
         : { votes }
     );
-    persist(snapshot(get()));
-  },
-  setManual: (orientation) => {
-    set({ frontOrientation: orientation, source: 'manual', votes: [] });
     persist(snapshot(get()));
   },
   reset: () => {

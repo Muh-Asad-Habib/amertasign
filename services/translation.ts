@@ -94,16 +94,6 @@ export interface RecognitionCandidate {
  */
 export type CameraOrientationMarker = 'normal' | 'cermin';
 
-/** Hasil kalibrasi orientasi kamera dari server. */
-export interface OrientationCalibrationResult {
-  orientation: CameraOrientationMarker;
-  /** Jarak rata-rata wrist dari garis tengah (0..0,5); makin besar makin pasti. */
-  margin: number;
-  /** margin >= 0,1 — di bawah itu minta pengguna mengulang kalibrasi. */
-  reliable: boolean;
-  framesWithHands: number;
-}
-
 /** Satu gerakan hasil segmentasi server pada rekaman multi-isyarat (stage=auto). */
 export interface RecognitionSegment {
   label: string;
@@ -243,27 +233,6 @@ export async function recognizeMedia(
     '/translate/sign-to-text',
     formData,
     { timeoutMs: isVideo ? VIDEO_UPLOAD_TIMEOUT_MS : IMAGE_UPLOAD_TIMEOUT_MS }
-  );
-}
-
-/**
- * Kalibrasi status cermin kamera depan: unggah video ~2 dtk (pengguna
- * meletakkan satu tangan di SISI KANAN TUBUH); server menentukan lewat posisi
- * wrist. Simpan hasilnya ke useOrientationStore (source "manual").
- */
-export async function calibrateOrientation(
-  media: MediaUpload
-): Promise<OrientationCalibrationResult> {
-  const name = media.fileName || 'kalibrasi.mp4';
-  const formData = new FormData();
-  formData.append(
-    'file',
-    { uri: media.uri, name, type: media.mimeType || 'video/mp4' } as unknown as Blob
-  );
-  return apiUpload<OrientationCalibrationResult>(
-    '/translate/kalibrasi-orientasi',
-    formData,
-    { timeoutMs: VIDEO_UPLOAD_TIMEOUT_MS }
   );
 }
 

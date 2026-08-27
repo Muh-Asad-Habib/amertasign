@@ -63,30 +63,28 @@ describe('useOrientationStore', () => {
   });
 
   it('suara baru tidak mengubah verdict yang sudah terkunci', () => {
-    useOrientationStore.getState().setManual('normal');
+    const { addVote } = useOrientationStore.getState();
+    addVote('normal');
+    addVote('normal');
+    addVote('normal');
     useOrientationStore.getState().addVote('cermin');
     useOrientationStore.getState().addVote('cermin');
     useOrientationStore.getState().addVote('cermin');
     const state = useOrientationStore.getState();
     expect(state.frontOrientation).toBe('normal');
-    expect(state.source).toBe('manual');
-  });
-
-  it('kalibrasi manual menimpa auto dan mengosongkan suara', () => {
-    useOrientationStore.getState().addVote('normal');
-    useOrientationStore.getState().setManual('cermin');
-    const state = useOrientationStore.getState();
-    expect(state.frontOrientation).toBe('cermin');
-    expect(state.source).toBe('manual');
-    expect(state.votes).toEqual([]);
+    expect(state.source).toBe('auto');
   });
 
   it('reset mengembalikan ke belum-diketahui', () => {
-    useOrientationStore.getState().setManual('cermin');
+    const { addVote } = useOrientationStore.getState();
+    addVote('cermin');
+    addVote('cermin');
+    addVote('cermin');
     useOrientationStore.getState().reset();
     const state = useOrientationStore.getState();
     expect(state.frontOrientation).toBeNull();
     expect(state.source).toBeNull();
+    expect(state.votes).toEqual([]);
   });
 
   it('hydrate memuat simpanan dan menandai isHydrated', async () => {
@@ -94,13 +92,24 @@ describe('useOrientationStore', () => {
       getItemAsync: jest.Mock;
     };
     secureStore.getItemAsync.mockResolvedValueOnce(
-      JSON.stringify({ frontOrientation: 'cermin', source: 'manual', votes: [] })
+      JSON.stringify({ frontOrientation: 'cermin', source: 'auto', votes: [] })
     );
     await useOrientationStore.getState().hydrate();
     const state = useOrientationStore.getState();
     expect(state.frontOrientation).toBe('cermin');
-    expect(state.source).toBe('manual');
+    expect(state.source).toBe('auto');
     expect(state.isHydrated).toBe(true);
+  });
+
+  it('hydrate mengabaikan source lama "manual" yang sudah dihapus', async () => {
+    const secureStore = jest.requireMock('expo-secure-store') as {
+      getItemAsync: jest.Mock;
+    };
+    secureStore.getItemAsync.mockResolvedValueOnce(
+      JSON.stringify({ frontOrientation: 'cermin', source: 'manual', votes: [] })
+    );
+    await useOrientationStore.getState().hydrate();
+    expect(useOrientationStore.getState().source).toBeNull();
   });
 
   it('hydrate simpanan rusak tetap aman', async () => {
