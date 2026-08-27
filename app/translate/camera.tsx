@@ -9,7 +9,9 @@ import * as ImagePicker from 'expo-image-picker';
 import type { CameraType } from 'expo-camera';
 
 import CameraView, { type CameraViewHandle } from '../../components/translate/CameraView';
-import TranslationOutput from '../../components/translate/TranslationOutput';
+import TranslationOutput, {
+  type OutputSuggestion,
+} from '../../components/translate/TranslationOutput';
 import BackHeader from '../../components/ui/BackHeader';
 import Badge from '../../components/ui/Badge';
 import CategoryTabs from '../../components/ui/CategoryTabs';
@@ -24,6 +26,7 @@ import { useHistoryStore } from '../../store/useHistoryStore';
 import { useOrientationStore } from '../../store/useOrientationStore';
 import { toUserMessage } from '../../utils/errors';
 import {
+  buildSuggestions,
   pickCandidate,
   RECOGNITION_MODE_OPTIONS,
   resolveSignKind,
@@ -31,6 +34,7 @@ import {
   SIGN_KIND_PREDICATE,
   type CameraOrientationMarker,
   type MediaUpload,
+  type RecognitionCandidate,
   type RecognitionMode,
   type RecognitionStage,
   type SequenceKind,
@@ -88,6 +92,7 @@ export default function CameraTranslateScreen() {
   const [mode, setMode] = useState<RecognitionMode>('otomatis');
   const [translatedText, setTranslatedText] = useState(WAITING_TEXT);
   const [detectedKind, setDetectedKind] = useState<SequenceKind | null>(null);
+  const [suggestions, setSuggestions] = useState<RecognitionCandidate[]>([]);
   const cameraRef = useRef<CameraViewHandle>(null);
   const startedAtRef = useRef(0);
   const { speak } = useTTS();
@@ -130,10 +135,21 @@ export default function CameraTranslateScreen() {
   const showFailure = (error: unknown) => {
     setTranslatedText(WAITING_TEXT);
     setDetectedKind(null);
+    setSuggestions([]);
     Alert.alert(
       'Pengenalan gagal',
       toUserMessage(error, 'Media tidak dapat dikenali. Coba rekam ulang dengan pencahayaan lebih baik.')
     );
+  };
+
+  /** Pengguna memilih salah satu tebakan: perlakukan seperti hasil biasa. */
+  const handlePickSuggestion = (label: string) => {
+    const picked = suggestions.find((candidate) => candidate.label === label);
+    setTranslatedText(label);
+    setDetectedKind(picked?.kind ?? resolveSignKind(label, null));
+    setSuggestions([]);
+    Haptics.selectionAsync().catch(() => { });
+    saveHistory(label);
   };
 
   /** Rekaman video → rangkaian isyarat (beberapa huruf/angka + kata).
@@ -153,6 +169,7 @@ export default function CameraTranslateScreen() {
     setIsProcessing(true);
     setTranslatedText(MODE_PROCESSING_TEXT[mode]);
     setDetectedKind(null);
+    setSuggestions([]);
     try {
       const result = await translateSequence(video, durationMs, mode, orientation);
       if (
@@ -171,6 +188,12 @@ export default function CameraTranslateScreen() {
       } else {
         setTranslatedText(result.note || 'Isyarat belum dikenali. Coba ulangi dengan gerakan lebih jelas.');
         setDetectedKind(null);
+        setSuggestions(
+          buildSuggestions(
+            result.candidates,
+            mode === 'otomatis' ? undefined : SIGN_KIND_PREDICATE[mode]
+          )
+        );
       }
     } catch (error) {
       showFailure(error);
@@ -188,6 +211,7 @@ export default function CameraTranslateScreen() {
     setIsProcessing(true);
     setTranslatedText('Menganalisis bentuk tangan...');
     setDetectedKind(null);
+    setSuggestions([]);
     try {
       const result = await translateMedia(media, IMAGE_STAGE_BY_MODE[mode]);
       // Mode terkunci menolak label berjenis lain agar konsisten dengan rekaman.
@@ -203,6 +227,10 @@ export default function CameraTranslateScreen() {
         setDetectedKind(locked ? mode : resolveSignKind(label, result.kind));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
         saveHistory(label);
+      } else {
+        setSuggestions(
+          buildSuggestions(result.candidates, locked ? SIGN_KIND_PREDICATE[mode] : undefined)
+        );
       }
     } catch (error) {
       showFailure(error);
@@ -237,6 +265,7 @@ export default function CameraTranslateScreen() {
     startedAtRef.current = Date.now();
     setElapsedMs(0);
     setDetectedKind(null);
+    setSuggestions([]);
     setTranslatedText('Merekam isyarat... ketuk lagi untuk berhenti.');
     setIsRecording(true);
 
@@ -322,6 +351,7 @@ export default function CameraTranslateScreen() {
     setMode(id as RecognitionMode);
     setTranslatedText(WAITING_TEXT);
     setDetectedKind(null);
+    setSuggestions([]);
   };
 
   return (
@@ -367,11 +397,13 @@ export default function CameraTranslateScreen() {
           <TranslationOutput
             isLoading={busy}
             kindLabel={detectedKind ? SIGN_KIND_LABEL[detectedKind] : null}
+            onPickSuggestion={handlePickSuggestion}
             onSpeak={(text) => {
               if (text !== WAITING_TEXT) {
                 speak(text);
               }
             }}
+            suggestions={suggestions}
             text={translatedText}
           />
 

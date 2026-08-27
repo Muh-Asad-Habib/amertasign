@@ -11,16 +11,41 @@ import { createSheet } from '../../theme';
 /** Di atas panjang ini teks dianggap kalimat, bukan hasil terjemahan singkat. */
 const LONG_TEXT_THRESHOLD = 28;
 
+/** Satu tebakan yang bisa dipilih pengguna saat hasil utama tidak lolos ambang. */
+export interface OutputSuggestion {
+  label: string;
+  confidence: number;
+}
+
 export interface TranslationOutputProps {
   text: string;
   isLoading: boolean;
   onSpeak: (text: string) => void;
   /** Jenis isyarat hasil deteksi otomatis — ditampilkan sebagai badge. */
   kindLabel?: string | null;
+  /**
+   * Tebakan cadangan, ditampilkan HANYA saat pengenalan tidak lolos ambang.
+   *
+   * Server selalu mengirim 3 kandidat teratas, termasuk ketika `text`
+   * dikosongkan karena keyakinan di bawah ambang. Diukur pada protokol
+   * peraga-tersembunyi, jawaban yang benar ada di dalam ketiga kandidat itu
+   * pada mayoritas kasus yang tertahan — jadi menampilkannya mengubah
+   * kegagalan total menjadi pilihan yang bisa diambil pengguna.
+   */
+  suggestions?: OutputSuggestion[];
+  onPickSuggestion?: (label: string) => void;
 }
 
-export default function TranslationOutput({ text, isLoading, onSpeak, kindLabel }: TranslationOutputProps) {
+export default function TranslationOutput({
+  text,
+  isLoading,
+  onSpeak,
+  kindLabel,
+  suggestions,
+  onPickSuggestion,
+}: TranslationOutputProps) {
   const pulse = useRef(new Animated.Value(0.6)).current;
+  const showSuggestions = !isLoading && !!suggestions?.length;
 
   useEffect(() => {
     if (!isLoading) {
@@ -46,7 +71,7 @@ export default function TranslationOutput({ text, isLoading, onSpeak, kindLabel 
   return (
     <View
       accessibilityLiveRegion={isLoading ? 'none' : 'polite'}
-      style={styles.container}
+      style={[styles.container, showSuggestions && styles.containerWithSuggestions]}
     >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -92,13 +117,45 @@ export default function TranslationOutput({ text, isLoading, onSpeak, kindLabel 
               (teks tunggu / catatan) memakai ukuran lebih kecil supaya tidak
               memakan tiga baris dan mengunci sheet pada tinggi maksimum. */}
           <Heading
-            variant={(text || '').length > LONG_TEXT_THRESHOLD ? 'h2' : 'title'}
+            variant={
+              showSuggestions || (text || '').length > LONG_TEXT_THRESHOLD ? 'h2' : 'title'
+            }
             style={styles.text}
           >
             {text || 'Belum ada hasil terjemahan.'}
           </Heading>
         </ScrollView>
       )}
+
+      {showSuggestions ? (
+        <View style={styles.suggestionBlock}>
+          <Text variant="label" color="secondary" style={styles.eyebrow}>
+            MUNGKIN YANG ANDA MAKSUD
+          </Text>
+          <ScrollView
+            contentContainerStyle={styles.suggestionRow}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+          >
+            {suggestions!.map((item) => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Pilih ${item.label}, keyakinan ${Math.round(item.confidence * 100)} persen`}
+                key={item.label}
+                onPress={() => onPickSuggestion?.(item.label)}
+                style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
+              >
+                <Text variant="body" style={styles.chipLabel}>
+                  {item.label}
+                </Text>
+                <Text variant="label" style={styles.chipPercent}>
+                  {Math.round(item.confidence * 100)}%
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -117,6 +174,11 @@ const styles = createSheet((colors) => ({
     padding: spacing.lg,
     gap: spacing.md,
     ...shadow.lg,
+  },
+  // Baris tebakan hanya muncul saat pengenalan gagal, jadi ruang tambahannya
+  // tidak pernah memotong preview kamera pada alur yang berhasil.
+  containerWithSuggestions: {
+    maxHeight: 252,
   },
   header: {
     alignItems: 'center',
@@ -161,6 +223,32 @@ const styles = createSheet((colors) => ({
   },
   textScrollContent: {
     paddingBottom: spacing.xs,
+  },
+  suggestionBlock: {
+    gap: spacing.xs,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingRight: spacing.sm,
+  },
+  chip: {
+    alignItems: 'center',
+    backgroundColor: colors.primarySurface,
+    borderColor: colors.primarySoft,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  chipLabel: {
+    color: colors.primary,
+    fontFamily: fontFamily.displayBold,
+  },
+  chipPercent: {
+    color: colors.textSecondary,
   },
   loadingContainer: {
     gap: spacing.sm,

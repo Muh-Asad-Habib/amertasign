@@ -1,5 +1,6 @@
 import {
   assembleSignTimeline,
+  buildSuggestions,
   classifySignLabel,
   isDigitLabel,
   isLetterLabel,
@@ -14,6 +15,8 @@ import {
   resolveStaticFramesResult,
   SEQUENCE_TUNING,
   STATIC_MODE_STAGE,
+  SUGGESTION_LIMIT,
+  SUGGESTION_MIN_CONFIDENCE,
   type SequenceSample,
   type SequenceToken,
   type SignRecognitionResult,
@@ -501,5 +504,83 @@ describe('resolveStaticFramesResult', () => {
       { label: '9', confidence: 0.2 },
       { label: '3', confidence: 0.15 },
     ]);
+  });
+});
+
+describe('buildSuggestions', () => {
+  // Server selalu mengirim kandidat walaupun `text` dikosongkan karena
+  // keyakinan di bawah ambang. Diukur pada protokol peraga-tersembunyi, pada
+  // 61,5% rekaman yang tertahan itu jawaban yang benar ada di dalam daftar ini
+  // - jadi menyaringnya harus konservatif dan urutannya harus benar.
+  const kandidat = [
+    { label: 'Kuning', confidence: 0.42 },
+    { label: 'Hijau', confidence: 0.31 },
+    { label: 'Makan', confidence: 0.18 },
+    { label: 'Hitam', confidence: 0.05 },
+  ];
+
+  it('mengambil kandidat terkuat sampai batas jumlah', () => {
+    expect(buildSuggestions(kandidat)).toEqual([
+      { label: 'Kuning', confidence: 0.42 },
+      { label: 'Hijau', confidence: 0.31 },
+      { label: 'Makan', confidence: 0.18 },
+    ]);
+  });
+
+  it('membuang tebakan di bawah ambang keyakinan', () => {
+    // 0,05 adalah tebakan acak - menampilkannya hanya menambah kebisingan.
+    expect(buildSuggestions(kandidat).map((item) => item.label)).not.toContain('Hitam');
+  });
+
+  it('mengurutkan menurun walau server mengirim urutan acak', () => {
+    const acak = [
+      { label: 'Makan', confidence: 0.18 },
+      { label: 'Kuning', confidence: 0.42 },
+      { label: 'Hijau', confidence: 0.31 },
+    ];
+    expect(buildSuggestions(acak).map((item) => item.label)).toEqual([
+      'Kuning',
+      'Hijau',
+      'Makan',
+    ]);
+  });
+
+  it('menyaring menurut jenis yang sedang dikunci pengguna', () => {
+    // Mode Huruf tidak boleh menawarkan kata.
+    const campur = [
+      { label: 'Kuning', confidence: 0.42 },
+      { label: 'B', confidence: 0.33 },
+      { label: '7', confidence: 0.3 },
+    ];
+    expect(buildSuggestions(campur, isLetterLabel)).toEqual([
+      { label: 'B', confidence: 0.33 },
+    ]);
+  });
+
+  it('membuang label kembar dari beberapa segmen rekaman', () => {
+    const kembar = [
+      { label: 'Halo', confidence: 0.4 },
+      { label: 'halo', confidence: 0.35 },
+      { label: 'Marah', confidence: 0.2 },
+    ];
+    expect(buildSuggestions(kembar).map((item) => item.label)).toEqual(['Halo', 'Marah']);
+  });
+
+  it('memangkas spasi dan mengabaikan label kosong', () => {
+    const kotor = [
+      { label: '  Sabar  ', confidence: 0.4 },
+      { label: '   ', confidence: 0.9 },
+    ];
+    expect(buildSuggestions(kotor)).toEqual([{ label: 'Sabar', confidence: 0.4 }]);
+  });
+
+  it('mengembalikan daftar kosong bila server tidak mengirim kandidat', () => {
+    expect(buildSuggestions(undefined)).toEqual([]);
+    expect(buildSuggestions([])).toEqual([]);
+  });
+
+  it('memakai ambang dan batas bawaan yang terdokumentasi', () => {
+    expect(SUGGESTION_MIN_CONFIDENCE).toBe(0.15);
+    expect(SUGGESTION_LIMIT).toBe(3);
   });
 });

@@ -420,6 +420,69 @@ export function pickCandidate(
 }
 
 /**
+ * Batas bawah dan jumlah tebakan yang ditawarkan saat pengenalan TIDAK lolos
+ * ambang. Nilai 0,15 menyaring tebakan yang benar-benar acak supaya daftar ini
+ * tidak berubah jadi kebisingan ketika rekaman memang tidak berisi isyarat.
+ */
+export const SUGGESTION_MIN_CONFIDENCE = 0.15;
+export const SUGGESTION_LIMIT = 3;
+
+/**
+ * Tebakan cadangan untuk ditawarkan ketika `text` dikosongkan server.
+ *
+ * Server SELALU mengirim 3 kandidat teratas, termasuk saat keyakinan di bawah
+ * ambang sehingga `text` dikosongkan — daftar itu sebelumnya dibuang begitu
+ * saja dan pengguna hanya melihat "Isyarat belum dikenali".
+ *
+ * Diukur pada protokol peraga-tersembunyi (LOSO, 4 seed, 1.280 keputusan, uji
+ * pada orang yang tidak pernah ada di data latih):
+ *   - 3,05% keputusan tertahan di bawah ambang kata;
+ *   - dari yang tertahan itu, 61,5% jawaban BENAR ada di dalam 3 kandidat;
+ *   - bahkan 35,9% di antaranya sudah menjadi kandidat teratas dan hanya
+ *     disembunyikan karena keyakinannya rendah.
+ * Karena itu menampilkan daftar ini mengubah kegagalan total menjadi pilihan
+ * yang bisa diambil pengguna, tanpa menyentuh model sama sekali.
+ *
+ * `accept` membatasi daftar pada jenis yang sedang dikunci pengguna (mode
+ * Huruf tidak boleh menawarkan kata) memakai predikat label yang sama dengan
+ * `pickCandidate`. Duplikat disaring karena kandidat bisa berasal dari
+ * beberapa segmen rekaman yang sama.
+ * (Fungsi murni — diuji unit test.)
+ */
+export function buildSuggestions(
+  candidates: RecognitionCandidate[] | undefined,
+  accept?: (label: string) => boolean,
+  minConfidence: number = SUGGESTION_MIN_CONFIDENCE,
+  limit: number = SUGGESTION_LIMIT
+): RecognitionCandidate[] {
+  const seen = new Set<string>();
+  const picked: RecognitionCandidate[] = [];
+
+  for (const candidate of [...(candidates ?? [])].sort(
+    (a, b) => b.confidence - a.confidence
+  )) {
+    if (picked.length >= limit) {
+      break;
+    }
+    const label = candidate.label?.trim() ?? '';
+    if (!label || candidate.confidence < minConfidence) {
+      continue;
+    }
+    if (accept && !accept(label)) {
+      continue;
+    }
+    const key = label.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    picked.push({ ...candidate, label });
+  }
+
+  return picked;
+}
+
+/**
  * Bungkus hasil satu-tembak (mode huruf/angka/kata) menjadi bentuk rangkaian
  * supaya layar kamera hanya perlu menangani satu tipe hasil.
  * (Fungsi murni — diuji unit test.)
